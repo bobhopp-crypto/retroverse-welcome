@@ -1,8 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --page-gradient: linear-gradient(
+    148deg,
+    #fff4e0 0%,
+    #e9d6ff 22%,
+    #bfe8d4 44%,
+    #ffcf9a 64%,
+    #d4f0e8 82%,
+    #e8c9a8 100%
+  );
+  --bg-main: #d9c4b2;
+  --card-bg: color-mix(in srgb, #fcefe3 76%, #f59e0b 24%);
+  --card-border: color-mix(in srgb, #c2410c 52%, #6d28d9 48%);
+  --text-primary: #1a1410;
+  --text-secondary: #3f3830;
+  --accent-primary: #c2410c;
+  --accent-tertiary: #dc2626;
+  --text-on-accent: #fffaf5;
+  --surface-raised: color-mix(in srgb, #fff8ef 74%, #fcd34d 26%);
+  --surface-muted: rgba(194, 65, 12, 0.14);
+  --ring-focus: #ea580c;
+  --card-shadow:
+    0 2px 0 rgb(194 65 12 / 0.18),
+    0 8px 20px -6px rgb(120 50 18 / 0.22),
+    0 22px 48px -14px rgb(90 40 20 / 0.26);
+  --input: var(--card-border);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
+}
+
+html[data-theme="vivid"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --page-gradient: linear-gradient(
+    152deg,
+    #2a1f35 0%,
+    #1a1424 24%,
+    #101f1c 48%,
+    #2a1810 72%,
+    #141210 100%
+  );
+  --bg-main: #120f10;
+  --card-bg: color-mix(in srgb, #1f1a18 72%, var(--accent-primary) 28%);
+  --card-border: color-mix(in srgb, #3d3530 55%, var(--accent-primary) 35%);
+  --text-primary: #faf7f2;
+  --text-secondary: #c4bbb2;
+  --accent-primary: #fb923c;
+  --accent-tertiary: #fb7185;
+  --text-on-accent: #14100e;
+  --surface-raised: color-mix(in srgb, #252018 70%, var(--accent-primary) 30%);
+  --surface-muted: rgba(251, 146, 60, 0.12);
+  --ring-focus: var(--accent-primary);
+  --card-shadow:
+    0 1px 0 rgb(251 146 60 / 0.22),
+    0 10px 28px -8px rgb(0 0 0 / 0.62),
+    0 24px 56px -16px rgb(40 20 8 / 0.45);
+  --input: var(--card-border);
+  --background: var(--bg-main);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
@@ -12,15 +72,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  min-height: 100%;
+  background: var(--page-gradient);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+button[data-active="true"] {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
 }
