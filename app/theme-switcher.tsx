@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 type ThemeId = "vivid" | "dark";
 
@@ -25,6 +26,15 @@ function applyTheme(theme: ThemeId) {
 }
 
 export function ThemeSwitcher() {
+  const mounted = useSyncExternalStore(
+    (onStoreChange) => {
+      const frame = requestAnimationFrame(onStoreChange);
+      return () => cancelAnimationFrame(frame);
+    },
+    () => true,
+    () => false,
+  );
+
   const [activeTheme, setActiveTheme] = useState<ThemeId>(() => {
     if (typeof window === "undefined") {
       return "vivid";
@@ -33,8 +43,15 @@ export function ThemeSwitcher() {
   });
 
   useEffect(() => {
+    if (!mounted) {
+      return;
+    }
     applyTheme(activeTheme);
-  }, [activeTheme]);
+  }, [activeTheme, mounted]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div

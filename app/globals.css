@@ -134,3 +134,15 @@ html[data-theme="dark"] .welcome-page .welcome-note h2 {
 html[data-theme="dark"] .welcome-page .welcome-note p {
   color: color-mix(in srgb, var(--text-secondary) 92%, #ddd2c2 8%);
 }
+
+@media (max-width: 639px) {
+  html[data-theme="dark"] body {
+    background:
+      radial-gradient(120% 52% at 50% 6%, rgb(71 88 130 / 0.28) 0%, rgb(71 88 130 / 0) 68%),
+      radial-gradient(86% 44% at 52% 38%, rgb(59 73 112 / 0.2) 0%, rgb(59 73 112 / 0) 70%),
+      radial-gradient(94% 48% at 48% 74%, rgb(44 58 95 / 0.17) 0%, rgb(44 58 95 / 0) 72%),
+      linear-gradient(180deg, #131a26 0%, #0f1622 45%, #0b121b 100%);
+    background-color: var(--bg-main);
+    background-attachment: scroll;
+  }
+}
