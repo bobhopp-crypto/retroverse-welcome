@@ -55,7 +55,7 @@ export function ThemeSwitcher() {
 
   return (
     <div
-      className="inline-flex rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-0.5"
+      className="inline-flex shrink-0 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-0.5"
       role="group"
       aria-label="Theme"
     >
@@ -63,7 +63,7 @@ export function ThemeSwitcher() {
         <button
           key={themeId}
           type="button"
-          className="rounded-md px-2.5 py-1 text-xs font-medium transition-colors text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
+          className="rounded-md px-3 py-1.5 text-sm font-medium transition-colors text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]"
           data-active={activeTheme === themeId}
           onClick={() => {
             setActiveTheme(themeId);
