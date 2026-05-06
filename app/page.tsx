@@ -4,6 +4,7 @@ import { FiftyYearsAgoSection } from "./fifty-years-ago-section";
 import { MemoryPromptRotator } from "./memory-prompt-rotator";
 import { WelcomeInterestForm } from "./welcome-interest-form";
 import { ThemeSwitcher } from "./theme-switcher";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Retroverse - Press Play for the Past",
@@ -47,6 +48,21 @@ export default function Home() {
             Explore music history one week at a time.
           </p>
         </header>
+
+        <nav className="mb-10 flex flex-wrap gap-2.5 sm:mb-12" aria-label="Primary">
+          <Link
+            href="/week"
+            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+          >
+            This Week in History
+          </Link>
+          <Link
+            href="/eras"
+            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+          >
+            Browse Eras
+          </Link>
+        </nav>
 
         <FiftyYearsAgoSection />
         <ChooseYourWayInSection />

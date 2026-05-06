@@ -14,6 +14,20 @@ export default function ErasPage() {
     <div className="min-h-full bg-[var(--page-gradient)]">
       <article className="eras-shell mx-auto px-4 py-10 pb-14 sm:px-6 sm:py-14">
         <header className="eras-head mb-10">
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Link
+              href="/"
+              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              Home
+            </Link>
+            <Link
+              href="/week"
+              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              This Week in History
+            </Link>
+          </div>
           <p className="text-base font-medium uppercase tracking-[0.1em] text-[var(--text-secondary)]">
             Retroverse archive
           </p>

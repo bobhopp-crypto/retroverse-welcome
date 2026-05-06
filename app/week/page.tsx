@@ -75,12 +75,20 @@ export default function WeekPage() {
         </section>
 
         <footer className="pt-2">
-          <Link
-            href="/"
-            className="rv-spread-back inline-flex items-center rounded-full border border-[var(--card-border)] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
-          >
-            Back to Retroverse
-          </Link>
+          <div className="flex flex-wrap gap-2.5">
+            <Link
+              href="/"
+              className="rv-spread-back inline-flex items-center rounded-full border border-[var(--card-border)] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              Back to Retroverse
+            </Link>
+            <Link
+              href="/eras"
+              className="rv-spread-back inline-flex items-center rounded-full border border-[var(--card-border)] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              Browse Eras
+            </Link>
+          </div>
         </footer>
       </article>
     </div>

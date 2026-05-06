@@ -143,6 +143,12 @@ export default async function EraDetailPage({ params }: EraPageProps) {
         </main>
 
         <footer className="mt-10 flex flex-wrap items-center gap-3">
+          <Link
+            href="/"
+            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+          >
+            Home
+          </Link>
           {prevEra ? (
             <Link
               href={`/eras/${prevEra.slug}`}
