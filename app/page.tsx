@@ -20,8 +20,8 @@ const bullets = [
 export default function Home() {
   return (
     <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="mx-auto max-w-xl px-4 py-10 pb-16 sm:px-6 sm:py-14">
-        <header className="mb-12 space-y-5 text-center sm:mb-14 sm:text-left">
+      <article className="welcome-page mx-auto max-w-xl px-4 py-10 pb-16 sm:px-6 sm:py-14">
+        <header className="welcome-masthead mb-12 space-y-5 text-center sm:mb-14 sm:text-left">
           <div className="flex items-start justify-between gap-4">
             <p className="pt-1 text-xs font-medium uppercase tracking-[0.2em] text-[var(--text-secondary)]">
               Early access
@@ -44,7 +44,7 @@ export default function Home() {
           </p>
         </header>
 
-        <section className="mb-14 space-y-4" aria-labelledby="what-it-is">
+        <section className="welcome-section mb-14 space-y-4" aria-labelledby="what-it-is">
           <h2 id="what-it-is" className="text-lg font-semibold text-[var(--text-primary)]">
             What it is
           </h2>
@@ -59,7 +59,7 @@ export default function Home() {
         </section>
 
         <section
-          className="mb-14 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]/90 p-5 shadow-[var(--card-shadow)] sm:p-6"
+          className="welcome-section welcome-note mb-14 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]/90 p-5 shadow-[var(--card-shadow)] sm:p-6"
           aria-labelledby="early-access"
         >
           <h2 id="early-access" className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
@@ -71,7 +71,7 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="mb-12 space-y-6" aria-labelledby="stay-loop">
+        <section className="welcome-section mb-12 space-y-6" aria-labelledby="stay-loop">
           <h2 id="stay-loop" className="text-lg font-semibold text-[var(--text-primary)]">
             Want updates?
           </h2>
