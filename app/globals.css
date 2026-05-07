@@ -44,6 +44,7 @@
   --rv-text-body: 1.125rem;
   --rv-text-body-sm: 1.2rem;
   --rv-leading-body: 1.72;
+  --rv-header-offset: 4.5rem;
   --card-shadow:
     0 2px 0 rgb(194 65 12 / 0.18),
     0 8px 20px -6px rgb(120 50 18 / 0.22),
@@ -99,6 +100,7 @@ html[data-theme="dark"] {
   --rv-text-body: 1.125rem;
   --rv-text-body-sm: 1.2rem;
   --rv-leading-body: 1.72;
+  --rv-header-offset: 4.5rem;
   --card-shadow:
     0 1px 0 rgb(255 255 255 / 0.06),
     0 10px 26px -14px rgb(0 0 0 / 0.68),
@@ -125,6 +127,17 @@ body {
   line-height: var(--rv-leading-body);
 }
 
+.rv-global-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-border) 68%, #fff 32%);
+  background: color-mix(in srgb, var(--paper-cream) 86%, var(--paper-gold) 14%);
+  backdrop-filter: blur(4px);
+}
+
 html,
 body {
   -ms-overflow-style: none;
@@ -136,6 +149,11 @@ body::-webkit-scrollbar {
   width: 0;
   height: 0;
   display: none;
+}
+
+html[data-theme="dark"] .rv-global-header {
+  border-bottom-color: #6a5f55;
+  background: color-mix(in srgb, var(--paper-tobacco) 88%, var(--paper-sepia) 12%);
 }
 
 button[data-active="true"] {
@@ -692,8 +710,13 @@ html[data-theme="dark"] .welcome-updates {
 }
 
 .eras-index .eras-row {
-  border-radius: 0.35rem;
-  background: color-mix(in srgb, var(--paper-cream) 88%, var(--paper-gold) 12%);
+  border-radius: 0.2rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--card-border) 64%, #fff 36%);
+  background: transparent;
+}
+
+.eras-index .eras-row .eras-row-meta {
+  font-size: 0.82rem;
 }
 
 .eras-grid .era-block {
@@ -720,7 +743,11 @@ html[data-theme="dark"] .eras-head {
 }
 
 html[data-theme="dark"] .eras-index .eras-row {
-  background: color-mix(in srgb, var(--paper-tobacco) 84%, var(--paper-sepia) 16%);
+  border-bottom-color: #6a5e53;
+}
+
+html[data-theme="dark"] .eras-index .eras-row .eras-row-meta {
+  color: color-mix(in srgb, var(--text-secondary) 86%, #e5d8c7 14%);
 }
 
 html[data-theme="dark"] .eras-grid .era-block {

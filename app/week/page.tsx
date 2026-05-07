@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "This Week in History - Retroverse",
@@ -74,22 +73,6 @@ export default function WeekPage() {
           </p>
         </section>
 
-        <footer className="pt-2">
-          <div className="flex flex-wrap gap-2.5">
-            <Link
-              href="/"
-              className="rv-spread-back inline-flex items-center rounded-full border border-[var(--card-border)] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              Back to Retroverse
-            </Link>
-            <Link
-              href="/eras"
-              className="rv-spread-back inline-flex items-center rounded-full border border-[var(--card-border)] px-3.5 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              Browse Eras
-            </Link>
-          </div>
-        </footer>
       </article>
     </div>
   );

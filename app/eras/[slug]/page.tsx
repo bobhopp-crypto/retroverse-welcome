@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllEras, getEraBySlug, type EraYearEntry } from "@/lib/eras";
+import { HistoryBackButton } from "@/app/history-back-button";
 
 type EraPageProps = {
   params: Promise<{ slug: string }>;
@@ -86,10 +86,6 @@ export default async function EraDetailPage({ params }: EraPageProps) {
   if (!era) {
     notFound();
   }
-  const eras = getAllEras();
-  const eraIndex = eras.findIndex((entry) => entry.slug === era.slug);
-  const prevEra = eraIndex > 0 ? eras[eraIndex - 1] : null;
-  const nextEra = eraIndex < eras.length - 1 ? eras[eraIndex + 1] : null;
 
   return (
     <div className="min-h-full bg-[var(--page-gradient)]">
@@ -109,6 +105,14 @@ export default async function EraDetailPage({ params }: EraPageProps) {
           </p>
         </header>
 
+        <div className="mb-8">
+          <HistoryBackButton
+            fallbackHref="/eras"
+            label="Back"
+            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+          />
+        </div>
+
         <main className="eras-grid space-y-6">
           <KeyValue label="Cultural shifts" value={era.sections.culturalMood} />
           <KeyValue label="Music movements" value={era.sections.dominantGenres} />
@@ -122,12 +126,6 @@ export default async function EraDetailPage({ params }: EraPageProps) {
           ) : null}
           <KeyValue label="Technology and media changes" value={era.sections.technologyMedia} />
           <KeyValue label="Transition from previous era" value={era.sections.transitionFromPrevious} />
-          {nextEra ? (
-            <KeyValue
-              label="Transition into next era"
-              value={`This era moves toward ${nextEra.years}: ${nextEra.title}.`}
-            />
-          ) : null}
           {era.chronology && era.chronology.length > 0 ? (
             <section className="era-block">
               <h2 className="font-serif text-[1.35rem] leading-tight text-[var(--text-primary)] sm:text-[1.5rem]">
@@ -142,36 +140,6 @@ export default async function EraDetailPage({ params }: EraPageProps) {
           ) : null}
         </main>
 
-        <footer className="mt-10 flex flex-wrap items-center gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-          >
-            Home
-          </Link>
-          {prevEra ? (
-            <Link
-              href={`/eras/${prevEra.slug}`}
-              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              Previous era
-            </Link>
-          ) : null}
-          <Link
-            href="/eras"
-            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-          >
-            Back to Eras
-          </Link>
-          {nextEra ? (
-            <Link
-              href={`/eras/${nextEra.slug}`}
-              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              Next era
-            </Link>
-          ) : null}
-        </footer>
       </article>
     </div>
   );
