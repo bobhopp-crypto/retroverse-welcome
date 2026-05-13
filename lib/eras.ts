@@ -44,3 +44,16 @@ export function getAllEras(): EraRecord[] {
 export function getEraBySlug(slug: string): EraRecord | undefined {
   return eras.find((era) => era.slug === slug);
 }
+
+/** Parse `years` like "1962-1965" into inclusive bounds. */
+export function eraReleaseYearBounds(era: EraRecord): { min: number; max: number } | null {
+  const parts = era.years
+    .split("-")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return null;
+  const a = Number.parseInt(parts[0]!, 10);
+  const b = Number.parseInt(parts[1]!, 10);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+  return { min: Math.min(a, b), max: Math.max(a, b) };
+}

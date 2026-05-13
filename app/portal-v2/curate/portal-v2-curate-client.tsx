@@ -1,0 +1,777 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+
+import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
+import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+import { normalizeCandidateArtworkUrl } from "@/lib/artwork-candidate-fingerprint";
+import { validateAlbumRowForCurator } from "@/lib/curator-album-metadata";
+import {
+  CURATOR_CLIENT_INGRESS_DEBOUNCE_MS,
+  fetchPortalCuratorWorkbenchSession,
+  type PortalCuratorWorkbenchResult,
+} from "@/lib/portal-curator-workbench-client";
+
+const CURATOR_METADATA_ISSUES: Record<string, string> = {
+  row_not_album: "Internal error: not an album row.",
+  missing_album_id: "Missing Retroverse album id.",
+  missing_title: "Album title blank in Retroverse.",
+  missing_artist: "Artist blank in Retroverse.",
+  unresolved_artist: 'Artist FK did not resolve (shows as "Unknown artist").',
+};
+
+type WorkbenchCandidate = {
+  source: "discogs";
+  title: string;
+  artist: string;
+  year: number | null;
+  image: string | null;
+  url?: string | null;
+  stagedFilePath?: string | null;
+};
+
+
+
+type CandidateApiFailureDetail = Extract<PortalCuratorWorkbenchResult, { ok: false }>["error"];
+
+function HeroCover({ src, fallbackLabel, remixKey }: { src: string | null; fallbackLabel: string; remixKey: string }) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        key={remixKey}
+        src={src}
+        alt=""
+        /**
+         * iOS Safari shows a "Share / Save to Photos / Copy / Look Up" sheet on
+         * long-press unless we explicitly disable the touch callout, suppress
+         * selection, and swallow the context menu. The hero cover is decorative
+         * here, so we strip the affordance entirely.
+         */
+        className="h-full w-full object-cover object-center select-none [-webkit-touch-callout:none] [-webkit-user-select:none]"
+        draggable={false}
+        loading="eager"
+        decoding="sync"
+        onDragStart={(e) => e.preventDefault()}
+        onContextMenu={(e) => e.preventDefault()}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex h-full w-full items-center justify-center bg-[radial-gradient(circle_at_42%_36%,rgba(200,169,107,0.12),transparent_56%),linear-gradient(168deg,#08111d,#05070b)] px-3 text-center"
+      role="img"
+      aria-label={fallbackLabel}
+    >
+      <span className="text-[clamp(1rem,3.6vw,1.2rem)] leading-snug text-[#b7aa95]">{fallbackLabel}</span>
+    </div>
+  );
+}
+
+function CandidateTile({
+  candidate,
+  active,
+  hasSelection,
+  onPick,
+}: {
+  candidate: WorkbenchCandidate;
+  active: boolean;
+  hasSelection: boolean;
+  onPick: () => void;
+}) {
+  const primary = normalizeCandidateArtworkUrl(candidate.image);
+  const [showImg, setShowImg] = useState(true);
+
+  const dimPeer = hasSelection && !active;
+
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      style={{ pointerEvents: "auto", touchAction: "manipulation" }}
+      className={[
+        "relative block w-full overflow-hidden rounded-xl transition-[transform,opacity] duration-200 ease-out",
+        "active:scale-[0.98]",
+        dimPeer ? "opacity-45" : "opacity-100",
+        active
+          ? "ring-2 ring-[#c8a96b] ring-offset-2 ring-offset-[#05070b]"
+          : "ring-1 ring-[rgba(200,169,107,0.28)] hover:ring-[#c8a96b]/55",
+      ].join(" ")}
+      aria-pressed={active}
+    >
+      <span className="pointer-events-none block aspect-square w-full bg-[#08111d]">
+        {primary && showImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={primary}
+            alt=""
+            /** Same iOS long-press suppression as HeroCover above. */
+            className="pointer-events-none h-full w-full object-cover object-center select-none [-webkit-touch-callout:none] [-webkit-user-select:none]"
+            draggable={false}
+            loading="eager"
+            decoding="async"
+            onDragStart={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
+            onError={() => setShowImg(false)}
+          />
+        ) : (
+          <span className="block h-full w-full bg-[#08111d]" aria-hidden />
+        )}
+      </span>
+    </button>
+  );
+}
+
+type PortalV2CuratePresentation = "page" | "overlay";
+
+/**
+ * Payload handed back to the parent (Portal) when a save succeeds so the parent
+ * can patch its in-memory row cache and cache-bust the hero image without a
+ * full reload.
+ */
+export type PortalV2CuratorSavedDetail = {
+  albumId: string;
+  canonicalCoverPath: string | null;
+  savedAt: number;
+};
+
+export default function PortalV2CurateClient({
+  row,
+  presentation = "page",
+  onDismiss,
+  onSaved,
+}: {
+  row: DiscoverStableAlbumRow;
+  presentation?: PortalV2CuratePresentation;
+  onDismiss?: () => void;
+  onSaved?: (detail: PortalV2CuratorSavedDetail) => void;
+}) {
+  const router = useRouter();
+  const isOverlay = presentation === "overlay";
+  const [candidates, setCandidates] = useState<WorkbenchCandidate[]>([]);
+  const [ingestWarnings, setIngestWarnings] = useState<string[]>([]);
+  const [candidateFetchError, setCandidateFetchError] = useState<CandidateApiFailureDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  /**
+   * URL-based selection — survives grid re-ordering, scroll, and unrelated
+   * re-renders. Compared against `normalizeCandidateArtworkUrl(candidate.image)`.
+   */
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  const [applyPending, setApplyPending] = useState(false);
+  const [searchDraft, setSearchDraft] = useState("");
+
+  /**
+   * Manual "paste a Discogs URL" path — used when the 3 auto-candidates aren't
+   * right and the user wants to point at a specific release on Discogs.
+   * Accepts either a direct image URL (i.discogs.com/...) or a release/master
+   * page URL (resolved server-side via /resolve-discogs-url).
+   */
+  const [pasteUrl, setPasteUrl] = useState("");
+  const [pastePending, setPastePending] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+
+  /**
+   * Set after a successful save in page mode so the hero re-fetches the new
+   * canonical bytes (R2 key stays the same; only the bytes changed). In overlay
+   * mode the parent handles cache-busting via `coverBustByAlbumId`, so this
+   * stays null.
+   */
+  const [savedCacheBust, setSavedCacheBust] = useState<number | null>(null);
+
+  /**
+   * `normalizeCandidateArtworkUrl` strips query params (used for dedupe), so
+   * the cache-bust token has to be applied AFTER normalization — otherwise it
+   * would be stripped and the browser would keep showing the stale image.
+   */
+  const currentCoverUrl = useMemo(() => {
+    const normalized = normalizeCandidateArtworkUrl(canonicalCoverPathToUrl(row.canonicalCoverPath));
+    if (!normalized || savedCacheBust == null) return normalized;
+    return `${normalized}${normalized.includes("?") ? "&" : "?"}v=${savedCacheBust}`;
+  }, [row.canonicalCoverPath, savedCacheBust]);
+
+  const grid = useMemo(() => {
+    const out: WorkbenchCandidate[] = [];
+    for (const c of candidates) {
+      if (c.source !== "discogs") continue;
+      const u = normalizeCandidateArtworkUrl(c.image);
+      if (!u) continue;
+      out.push({ ...c, image: u });
+    }
+    return out;
+  }, [candidates]);
+
+  const discogsSearchHref = useMemo(() => {
+    const q = `${row.artist} ${row.title}`.replace(/\s+/g, " ").trim();
+    return `https://www.discogs.com/search/?q=${encodeURIComponent(q)}`;
+  }, [row.artist, row.title]);
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- gated debounced ingest on album identity primitives */
+    const meta = validateAlbumRowForCurator(row);
+    if (!meta.ok) {
+      setLoading(false);
+      setCandidates([]);
+      setIngestWarnings(meta.issues.map((code) => CURATOR_METADATA_ISSUES[code] ?? code));
+      setCandidateFetchError(null);
+      setSelectedUrl(null);
+      return;
+    }
+
+    setLoading(true);
+    setCandidateFetchError(null);
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      void (async () => {
+        try {
+          const packed = await fetchPortalCuratorWorkbenchSession({
+            artist: row.artist,
+            title: row.title,
+            albumId: row.albumId,
+            year: row.year,
+          });
+          if (cancelled) return;
+          if (!packed.ok) {
+            setCandidates([]);
+            setIngestWarnings([]);
+            setCandidateFetchError(packed.error);
+            setSelectedUrl(null);
+            return;
+          }
+          if (packed.discogsUnavailable) {
+            setCandidates([]);
+            setIngestWarnings([]);
+            setCandidateFetchError({
+              kind: "http",
+              endpoint: "/api/artwork-workbench/candidates",
+              requestUrl: packed.requestUrl,
+              httpStatus: null,
+              detail: "discogs_unreachable",
+            });
+            setSelectedUrl(null);
+            return;
+          }
+          setCandidateFetchError(null);
+          setCandidates(packed.candidates.filter((c) => c.source === "discogs"));
+          setIngestWarnings(packed.warnings);
+          setSelectedUrl(null);
+        } catch (e) {
+          if (!cancelled) {
+            setCandidates([]);
+            setIngestWarnings([]);
+            setCandidateFetchError({
+              kind: "network",
+              endpoint: "/api/artwork-workbench/candidates",
+              requestUrl: "",
+              httpStatus: null,
+              detail: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+            });
+            console.error("[PortalV2CurateClient] candidates_load_unhandled", e);
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      })();
+    }, CURATOR_CLIENT_INGRESS_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Ingest keyed on stable album primitives; avoids parent row object identity churn re-fetching curator.
+  }, [row.albumId, row.artist, row.title, row.year]);
+
+  const displaySlots: WorkbenchCandidate[] = loading || candidateFetchError ? [] : grid;
+
+  const selected = useMemo(() => {
+    if (!selectedUrl) return null;
+    return displaySlots.find((c) => normalizeCandidateArtworkUrl(c.image) === selectedUrl) ?? null;
+  }, [selectedUrl, displaySlots]);
+
+  const previewSrc = selected ? normalizeCandidateArtworkUrl(selected.image) : null;
+  const heroSrc = previewSrc ?? currentCoverUrl;
+  /**
+   * `savedCacheBust` participates so the hero <img> re-mounts after a save and
+   * the browser refetches the new R2 bytes (same URL, new content).
+   */
+  const heroRemixKey = selected
+    ? `pick-${normalizeCandidateArtworkUrl(selected.image) ?? "none"}`
+    : `archive-${normalizeCandidateArtworkUrl(currentCoverUrl) ?? "none"}-${savedCacheBust ?? 0}`;
+
+  const hasSelection = Boolean(selected);
+
+  useEffect(() => {
+    if (loading || candidateFetchError) return;
+    for (const c of grid) {
+      const u = normalizeCandidateArtworkUrl(c.image);
+      if (u) {
+        const img = new Image();
+        img.src = u;
+      }
+    }
+  }, [loading, candidateFetchError, grid]);
+
+  async function applySelected() {
+    if (!selected || applyPending) return;
+    const stagedAbs =
+      typeof selected.stagedFilePath === "string" ? selected.stagedFilePath.trim() : "";
+    const img = typeof selected.image === "string" ? selected.image.trim() : "";
+
+    let remoteHttps: string | null = null;
+    if (/^https:\/\//i.test(img)) {
+      remoteHttps = img;
+    } else if (typeof selected.url === "string" && /^https:\/\//i.test(selected.url)) {
+      remoteHttps = selected.url;
+    }
+
+    const hasStaged = stagedAbs.length > 0;
+    const hasRemote = remoteHttps !== null && selected.source === "discogs";
+
+    if (!hasStaged && !hasRemote) return;
+
+    const replaceSource: "discogs" | "staged" = hasStaged ? "staged" : "discogs";
+    setApplyPending(true);
+    try {
+      const res = await fetch("/api/artwork-workbench/living-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "replace_artwork",
+          albumId: row.albumId,
+          artist: row.artist,
+          title: row.title,
+          confidence: null,
+          candidateSource: selected.image ?? remoteHttps,
+          candidateImageUrl: hasRemote ? remoteHttps : null,
+          stagedFilePath: hasStaged ? stagedAbs : null,
+          sourceArtist: selected.artist,
+          sourceCollection: selected.title,
+          sourceReleaseDate: selected.year ? `${selected.year}-01-01` : null,
+          replaceSource,
+        }),
+      });
+      if (!res.ok) throw new Error(`save_http_${res.status}`);
+      const payload = (await res.json()) as {
+        ok?: boolean;
+        canonicalPath?: string | null;
+        savedAt?: number;
+      };
+      if (!payload.ok) throw new Error("save_response_not_ok");
+
+      /**
+       * Hand the parent the fresh canonical path + savedAt so it can patch its
+       * in-memory row cache and cache-bust the hero before any reload.
+       */
+      const savedAt = typeof payload.savedAt === "number" ? payload.savedAt : Date.now();
+
+      onSaved?.({
+        albumId: row.albumId,
+        canonicalCoverPath: payload.canonicalPath ?? null,
+        savedAt,
+      });
+
+      if (onDismiss) {
+        /* Overlay: parent closes us and patches the hero. */
+        onDismiss();
+      } else {
+        /* Page mode: stay where we are. Cache-bust the hero so the new cover
+           shows immediately; user uses ← / Done to return to wherever they came
+           from. */
+        setSavedCacheBust(savedAt);
+        setSelectedUrl(null);
+      }
+      router.refresh();
+    } catch (e) {
+      console.error("[PortalV2CurateClient] save_failed", e);
+    } finally {
+      setApplyPending(false);
+    }
+  }
+
+  function submitSearch(e: FormEvent) {
+    e.preventDefault();
+    const q = searchDraft.trim();
+    if (!q) return;
+    router.push(`/search?q=${encodeURIComponent(q)}`);
+  }
+
+  /**
+   * Unified SAVE dispatcher. The same button serves the URL-paste flow and the
+   * tile-selection flow — non-empty pasted URL wins, otherwise the selected
+   * tile is saved. Caller handlers each call `e.preventDefault()` internally,
+   * which is idempotent here.
+   */
+  function submitSave(e: FormEvent) {
+    e.preventDefault();
+    if (pasteUrl.trim().length > 0) {
+      void submitPasteUrl(e);
+      return;
+    }
+    if (selected) {
+      void applySelected();
+    }
+  }
+
+  /**
+   * Classify the pasted URL without contacting Discogs:
+   *   - `https://i.discogs.com/...` → already an image URL, save directly.
+   *   - `https://(www\.)?discogs\.com/(release|master)/<id>...` → page URL,
+   *     resolve to primary image via /api/artwork-workbench/resolve-discogs-url.
+   *   - anything else → reject inline, no network call.
+   */
+  function classifyDiscogsPasteUrl(raw: string): "image" | "page" | "invalid" {
+    let u: URL;
+    try {
+      u = new URL(raw);
+    } catch {
+      return "invalid";
+    }
+    if (u.hostname.toLowerCase() === "i.discogs.com") return "image";
+    if (/^(www\.)?discogs\.com$/i.test(u.hostname) && /^\/(release|master)\/\d+/i.test(u.pathname)) {
+      return "page";
+    }
+    return "invalid";
+  }
+
+  async function submitPasteUrl(e: FormEvent) {
+    e.preventDefault();
+    if (pastePending) return;
+    const raw = pasteUrl.trim();
+    if (!raw) return;
+
+    setPasteError(null);
+
+    const kind = classifyDiscogsPasteUrl(raw);
+    if (kind === "invalid") {
+      setPasteError("Paste an i.discogs.com image URL or a discogs.com release/master page URL.");
+      return;
+    }
+
+    setPastePending(true);
+    try {
+      let imageUrl: string | null = null;
+      let sourceArtist = row.artist;
+      let sourceTitle = row.title;
+      let sourceYear: number | null = row.year ?? null;
+
+      if (kind === "image") {
+        imageUrl = raw;
+      } else {
+        const res = await fetch("/api/artwork-workbench/resolve-discogs-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: raw }),
+        });
+        if (!res.ok) {
+          setPasteError(`Couldn't read that Discogs page (HTTP ${res.status}).`);
+          return;
+        }
+        const payload = (await res.json()) as {
+          ok?: boolean;
+          imageUrl?: string | null;
+          title?: string | null;
+          artist?: string | null;
+          year?: number | null;
+          error?: string;
+        };
+        if (!payload.ok || !payload.imageUrl) {
+          setPasteError(payload.error ?? "Couldn't find a cover image on that Discogs page.");
+          return;
+        }
+        imageUrl = payload.imageUrl;
+        if (payload.artist) sourceArtist = payload.artist;
+        if (payload.title) sourceTitle = payload.title;
+        if (typeof payload.year === "number") sourceYear = payload.year;
+      }
+
+      const saveRes = await fetch("/api/artwork-workbench/living-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "replace_artwork",
+          albumId: row.albumId,
+          artist: row.artist,
+          title: row.title,
+          confidence: null,
+          candidateSource: imageUrl,
+          candidateImageUrl: imageUrl,
+          stagedFilePath: null,
+          sourceArtist,
+          sourceCollection: sourceTitle,
+          sourceReleaseDate: sourceYear ? `${sourceYear}-01-01` : null,
+          replaceSource: "discogs",
+        }),
+      });
+      if (!saveRes.ok) {
+        setPasteError(`Save failed (HTTP ${saveRes.status}).`);
+        return;
+      }
+      const savePayload = (await saveRes.json()) as {
+        ok?: boolean;
+        canonicalPath?: string | null;
+        savedAt?: number;
+      };
+      if (!savePayload.ok) {
+        setPasteError("Save failed.");
+        return;
+      }
+
+      const savedAt = typeof savePayload.savedAt === "number" ? savePayload.savedAt : Date.now();
+      onSaved?.({
+        albumId: row.albumId,
+        canonicalCoverPath: savePayload.canonicalPath ?? null,
+        savedAt,
+      });
+      if (onDismiss) {
+        onDismiss();
+      } else {
+        /* Page mode: stay put; clear the pasted URL and bust the hero cache. */
+        setSavedCacheBust(savedAt);
+        setPasteUrl("");
+      }
+      router.refresh();
+    } catch (err) {
+      console.error("[PortalV2CurateClient] paste_url_save_failed", err);
+      setPasteError("Unexpected error. Check the URL and try again.");
+    } finally {
+      setPastePending(false);
+    }
+  }
+
+  /**
+   * Both presentations live inside `PortalAtmosphere` which locks the root to
+   * `h-[100dvh]; overflow-hidden`. The curator content (cover, candidates, paste-URL
+   * row, "Search the archive") exceeds the viewport, so the shell itself must
+   * scroll — otherwise the bottom rows get clipped by the locked parent.
+   */
+  const shellCls = isOverlay
+    ? "flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-8"
+    : "flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-8";
+
+  function dismiss() {
+    onDismiss?.();
+  }
+
+  /**
+   * Page-mode return path. The curator is launched as a route from a variety
+   * of surfaces (era page, discover feed, album detail), so a hard-coded "/"
+   * is wrong. Prefer browser history; only fall back to "/" if we have no
+   * history to walk back to (direct URL / bookmark).
+   */
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
+
+  return (
+    <div className={shellCls} style={{ fontFamily: "var(--font-pv2-sans), system-ui, sans-serif" }}>
+      <div className="mx-auto flex w-full max-w-md shrink-0 items-center justify-between gap-3 border-b border-[rgba(200,169,107,0.28)] pb-3">
+        {isOverlay ? (
+          <button
+            type="button"
+            onClick={dismiss}
+            className="min-h-11 min-w-11 touch-manipulation rounded-md py-2 text-[1.25rem] leading-none text-[#f3eadb] active:opacity-80"
+            aria-label="Close curator"
+          >
+            ←
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={goBack}
+            className="min-h-11 min-w-11 touch-manipulation rounded-md py-2 text-[1.25rem] leading-none text-[#f3eadb] active:opacity-80"
+            aria-label="Back"
+          >
+            ←
+          </button>
+        )}
+        <span className="text-center text-[11px] font-semibold uppercase tracking-[0.26em] text-[#c8a96b]">
+          Curator
+        </span>
+        {isOverlay ? (
+          <button
+            type="button"
+            onClick={dismiss}
+            className="touch-manipulation rounded-md px-3 py-2 text-[15px] font-medium text-[#b7aa95] hover:text-[#f3eadb]"
+          >
+            Done
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={goBack}
+            className="touch-manipulation rounded-md px-3 py-2 text-[15px] font-medium text-[#b7aa95] hover:text-[#f3eadb]"
+          >
+            Done
+          </button>
+        )}
+      </div>
+
+      <div className="mx-auto mt-5 w-full max-w-md shrink-0">
+        <div
+          className="rounded-[1.2rem] p-[5px] shadow-[0_18px_44px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(200,169,107,0.18)] sm:p-1.5"
+          style={{
+            background: "linear-gradient(168deg, rgba(16,28,42,0.92) 0%, #08111d 50%, #05070b 100%)",
+          }}
+        >
+          <div
+            className="relative aspect-square w-full overflow-hidden rounded-[0.95rem] ring-1 ring-[rgba(200,169,107,0.22)]"
+            style={{
+              boxShadow: "inset 0 0 40px rgba(0,0,0,0.55), inset 0 0 10px rgba(200,169,107,0.05)",
+            }}
+          >
+            <HeroCover src={heroSrc} fallbackLabel={row.title} remixKey={heroRemixKey} />
+          </div>
+        </div>
+
+        <p
+          className="mt-4 text-center text-[clamp(1.35rem,5.2vw,1.85rem)] font-semibold leading-tight text-[#f3eadb]"
+          style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
+        >
+          {row.title}
+        </p>
+        <p className="mt-1 text-center text-[clamp(1rem,3.6vw,1.125rem)] text-[#b7aa95]">
+          {row.artist}
+          {row.year != null ? <span className="tabular-nums text-[#8a7f6f]"> · {row.year}</span> : null}
+        </p>
+
+        {/* 3-up candidate grid sits directly under the album metadata so the
+            user can scan alternates without scrolling past links. */}
+        <div className="mt-5">
+          {candidateFetchError ? (
+            <div
+              role="alert"
+              className="mb-3 rounded-xl border border-red-500/35 bg-[rgba(80,28,28,0.22)] px-3 py-2.5 text-center text-[13px] leading-snug text-[#f0dcd8]"
+            >
+              <p className="font-semibold text-[#f3e6e4]">Unable to fetch artwork.</p>
+            </div>
+          ) : null}
+          {!candidateFetchError && ingestWarnings.length > 0 ? (
+            <div
+              role="status"
+              className="mb-3 rounded-xl border border-amber-500/35 bg-[rgba(120,83,28,0.18)] px-3 py-2.5 text-left text-[12px] leading-snug text-[#f0e6d2]"
+            >
+              {ingestWarnings.map((w, i) => (
+                <p key={i} className="mb-1.5 last:mb-0">
+                  {w}
+                </p>
+              ))}
+            </div>
+          ) : null}
+          {loading && !candidateFetchError ? (
+            <p className="mb-3 text-center text-[13px] text-[#8a7f6f]">Loading alternates…</p>
+          ) : null}
+          {displaySlots.length > 0 ? (
+            <ul className="grid grid-cols-3 gap-2.5 sm:gap-3">
+              {displaySlots.map((c) => {
+                const tileUrl = normalizeCandidateArtworkUrl(c.image);
+                const active = tileUrl != null && tileUrl === selectedUrl;
+                return (
+                  <li key={tileUrl ?? `row:${c.url ?? c.title}`} className="relative z-0 list-none">
+                    <CandidateTile
+                      candidate={c}
+                      active={active}
+                      hasSelection={hasSelection}
+                      onPick={() => setSelectedUrl(tileUrl)}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+          {!loading && !candidateFetchError && grid.length === 0 ? (
+            <p className="mt-4 text-center text-[15px] leading-snug text-[#b7aa95]" role="status">
+              No suitable alternates found.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex justify-center px-2 text-[14px]">
+          <a
+            href={discogsSearchHref}
+            target="retroverse-discogs"
+            rel="noopener noreferrer"
+            className="text-[#c8a96b] underline decoration-[rgba(200,169,107,0.35)] underline-offset-2 hover:text-[#f3eadb]"
+          >
+            Search Discogs ↗
+          </a>
+        </div>
+        <form onSubmit={submitSave} className="mt-3 px-2">
+          <label htmlFor="pv2-curator-paste-url" className="sr-only">
+            Paste a Discogs release URL or image URL
+          </label>
+          {/**
+           * Single SAVE row: input + primary save button.
+           * Priority when SAVE fires:
+           *   1. Non-empty pasted URL → save via the resolve/paste flow.
+           *   2. Else a selected tile → save via the candidate flow.
+           *   3. Else the button is disabled.
+           */}
+          <div className="flex items-stretch gap-2">
+            <input
+              id="pv2-curator-paste-url"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              value={pasteUrl}
+              onChange={(e) => {
+                setPasteUrl(e.target.value);
+                if (pasteError) setPasteError(null);
+              }}
+              placeholder="Paste Discogs URL"
+              className="min-w-0 flex-1 rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-3 py-3 text-[14px] text-[#f3eadb] shadow-[inset_0_2px_10px_rgba(0,0,0,0.35)] placeholder:text-[#6d6358] focus:border-[#c8a96b] focus:outline-none focus:ring-1 focus:ring-[#c8a96b]/35"
+            />
+            <button
+              type="submit"
+              disabled={(pastePending || applyPending) || (pasteUrl.trim().length === 0 && !selected)}
+              className={[
+                "shrink-0 touch-manipulation whitespace-nowrap rounded-xl px-5 py-3 text-[14px] font-semibold uppercase tracking-[0.18em] transition-opacity",
+                pasteUrl.trim().length === 0 && !selected
+                  ? "cursor-not-allowed bg-[#08111d] text-[#5c554a] ring-1 ring-[rgba(200,169,107,0.18)]"
+                  : "bg-[#c8a96b] text-[#05070b] ring-1 ring-[rgba(243,234,219,0.25)] hover:opacity-95 active:opacity-90",
+              ].join(" ")}
+            >
+              {pastePending || applyPending ? "Saving…" : "Save"}
+            </button>
+          </div>
+          {pasteError ? (
+            <p role="alert" className="mt-2 text-center text-[12px] leading-snug text-[#f0dcd8]">
+              {pasteError}
+            </p>
+          ) : null}
+        </form>
+      </div>
+
+      <div className="mx-auto mt-10 w-full max-w-md border-t border-[rgba(200,169,107,0.2)] pt-8">
+        <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.2em] text-[#c8a96b]">Search the archive</p>
+        <form onSubmit={submitSearch} className="flex items-stretch gap-2">
+          <label htmlFor="pv2-curator-search" className="sr-only">
+            Search artist, album, or year
+          </label>
+          <input
+            id="pv2-curator-search"
+            type="search"
+            name="q"
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            placeholder="Artist, album, year…"
+            autoComplete="off"
+            className="min-w-0 flex-1 rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-4 py-3 text-[16px] text-[#f3eadb] shadow-[inset_0_2px_12px_rgba(0,0,0,0.35)] placeholder:text-[#6d6358] focus:border-[#c8a96b] focus:outline-none focus:ring-1 focus:ring-[#c8a96b]/35"
+          />
+          <button
+            type="submit"
+            className="shrink-0 touch-manipulation whitespace-nowrap rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-5 py-3 text-[14px] font-medium text-[#f3eadb] transition hover:bg-[#0c1624]"
+          >
+            Search
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

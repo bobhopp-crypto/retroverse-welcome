@@ -33,10 +33,26 @@ function normalizeRelativeCoverPath(raw: string): string | null {
   return rel;
 }
 
-export function canonicalCoverPathToUrl(canonicalCoverPath: string | null | undefined): string | null {
+/**
+ * Optional `cacheBust` (epoch ms or any monotonic token) appends `?v=<token>` so
+ * the browser/CDN refetch the canonical R2 object after a save without us having
+ * to change the storage key. Used by Portal after a curator save.
+ */
+export function canonicalCoverPathToUrl(
+  canonicalCoverPath: string | null | undefined,
+  options?: { cacheBust?: number | string | null },
+): string | null {
   if (!canonicalCoverPath?.trim()) return null;
   const raw = canonicalCoverPath.trim();
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+
+  const appendBust = (url: string): string => {
+    const bust = options?.cacheBust;
+    if (bust === null || bust === undefined || bust === "" || bust === 0) return url;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${encodeURIComponent(String(bust))}`;
+  };
+
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return appendBust(raw);
   const rel = normalizeRelativeCoverPath(raw);
   if (!rel) return null;
 
@@ -46,8 +62,8 @@ export function canonicalCoverPathToUrl(canonicalCoverPath: string | null | unde
       : "";
   if (rawBase) {
     const origin = stripTrailingRetroverseCoversFromBase(rawBase);
-    if (!origin) return `/${rel}`;
-    return `${origin.replace(/\/+$/, "")}/${rel}`;
+    if (!origin) return appendBust(`/${rel}`);
+    return appendBust(`${origin.replace(/\/+$/, "")}/${rel}`);
   }
-  return `/${rel}`;
+  return appendBust(`/${rel}`);
 }

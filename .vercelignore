@@ -1,0 +1,7 @@
+# Build output & deps (rebuilt on Vercel)
+node_modules
+.next
+
+# Pre-reset bulk tree only. `covers/` must ship with the app (or set
+# NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL to a host that mirrors `/retroverse/covers/...`).
+public/retroverse/covers_archive_pre_reset

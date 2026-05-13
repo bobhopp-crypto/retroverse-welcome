@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,10 +14,32 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Retroverse Welcome",
-  description: "Retroverse early-access welcome page",
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#03070a",
 };
+
+export const metadata: Metadata = {
+  title: "Retroverse",
+  description: "Chart memory — albums, artists, and eras.",
+  applicationName: "Retroverse Portal",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Retroverse",
+  },
+  formatDetection: {
+    telephone: false,
+    date: false,
+    address: false,
+    email: false,
+  },
+};
+
+const navLink =
+  "text-[0.68rem] uppercase tracking-[0.16em] text-[var(--text-secondary)] transition hover:text-[var(--accent-primary)]";
 
 export default function RootLayout({
   children,
@@ -27,33 +50,41 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      data-theme="vivid"
+      data-theme="dark"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
         <header className="rv-global-header" role="banner">
-          <div className="mx-auto flex w-full max-w-[46rem] items-center gap-2 px-4 py-2 sm:px-6">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 sm:px-5">
             <Link
               href="/"
-              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+              className="font-serif text-[1.05rem] tracking-[0.04em] text-[var(--text-primary)] sm:text-[1.12rem]"
             >
-              Home
+              Retroverse
             </Link>
-            <Link
-              href="/week"
-              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              This Week in History
-            </Link>
-            <Link
-              href="/eras"
-              className="inline-flex items-center rounded-full border border-[var(--card-border)] px-3 py-1.5 text-sm font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-            >
-              Eras
-            </Link>
+            <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4" aria-label="Primary">
+              <Link className={navLink} href="/">
+                Portal
+              </Link>
+              <Link className={navLink} href="/eras">
+                Eras
+              </Link>
+              <Link className={navLink} href="/artists">
+                Artists
+              </Link>
+              <Link className={navLink} href="/albums">
+                Albums
+              </Link>
+              <Link className={navLink} href="/search">
+                Search
+              </Link>
+              <Link className={navLink} href="/index">
+                Index
+              </Link>
+            </nav>
           </div>
         </header>
-        <main className="flex-1 pt-[var(--rv-header-offset)]">{children}</main>
+        <main className="flex min-h-0 flex-1 flex-col pt-[var(--rv-header-offset)]">{children}</main>
       </body>
     </html>
   );

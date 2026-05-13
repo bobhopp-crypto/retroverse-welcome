@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# large local-only data and artwork (lives on R2/Cloudflare in production)
+/public/retroverse/
+/public/media-thumbnails/
+/public/covers/
+/data/raw/
+/data/generated/
+/data/diagnostics/
+/data/imports/
+/reports/
+
+# cloudflare wrangler local dev state
+/.wrangler/
+
+# stray empty file created by an old `npm install > tsx` mistake
+/tsx
+

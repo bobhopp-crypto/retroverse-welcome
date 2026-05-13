@@ -1,0 +1,82 @@
+[
+  {
+    "year": 1971,
+    "albums": [
+      {
+        "artist": "Carole King",
+        "title": "Tapestry",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/68/b6/0e/68b60e89-9d41-e8a1-bba2-05c750f0832b/dj.hwpyamqm.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Led Zeppelin",
+        "title": "Led Zeppelin IV",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/5c/15/9b/5c159b27-95ca-b9a7-84e3-28e795fffd39/dj.kvkrpptq.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "The Who",
+        "title": "Who's Next",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/4e/d5/19/4ed519ca-3f8b-65ee-eb21-89d5c6a0b44e/00602547140265.rgb.jpg/600x600bb.jpg"
+      }
+    ]
+  },
+  {
+    "year": 1976,
+    "albums": [
+      {
+        "artist": "Eagles",
+        "title": "Hotel California",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/88/16/2c/88162c3d-46db-8321-61f3-3a47404cfe76/075596050920.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Steely Dan",
+        "title": "The Royal Scam",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/89/82/f1/8982f1c5-a729-40da-146c-92bd8cb1e3f4/25UMGIM68675.rgb.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Boston",
+        "title": "Boston",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music211/v4/7c/de/5e/7cde5e7a-612d-9714-d34c-1eb234c85ebb/810129961546.jpg/600x600bb.jpg"
+      }
+    ]
+  },
+  {
+    "year": 1977,
+    "albums": [
+      {
+        "artist": "Fleetwood Mac",
+        "title": "Rumours",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/4d/13/ba/4d13bac3-d3d5-7581-2c74-034219eadf2b/081227970949.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Steely Dan",
+        "title": "Aja",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/c2/3c/54/c23c5414-20d1-7aea-f0f5-187974c58d65/23UMGIM79990.rgb.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "David Bowie",
+        "title": "Low",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music124/v4/f7/49/2d/f7492da6-164e-b023-4b17-937329c35458/190295842895.jpg/600x600bb.jpg"
+      }
+    ]
+  },
+  {
+    "year": 1979,
+    "albums": [
+      {
+        "artist": "The Clash",
+        "title": "London Calling",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music115/v4/93/cb/20/93cb201b-154b-7b74-a10b-48fbef9b3281/888880348937.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Pink Floyd",
+        "title": "The Wall",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/3e/17/ec/3e17ec6d-f980-c64f-19e0-a6fd8bbf0c10/886445635850.jpg/600x600bb.jpg"
+      },
+      {
+        "artist": "Michael Jackson",
+        "title": "Off the Wall",
+        "cover": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/0c/fe/a3/0cfea324-57c1-d530-5248-9bb591bbd7bf/074643574525.jpg/600x600bb.jpg"
+      }
+    ]
+  }
+]

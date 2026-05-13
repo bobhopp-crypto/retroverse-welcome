@@ -1,0 +1,544 @@
+/* Portal v2 — prototype-aligned cinematic shell (portal-prototype/index.html)
+ * Palette warmed to match the Retroverse concept poster: deep walnut night
+ * with brass + warm cream. Previously a cold near-black (#03070a / #020405)
+ * that clashed with the manila body of the rest of the app. */
+.pv2-root {
+  --pv2-bg: #160e08;
+  --pv2-panel: #1f1610;
+  --pv2-brass: rgba(205, 164, 90, 0.86);
+  --pv2-brass-soft: rgba(205, 164, 90, 0.78);
+  --pv2-warm: #f0e6d2;
+  --pv2-soft: #c9bda7;
+  --pv2-muted: #8f8574;
+  --pv2-gold: #cda45a;
+  --pv2-ink: #f0e6d2;
+  --pv2-border: rgba(205, 164, 90, 0.32);
+}
+
+.pv2-atmo-base {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(205, 164, 90, 0.16), transparent 30%),
+    radial-gradient(circle at 50% 58%, rgba(110, 70, 38, 0.4), transparent 46%),
+    linear-gradient(180deg, #110c06 0%, #1a1209 52%, #110c06 100%);
+}
+
+.pv2-atmo-vignette {
+  background: radial-gradient(circle at center, transparent 36%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+.pv2-atmo-grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: overlay;
+}
+
+/* Centered column (prototype .app) */
+.pv2-proto-app {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(22px);
+  padding: 18px 20px 22px;
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+}
+
+.pv2-proto-year {
+  color: rgba(205, 164, 90, 0.86);
+  letter-spacing: 0.48em;
+  text-transform: uppercase;
+  margin-bottom: 13px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pv2-proto-year-sub {
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+  color: rgba(143, 133, 116, 0.82);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
+.pv2-proto-explored {
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+  color: rgba(143, 133, 116, 0.68);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 14px;
+}
+
+/* Outer record frame */
+.pv2-proto-frame {
+  width: min(88vw, 460px);
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  padding: 14px;
+  border-radius: 30px;
+  display: flex;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 20%),
+    linear-gradient(315deg, rgba(205, 164, 90, 0.18), transparent 30%),
+    var(--pv2-panel);
+  border: 1px solid rgba(205, 164, 90, 0.32);
+  box-shadow:
+    0 34px 76px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(255, 255, 255, 0.035),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+    inset 0 0 34px rgba(0, 0, 0, 0.72);
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+
+.pv2-proto-frame > a {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.pv2-proto-frame::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 24px;
+  border: 1px solid rgba(205, 164, 90, 0.2);
+  box-shadow:
+    inset 0 0 28px rgba(0, 0, 0, 0.82),
+    0 0 14px rgba(205, 164, 90, 0.08);
+  pointer-events: none;
+}
+
+.pv2-proto-frame::after {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: 18px;
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.75);
+  pointer-events: none;
+}
+
+.pv2-proto-cover-slot {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #111;
+}
+
+.pv2-proto-cover-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Artist + album read as one typographic block (hero weight). */
+.pv2-proto-title-stack {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 3vh, 36px);
+  max-width: min(92vw, 480px);
+}
+
+.pv2-proto-artist {
+  margin: 0;
+  padding: 0;
+  color: #f3ecdd;
+  /** Unified with .pv2-proto-album so the title block reads as one typographic voice. */
+  font-family: var(--font-pv2-display), ui-serif, Georgia, serif;
+  font-size: clamp(1.37rem, 5.85vw, 2.08rem);
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.85),
+    0 2px 14px rgba(0, 0, 0, 0.55);
+
+  /**
+   * LOCK CONTRIBUTION TO META HEIGHT:
+   *   - clamp to exactly 1 line (any longer artist gets …)
+   *   - min-height = 1 line so a short artist still reserves the same row.
+   * Combined with the 2-line clamp on `.pv2-proto-album`, the metadata block
+   * has a deterministic height → the cover above it never moves.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1.12em;
+  word-break: break-word;
+}
+
+.pv2-proto-artist-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.pv2-proto-artist-link:hover {
+  color: #fff8ec;
+  text-decoration: underline;
+  text-underline-offset: 0.14em;
+}
+
+.pv2-proto-album {
+  font-family: var(--font-pv2-display), ui-serif, Georgia, serif;
+  font-size: clamp(30px, 9.75vw, 57px);
+  line-height: 0.94;
+  margin: 0;
+  padding: 0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  /** Same warm-white as `.pv2-proto-artist` so artist+album share one voice. */
+  color: #f3ecdd;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.45),
+    0 4px 26px rgba(0, 0, 0, 0.55);
+  text-align: center;
+  max-width: min(92vw, 480px);
+
+  /**
+   * 2-line clamp + reserved 2-line height. Titles up to 2 lines render full;
+   * longer titles ellipsis. Always occupies exactly 2 line-heights so the
+   * meta block — and therefore the cover above it — never reflows.
+   */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: calc(0.94em * 2);
+  word-break: break-word;
+}
+
+.pv2-proto-dots {
+  margin-top: 10px;
+  color: var(--pv2-gold);
+  letter-spacing: 0.28em;
+  font-size: 16px;
+  opacity: 0.88;
+}
+
+.pv2-proto-nav {
+  margin-top: 22px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  transform: translateY(22px);
+  width: min(90vw, 430px);
+  border-top: 1px solid rgba(205, 164, 90, 0.16);
+  padding-top: 14px;
+}
+
+.pv2-proto-nav > div {
+  flex: 1;
+  border: 1px solid rgba(205, 164, 90, 0.18);
+  background: rgba(255, 255, 255, 0.025);
+  padding: 11px 12px;
+  border-radius: 17px;
+  color: rgba(205, 164, 90, 0.86);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow:
+    inset 0 0 18px rgba(0, 0, 0, 0.38),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+@media (max-height: 720px) {
+  .pv2-proto-year {
+    margin-bottom: 9px;
+  }
+
+  .pv2-proto-frame {
+    width: min(74vh, 82vw, 390px);
+  }
+
+  .pv2-proto-title-stack {
+    margin-top: 14px;
+    gap: clamp(12px, 2.2vh, 26px);
+  }
+
+  .pv2-proto-artist {
+    font-size: clamp(1.19rem, 5.4vw, 1.74rem);
+  }
+
+  .pv2-proto-album {
+    font-size: clamp(26px, 6.75vw, 42px);
+  }
+
+  .pv2-proto-nav {
+    margin-top: 15px;
+    padding-top: 11px;
+  }
+}
+
+@keyframes pv2-cover-swap {
+  from {
+    opacity: 0.9;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pv2-cover-swap {
+  animation: pv2-cover-swap 0.24s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv2-cover-swap {
+    animation: none;
+  }
+}
+
+/* —— Portal device shell (immersive viewport; typography unchanged — uses existing stacks) */
+
+.pv2-device-column {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(0.35rem, env(safe-area-inset-left));
+  padding-right: max(0.35rem, env(safe-area-inset-right));
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+}
+
+.pv2-device-masthead {
+  flex-shrink: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding-top: max(0.4rem, env(safe-area-inset-top));
+  padding-bottom: 0.3rem;
+}
+
+.pv2-device-wordmark {
+  margin: 0;
+  padding: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: rgba(205, 164, 90, 0.78);
+}
+
+.pv2-device-menu-btn {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 1px solid rgba(205, 164, 90, 0.22);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(240, 230, 210, 0.88);
+  touch-action: manipulation;
+  cursor: pointer;
+  padding: 0;
+}
+
+.pv2-device-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  touch-action: none;
+  overscroll-behavior: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.pv2-surface-drag {
+  will-change: transform;
+}
+
+.pv2-device-frame-slot {
+  width: min(98vw, 560px);
+  margin: 0 auto;
+}
+
+/* Keep portal hero dominant vs prototype column (avoid nested max-width shrinking). */
+.pv2-device-frame-slot .pv2-proto-frame {
+  width: 100%;
+  max-width: none;
+  padding: clamp(12px, 2.4vw, 16px);
+  border-radius: clamp(22px, 6vw, 30px);
+  margin-bottom: 0;
+}
+
+.pv2-device-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(0.65rem, 1.8vh, 1.05rem);
+  padding-top: clamp(12px, 2.8vh, 18px);
+  max-width: min(94vw, 520px);
+  margin-inline: auto;
+}
+
+.pv2-device-yearline {
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+  color: rgba(205, 164, 90, 0.86);
+  font-size: clamp(13px, 3.8vw, 14px);
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  margin: 0;
+  padding: 0;
+}
+
+.pv2-device-rank-sub {
+  /** Unified with artist + album on one font and one color. */
+  font-family: var(--font-pv2-display), ui-serif, Georgia, serif;
+  color: #f3ecdd;
+  font-size: 33px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0;
+  padding: 0;
+}
+
+.pv2-device-explored-line {
+  font-family: var(--font-pv2-sans), system-ui, sans-serif;
+  color: rgba(143, 133, 116, 0.55);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+@keyframes pv2-curator-overlay-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pv2-curator-sheet-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Curator overlays */
+.pv2-curator-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: rgba(0, 0, 0, 0.62);
+  animation: pv2-curator-overlay-enter 0.32s ease-out both;
+}
+
+.pv2-curator-sheet {
+  position: relative;
+  z-index: 1;
+  max-height: min(100dvh, 760px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  border: 1px solid rgba(205, 164, 90, 0.22);
+  border-bottom: none;
+  background: radial-gradient(circle at 50% -10%, rgba(205, 164, 90, 0.08), transparent 52%), #05070b;
+  animation: pv2-curator-sheet-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.pv2-device-menu-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-end;
+  animation: pv2-curator-overlay-enter 0.22s ease-out both;
+}
+
+.pv2-device-menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.pv2-device-menu-inner {
+  position: relative;
+  z-index: 1;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  border: 1px solid rgba(205, 164, 90, 0.2);
+  background: radial-gradient(circle at 50% -20%, rgba(205, 164, 90, 0.12), transparent 55%), #05070b;
+  padding: max(14px, env(safe-area-inset-top)) 16px calc(14px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 14px;
+  width: min(100%, 540px);
+  margin-inline: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv2-curator-overlay,
+  .pv2-curator-sheet,
+  .pv2-device-menu-sheet {
+    animation: none;
+  }
+
+  .pv2-curator-sheet {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .pv2-curator-sheet {
+    max-height: 92dvh;
+    border-radius: 18px;
+    border-bottom: 1px solid rgba(205, 164, 90, 0.22);
+    margin: auto;
+    margin-bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+}

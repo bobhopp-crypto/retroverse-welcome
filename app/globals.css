@@ -2,26 +2,29 @@
 
 :root {
   color-scheme: light;
+  /* Warm manila/cream wash — replaces the prior rainbow page gradient that
+     fought every other surface for attention. Inspired by the Retroverse
+     concept poster: cream paper, no pastels. */
   --page-gradient: linear-gradient(
-    148deg,
-    #fff4e0 0%,
-    #e9d6ff 22%,
-    #bfe8d4 44%,
-    #ffcf9a 64%,
-    #d4f0e8 82%,
-    #e8c9a8 100%
+    160deg,
+    #f4e6c4 0%,
+    #e8d5af 36%,
+    #e2cea4 68%,
+    #d4bd91 100%
   );
-  --bg-main: #d9c4b2;
-  --card-bg: color-mix(in srgb, #fcefe3 76%, #f59e0b 24%);
-  --card-border: color-mix(in srgb, #c2410c 52%, #6d28d9 48%);
-  --text-primary: #1a1410;
-  --text-secondary: #3f3830;
-  --accent-primary: #c2410c;
-  --accent-tertiary: #dc2626;
-  --text-on-accent: #fffaf5;
-  --surface-raised: color-mix(in srgb, #fff8ef 74%, #fcd34d 26%);
-  --surface-muted: rgba(194, 65, 12, 0.14);
-  --ring-focus: #ea580c;
+  --bg-main: #e3d2ad;
+  --card-bg: color-mix(in srgb, #f4e6c4 78%, #d4a23e 22%);
+  /* Was an orange+purple mix (purple read as wrong against the warm body).
+     Now a warm walnut/rust tan so borders feel printed-on-paper. */
+  --card-border: color-mix(in srgb, #8a5a3a 60%, #c2410c 40%);
+  --text-primary: #241a10;
+  --text-secondary: #5c4632;
+  --accent-primary: #c75c34;
+  --accent-tertiary: #8b2a2d;
+  --text-on-accent: #f4e6c4;
+  --surface-raised: color-mix(in srgb, #f4e6c4 76%, #d4a23e 24%);
+  --surface-muted: rgba(167, 116, 64, 0.16);
+  --ring-focus: #c75c34;
   --section-gold: #b88744;
   --section-teal: #5f8f88;
   --section-plum: #7b667f;
@@ -44,7 +47,7 @@
   --rv-text-body: 1.125rem;
   --rv-text-body-sm: 1.2rem;
   --rv-leading-body: 1.72;
-  --rv-header-offset: 4.5rem;
+  --rv-header-offset: 3.75rem;
   --card-shadow:
     0 2px 0 rgb(194 65 12 / 0.18),
     0 8px 20px -6px rgb(120 50 18 / 0.22),
@@ -60,24 +63,26 @@ html[data-theme="vivid"] {
 
 html[data-theme="dark"] {
   color-scheme: dark;
+  /* Warm walnut night — replaces the cold slate-blue family. Companion to the
+     manila light theme and the deep-walnut portal frame. */
   --page-gradient: linear-gradient(
-    158deg,
-    #161c27 0%,
-    #111723 34%,
-    #0e141d 68%,
-    #0b1018 100%
+    160deg,
+    #1f1610 0%,
+    #1a1108 38%,
+    #14100a 72%,
+    #0e0a05 100%
   );
-  --bg-main: #0d1118;
-  --card-bg: color-mix(in srgb, #1a2331 78%, #101722 22%);
-  --card-border: color-mix(in srgb, #4b5a70 72%, #2f3948 28%);
-  --text-primary: #f4f6f9;
-  --text-secondary: #c5cdd8;
-  --accent-primary: #c89b5d;
+  --bg-main: #15100a;
+  --card-bg: color-mix(in srgb, #2a1d12 78%, #1a1108 22%);
+  --card-border: color-mix(in srgb, #6e5238 72%, #3d2c1c 28%);
+  --text-primary: #f1e3c3;
+  --text-secondary: #c9b790;
+  --accent-primary: #d4a23e;
   --accent-tertiary: #c7867f;
-  --text-on-accent: #1a1510;
-  --surface-raised: color-mix(in srgb, #202b3b 74%, #111924 26%);
-  --surface-muted: rgba(174, 190, 212, 0.12);
-  --ring-focus: color-mix(in srgb, var(--accent-primary) 74%, #f4f6f9 26%);
+  --text-on-accent: #1a1108;
+  --surface-raised: color-mix(in srgb, #2a1d12 74%, #14100a 26%);
+  --surface-muted: rgba(212, 162, 62, 0.12);
+  --ring-focus: color-mix(in srgb, var(--accent-primary) 74%, #f1e3c3 26%);
   --section-gold: #b99763;
   --section-teal: #6f9e95;
   --section-plum: #8d7593;
@@ -100,7 +105,7 @@ html[data-theme="dark"] {
   --rv-text-body: 1.125rem;
   --rv-text-body-sm: 1.2rem;
   --rv-leading-body: 1.72;
-  --rv-header-offset: 4.5rem;
+  --rv-header-offset: 3.75rem;
   --card-shadow:
     0 1px 0 rgb(255 255 255 / 0.06),
     0 10px 26px -14px rgb(0 0 0 / 0.68),
@@ -133,9 +138,113 @@ body {
   left: 0;
   right: 0;
   z-index: 50;
-  border-bottom: 1px solid color-mix(in srgb, var(--card-border) 68%, #fff 32%);
-  background: color-mix(in srgb, var(--paper-cream) 86%, var(--paper-gold) 14%);
-  backdrop-filter: blur(4px);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-primary) 18%, var(--bg-main) 82%);
+  background: color-mix(in srgb, var(--bg-main) 92%, #000 8%);
+  backdrop-filter: blur(10px);
+}
+
+body.discover-immersive .rv-global-header {
+  display: none;
+}
+
+body.album-immersive .rv-global-header {
+  display: none;
+}
+
+body.discover-immersive main.flex-1 {
+  padding-top: 0 !important;
+}
+
+body.album-immersive main.flex-1 {
+  padding-top: 0 !important;
+}
+
+/* /portal (+ legacy viewer selector): minimal header; Loft menu overlays */
+body.portal-immersive,
+body.viewer-immersive {
+  --rv-header-offset: 2.35rem;
+}
+
+body.portal-immersive main.flex-1.flex-col,
+body.viewer-immersive main.flex-1.flex-col {
+  padding-top: 2.35rem !important;
+}
+
+body.portal-immersive .rv-global-header,
+body.viewer-immersive .rv-global-header {
+  border-bottom: 1px solid rgba(201, 168, 108, 0.12);
+  background: rgba(6, 9, 14, 0.82);
+  backdrop-filter: blur(14px);
+}
+
+body.portal-immersive .rv-global-header > div,
+body.viewer-immersive .rv-global-header > div {
+  max-width: none;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: nowrap;
+  padding: 0.35rem 0.75rem 0.4rem !important;
+}
+
+body.portal-immersive .rv-global-header nav[aria-label="Primary"],
+body.viewer-immersive .rv-global-header nav[aria-label="Primary"] {
+  display: none !important;
+}
+
+body.portal-immersive .rv-global-header > div > a[href="/portal"],
+body.viewer-immersive .rv-global-header > div > a[href="/portal"] {
+  font-size: 0.88rem !important;
+  letter-spacing: 0.1em !important;
+  opacity: 0.9;
+}
+
+/* Fullscreen Retroverse Portal “device”: no global header; page never scrolls */
+html.portal-device-html,
+body.portal-device {
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+body.portal-device .rv-global-header {
+  display: none !important;
+}
+
+body.portal-device main.flex-1.flex-col {
+  padding-top: 0 !important;
+  min-height: 0 !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pv2-surface-drag {
+    transition: none !important;
+  }
+}
+
+/* Portal machine — stepped art swap inside fixed aperture (no scroll physics) */
+@keyframes portal-aperture-step {
+  from {
+    transform: translateY(0.375rem) scale(0.985);
+    opacity: 0.84;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.portal-aperture-art {
+  animation: portal-aperture-step 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-aperture-art {
+    animation: none;
+  }
 }
 
 html,
@@ -152,8 +261,8 @@ body::-webkit-scrollbar {
 }
 
 html[data-theme="dark"] .rv-global-header {
-  border-bottom-color: #6a5f55;
-  background: color-mix(in srgb, var(--paper-tobacco) 88%, var(--paper-sepia) 12%);
+  border-bottom-color: color-mix(in srgb, var(--accent-primary) 22%, transparent);
+  background: color-mix(in srgb, var(--bg-main) 94%, #000 6%);
 }
 
 button[data-active="true"] {
@@ -685,12 +794,13 @@ html[data-theme="dark"] .welcome-updates {
 }
 
 @media (max-width: 639px) {
+  /* Warm walnut night radials, matching the dark-theme palette retune. */
   html[data-theme="dark"] body {
     background:
-      radial-gradient(120% 52% at 50% 6%, rgb(71 88 130 / 0.28) 0%, rgb(71 88 130 / 0) 68%),
-      radial-gradient(86% 44% at 52% 38%, rgb(59 73 112 / 0.2) 0%, rgb(59 73 112 / 0) 70%),
-      radial-gradient(94% 48% at 48% 74%, rgb(44 58 95 / 0.17) 0%, rgb(44 58 95 / 0) 72%),
-      linear-gradient(180deg, #131a26 0%, #0f1622 45%, #0b121b 100%);
+      radial-gradient(120% 52% at 50% 6%, rgb(140 96 48 / 0.22) 0%, rgb(140 96 48 / 0) 68%),
+      radial-gradient(86% 44% at 52% 38%, rgb(110 70 38 / 0.18) 0%, rgb(110 70 38 / 0) 70%),
+      radial-gradient(94% 48% at 48% 74%, rgb(72 46 22 / 0.16) 0%, rgb(72 46 22 / 0) 72%),
+      linear-gradient(180deg, #1f1610 0%, #18120a 45%, #110c06 100%);
     background-color: var(--bg-main);
     background-attachment: scroll;
   }

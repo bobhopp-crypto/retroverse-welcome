@@ -1,98 +1,26 @@
-import { ChooseYourWayInSection } from "./choose-your-way-in-section";
 import type { Metadata } from "next";
-import { FiftyYearsAgoSection } from "./fifty-years-ago-section";
-import { MemoryPromptRotator } from "./memory-prompt-rotator";
-import { WelcomeInterestForm } from "./welcome-interest-form";
-import { ThemeSwitcher } from "./theme-switcher";
+
+import PortalAtmosphere from "./portal-v2/portal-atmosphere";
+import PortalHomeContent from "./portal-v2/portal-home-content";
 
 export const metadata: Metadata = {
-  title: "Retroverse - Press Play for the Past",
-  description:
-    "An interactive music time machine: charts, albums, artists, and the moments that shaped our lives.",
+  title: "Portal · Retroverse",
+  description: "A framed aperture through the archive — year by year, album by album.",
 };
 
-const bullets = [
-  "Chart timelines",
-  "Album histories",
-  "Artist journeys",
-  "Nostalgic discovery",
-  "Historical context",
-  "Music memories",
-];
+/**
+ * Homepage = portal experience. No request-specific data (cookies, headers,
+ * searchParams), so this can serve from the edge cache. `loadViewerBootstrap`
+ * is cached server-side at the data layer; this page-level `revalidate` lets
+ * the rendered RSC payload itself be reused across visitors for 5 minutes.
+ */
+export const revalidate = 300;
 
-export default function Home() {
+/** Primary entry: portal experience (same RSC payload as `/portal-v2`, no redirect hop). */
+export default function HomePage() {
   return (
-    <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="welcome-page mx-auto max-w-[46rem] px-4 py-10 pb-14 sm:px-6 sm:py-14">
-        <header className="welcome-masthead mb-14 space-y-5 text-center sm:mb-16 sm:text-left">
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 sm:flex-nowrap">
-            <p className="min-w-0 pt-1 text-sm font-medium uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-              Early access
-            </p>
-            <ThemeSwitcher />
-          </div>
-          <h1 className="font-serif text-[3rem] font-normal leading-[1.05] tracking-tight text-[var(--text-primary)] sm:text-6xl">
-            Retroverse
-          </h1>
-          <p className="font-serif text-2xl italic text-[var(--text-secondary)] sm:text-[2.1rem]">
-            Press Play for the Past
-          </p>
-          <MemoryPromptRotator />
-          <div className="mx-auto h-px max-w-[12rem] bg-[var(--card-border)]/80 sm:mx-0" aria-hidden />
-          <p className="max-w-prose text-left text-lg leading-relaxed text-[var(--text-primary)] sm:text-xl">
-            Retroverse is an interactive music time machine built around the songs, albums, artists,
-            and chart moments that shaped our lives.
-          </p>
-          <p className="max-w-prose text-left text-lg leading-relaxed text-[var(--text-secondary)] sm:text-xl">
-            Explore music history one week at a time.
-          </p>
-        </header>
-
-        <FiftyYearsAgoSection />
-        <ChooseYourWayInSection />
-
-        <section className="welcome-section welcome-what-is mb-16 space-y-4" aria-labelledby="what-it-is">
-          <h2 id="what-it-is" className="text-xl font-semibold text-[var(--text-primary)]">
-            What it is
-          </h2>
-          <ul className="grid gap-2.5 text-[var(--text-secondary)] sm:grid-cols-2">
-            {bullets.map((item) => (
-              <li key={item} className="flex gap-2 text-base leading-snug sm:text-lg">
-                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-[var(--accent-primary)]" aria-hidden />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section
-          className="welcome-section welcome-note mb-16 rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)]/90 p-5 shadow-[var(--card-shadow)] sm:p-6"
-          aria-labelledby="early-access"
-        >
-          <h2 id="early-access" className="mb-3 text-xl font-semibold text-[var(--text-primary)]">
-            A note on early access
-          </h2>
-          <p className="text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
-            This project is in active development. You&apos;re seeing an early version while the archive
-            and the experience keep growing. Things will shift, fill in, and surprise us along the way.
-          </p>
-        </section>
-
-        <section className="welcome-section welcome-updates mb-14 space-y-6" aria-labelledby="stay-loop">
-          <h2 id="stay-loop" className="text-xl font-semibold text-[var(--text-primary)]">
-            Want updates?
-          </h2>
-          <p className="text-base leading-relaxed text-[var(--text-secondary)] sm:text-lg">
-            Leave your email and a thought if you like. No spam - just humans building something we wish
-            existed.
-          </p>
-          <WelcomeInterestForm />
-        </section>
-
-        <footer className="border-t border-[var(--card-border)]/70 pt-8 text-center">
-          <p className="text-base italic text-[var(--text-secondary)]">Built by music obsessives.</p>
-        </footer>
-      </article>
-    </div>
+    <PortalAtmosphere>
+      <PortalHomeContent />
+    </PortalAtmosphere>
   );
 }

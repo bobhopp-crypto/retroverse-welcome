@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Retroverse</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#03070a;
+      --panel:#070c0f;
+      --panel2:#0b1114;
+      --ink:#f0e6d2;
+      --soft:#c9bda7;
+      --muted:#8f8574;
+      --gold:#cda45a;
+      --goldDim:#7f612f;
+      --line:rgba(205,164,90,.25);
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(205,164,90,.14), transparent 30%),
+        radial-gradient(circle at 50% 58%, rgba(35,52,58,.42), transparent 44%),
+        linear-gradient(180deg,#020405 0%,#071014 52%,#020405 100%);
+      color:var(--ink);
+      font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at center, transparent 36%, rgba(0,0,0,.62) 100%);
+      z-index:1;
+    }
+
+    body::after{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.18;
+      background-image:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+      background-size:3px 3px;
+      mix-blend-mode:overlay;
+      z-index:2;
+    }
+
+    #loadError{
+      display:none;
+      position:fixed;
+      inset:0;
+      z-index:40;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+      text-align:center;
+      padding:24px;
+    }
+
+    #loadError.is-visible{
+      display:flex;
+    }
+
+    #loadError .load-error-brand{
+      color:rgba(205,164,90,.78);
+      letter-spacing:.42em;
+      text-transform:uppercase;
+      font-size:11px;
+      font-weight:500;
+      margin-bottom:18px;
+      text-shadow:0 0 18px rgba(205,164,90,.12);
+    }
+
+    #loadError .load-error-title{
+      font-family:"Cormorant Garamond",Georgia,serif;
+      font-size:clamp(28px,6vw,40px);
+      font-weight:600;
+      color:var(--soft);
+      line-height:1.15;
+      max-width:min(88vw,420px);
+      text-shadow:0 4px 26px rgba(0,0,0,.55);
+      margin:0 0 12px;
+    }
+
+    #loadError .load-error-body{
+      color:rgba(240,230,210,.55);
+      font-size:14px;
+      line-height:1.45;
+      max-width:min(88vw,380px);
+      letter-spacing:.02em;
+    }
+
+    #loadError code{
+      opacity:.82;
+      font-size:13px;
+      color:rgba(205,164,90,.82);
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    }
+
+    #loadError .load-error-accent{
+      color:rgba(205,164,90,.76);
+    }
+
+    .app{
+      position:relative;
+      z-index:3;
+      width:100%;
+      height:100svh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      transform:translateY(22px);
+      padding:18px 20px 22px;
+    }
+
+    .app.is-hidden{
+      visibility:hidden;
+      pointer-events:none;
+    }
+
+    .logo{
+      color:rgba(205,164,90,.78);
+      letter-spacing:.42em;
+      text-transform:uppercase;
+      font-size:11px;
+      font-weight:500;
+      margin-bottom:14px;
+      text-shadow:0 0 18px rgba(205,164,90,.12);
+    }
+
+    .year{
+      color:rgba(205,164,90,.86);
+      letter-spacing:.48em;
+      text-transform:uppercase;
+      margin-bottom:13px;
+      font-size:14px;
+      font-weight:600;
+    }
+
+    .frame{
+      width:min(88vw,460px);
+      aspect-ratio:1/1;
+      margin:0 auto;
+      padding:14px;
+      border-radius:30px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.075), transparent 20%),
+        linear-gradient(315deg, rgba(205,164,90,.18), transparent 30%),
+        var(--panel);
+      border:1px solid rgba(205,164,90,.32);
+      box-shadow:
+        0 34px 76px rgba(0,0,0,.82),
+        0 0 0 1px rgba(255,255,255,.035),
+        inset 0 0 0 1px rgba(255,255,255,.045),
+        inset 0 0 34px rgba(0,0,0,.72);
+      position:relative;
+      cursor:pointer;
+      user-select:none;
+      touch-action:none;
+    }
+
+    .frame::before{
+      content:"";
+      position:absolute;
+      inset:6px;
+      border-radius:24px;
+      border:1px solid rgba(205,164,90,.20);
+      box-shadow:
+        inset 0 0 28px rgba(0,0,0,.82),
+        0 0 14px rgba(205,164,90,.08);
+      pointer-events:none;
+    }
+
+    .frame::after{
+      content:"";
+      position:absolute;
+      inset:14px;
+      border-radius:18px;
+      box-shadow:
+        inset 0 0 30px rgba(0,0,0,.55),
+        inset 0 0 0 1px rgba(0,0,0,.75);
+      pointer-events:none;
+    }
+
+    .cover{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      border-radius:18px;
+      display:block;
+      background:#111;
+      position:relative;
+      z-index:1;
+    }
+
+    .artist{
+      margin-top:16px;
+      color:var(--soft);
+      font-size:22px;
+      line-height:1.1;
+      font-weight:400;
+    }
+
+    .album{
+      font-family:"Cormorant Garamond",Georgia,serif;
+      font-size:clamp(56px,13vw,76px);
+      line-height:.92;
+      margin-top:2px;
+      font-weight:600;
+      letter-spacing:.01em;
+      text-shadow:0 4px 26px rgba(0,0,0,.55);
+    }
+
+    .dots{
+      margin-top:10px;
+      color:var(--gold);
+      letter-spacing:.28em;
+      font-size:16px;
+      opacity:.88;
+    }
+
+    .nav{
+      margin-top:22px;
+      display:flex;
+      gap:12px;
+      justify-content:center;
+      transform:translateY(22px);
+      width:min(90vw,430px);
+      border-top:1px solid rgba(205,164,90,.16);
+      padding-top:14px;
+    }
+
+    .nav div{
+      flex:1;
+      border:1px solid rgba(205,164,90,.18);
+      background:rgba(255,255,255,.025);
+      padding:11px 12px;
+      border-radius:17px;
+      color:rgba(205,164,90,.86);
+      font-size:11px;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      box-shadow:
+        inset 0 0 18px rgba(0,0,0,.38),
+        0 10px 24px rgba(0,0,0,.28);
+    }
+
+    .modal{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      background:
+        radial-gradient(circle at 50% 28%, rgba(205,164,90,.10), transparent 34%),
+        rgba(0,0,0,.88);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      transform:translateY(22px);
+      padding:18px;
+      backdrop-filter:blur(14px);
+    }
+
+    .modal.open{
+      display:flex;
+    }
+
+    .modal.is-hidden{
+      display:none !important;
+    }
+
+    .modal-card{
+      width:min(90vw,420px);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,.055), transparent 22%),
+        #070c0f;
+      border:1px solid rgba(205,164,90,.28);
+      border-radius:26px;
+      padding:20px;
+      box-shadow:
+        0 38px 90px rgba(0,0,0,.86),
+        inset 0 0 0 1px rgba(255,255,255,.035),
+        inset 0 0 34px rgba(0,0,0,.42);
+    }
+
+    .modal-title{
+      color:rgba(205,164,90,.84);
+      text-align:center;
+      text-transform:uppercase;
+      letter-spacing:.32em;
+      font-size:12px;
+      margin-bottom:15px;
+    }
+
+    .modal-cover{
+      width:58%;
+      aspect-ratio:1/1;
+      object-fit:cover;
+      border-radius:15px;
+      display:block;
+      margin:0 auto 18px;
+      border:1px solid rgba(205,164,90,.22);
+      box-shadow:0 22px 46px rgba(0,0,0,.68);
+    }
+
+    .candidates{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-bottom:16px;
+    }
+
+    .candidates img{
+      width:100%;
+      aspect-ratio:1/1;
+      object-fit:cover;
+      border-radius:11px;
+      border:1px solid rgba(205,164,90,.18);
+      background:#111;
+    }
+
+    input{
+      width:100%;
+      padding:13px 14px;
+      border-radius:13px;
+      border:1px solid rgba(205,164,90,.24);
+      background:rgba(0,0,0,.38);
+      color:var(--ink);
+      margin-bottom:13px;
+      outline:none;
+      font-size:14px;
+    }
+
+    input::placeholder{
+      color:rgba(240,230,210,.45);
+    }
+
+    .links{
+      display:flex;
+      justify-content:center;
+      transform:translateY(22px);
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .links a{
+      color:rgba(205,164,90,.9);
+      text-decoration:none;
+      border:1px solid rgba(205,164,90,.2);
+      background:rgba(255,255,255,.025);
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:11px;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+    }
+
+    @media(max-height:720px){
+      .logo{
+        margin-bottom:9px;
+      }
+
+      .year{
+        margin-bottom:9px;
+      }
+
+      .frame{
+        width:min(74vh,82vw,390px);
+      }
+
+      .artist{
+        margin-top:12px;
+      }
+
+      .album{
+        font-size:clamp(40px,9vw,56px);
+      }
+
+      .nav{
+        margin-top:15px;
+        padding-top:11px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="loadError" aria-live="assertive" aria-hidden="true">
+  <div class="load-error-brand">Retroverse</div>
+  <p class="load-error-title">The library couldn't load</p>
+  <p class="load-error-body"><code>albums.json</code> is missing or unreadable.<br>Open this folder with a local server so <span class="load-error-accent">fetch</span> can reach your data.</p>
+</div>
+
+<div class="app" id="mainApp">
+
+  <div class="logo">RETROVERSE</div>
+
+  <div class="year" id="year"></div>
+
+  <div class="frame" id="frame">
+    <img class="cover" id="cover" alt="">
+  </div>
+
+  <div class="artist" id="artist"></div>
+  <div class="album" id="album"></div>
+  <div class="dots">— • —</div>
+
+  <div class="nav">
+    <div>↑ ↓ Albums</div>
+    <div>← → Years</div>
+  </div>
+
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+
+    <div class="modal-title">Curator</div>
+
+    <img class="modal-cover" id="modalCover" alt="">
+
+    <div class="candidates">
+      <img src="https://upload.wikimedia.org/wikipedia/en/f/fb/FMacRumours.PNG" alt="">
+      <img src="https://upload.wikimedia.org/wikipedia/en/4/49/Hotelcalifornia.jpg" alt="">
+      <img src="https://upload.wikimedia.org/wikipedia/en/0/00/TheClashLondonCallingalbumcover.jpg" alt="">
+    </div>
+
+    <input placeholder="Search cover source...">
+
+    <div class="links">
+      <a id="discogsLink" href="#" target="_blank">Discogs</a>
+      <a id="wikiLink" href="#" target="_blank">Wikipedia</a>
+      <a id="imageLink" href="#" target="_blank">Image Search</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+
+const mainApp = document.getElementById("mainApp");
+const loadError = document.getElementById("loadError");
+
+let data = [];
+let albumsReady = false;
+
+let yearIndex = 0;
+let albumIndex = 0;
+
+const yearEl = document.getElementById("year");
+const artistEl = document.getElementById("artist");
+const albumEl = document.getElementById("album");
+const coverEl = document.getElementById("cover");
+const frame = document.getElementById("frame");
+
+const modal = document.getElementById("modal");
+const modalCover = document.getElementById("modalCover");
+const discogsLink = document.getElementById("discogsLink");
+const wikiLink = document.getElementById("wikiLink");
+const imageLink = document.getElementById("imageLink");
+
+let pressTimer = null;
+let pointerStartX = 0;
+let pointerStartY = 0;
+let pointerMoved = false;
+
+function showLoadFailure(){
+  if(loadError){
+    loadError.classList.add("is-visible");
+    loadError.setAttribute("aria-hidden","false");
+  }
+  mainApp.classList.add("is-hidden");
+  modal.classList.add("is-hidden");
+}
+
+function normalizePayload(raw){
+  if(!Array.isArray(raw) || raw.length === 0) throw new Error("empty");
+  const sorted = [...raw].sort(function(a,b){
+    return Number(a.year) - Number(b.year);
+  });
+  sorted.forEach(function(block){
+    if(!block.albums || !Array.isArray(block.albums) || block.albums.length === 0){
+      throw new Error("albums missing");
+    }
+  });
+  return sorted;
+}
+
+function currentAlbum(){
+  return data[yearIndex].albums[albumIndex];
+}
+
+function render(){
+  const yearData = data[yearIndex];
+  const album = currentAlbum();
+
+  yearEl.textContent = yearData.year;
+  artistEl.textContent = album.artist;
+  albumEl.textContent = album.title;
+  coverEl.src = album.cover;
+  coverEl.alt = album.artist + " - " + album.title;
+}
+
+function changeYear(direction){
+  if(!albumsReady || data.length === 0) return;
+  yearIndex = (yearIndex + direction + data.length) % data.length;
+  albumIndex = 0;
+  render();
+}
+
+function changeAlbum(direction){
+  if(!albumsReady || data.length === 0) return;
+  const albums = data[yearIndex].albums;
+  albumIndex = (albumIndex + direction + albums.length) % albums.length;
+  render();
+}
+
+function openModal(){
+  if(!albumsReady || data.length === 0) return;
+  const album = currentAlbum();
+  const query = encodeURIComponent(album.artist + " " + album.title + " album cover");
+
+  modal.classList.add("open");
+  modalCover.src = album.cover;
+  modalCover.alt = album.artist + " - " + album.title;
+
+  discogsLink.href = "https://www.discogs.com/search/?q=" + query + "&type=all";
+  wikiLink.href = "https://en.wikipedia.org/wiki/Special:Search?search=" + query;
+  imageLink.href = "https://www.google.com/search?tbm=isch&q=" + query;
+}
+
+function closeModal(){
+  modal.classList.remove("open");
+}
+
+document.addEventListener("keydown", function(e){
+  if(modal.classList.contains("open")){
+    if(e.key === "Escape") closeModal();
+    return;
+  }
+
+  if(e.key === "ArrowLeft") changeYear(-1);
+  if(e.key === "ArrowRight") changeYear(1);
+  if(e.key === "ArrowUp") changeAlbum(-1);
+  if(e.key === "ArrowDown") changeAlbum(1);
+});
+
+frame.addEventListener("pointerdown", function(e){
+  if(!albumsReady) return;
+  pointerStartX = e.clientX;
+  pointerStartY = e.clientY;
+  pointerMoved = false;
+
+  pressTimer = setTimeout(function(){
+    if(!pointerMoved) openModal();
+  }, 650);
+});
+
+frame.addEventListener("pointermove", function(e){
+  const dx = e.clientX - pointerStartX;
+  const dy = e.clientY - pointerStartY;
+
+  if(Math.abs(dx) > 12 || Math.abs(dy) > 12){
+    pointerMoved = true;
+    clearTimeout(pressTimer);
+  }
+});
+
+frame.addEventListener("pointerup", function(e){
+  clearTimeout(pressTimer);
+
+  if(!albumsReady) return;
+
+  const dx = e.clientX - pointerStartX;
+  const dy = e.clientY - pointerStartY;
+
+  if(Math.abs(dx) < 42 && Math.abs(dy) < 42) return;
+
+  if(Math.abs(dx) > Math.abs(dy)){
+    if(dx > 0) changeYear(-1);
+    else changeYear(1);
+  }else{
+    if(dy > 0) changeAlbum(1);
+    else changeAlbum(-1);
+  }
+});
+
+frame.addEventListener("pointercancel", function(){
+  clearTimeout(pressTimer);
+});
+
+modal.addEventListener("click", function(e){
+  if(e.target === modal){
+    closeModal();
+  }
+});
+
+fetch("./albums.json")
+  .then(function(res){
+    if(!res.ok) throw new Error("bad response");
+    return res.json();
+  })
+  .then(function(json){
+    data = normalizePayload(json);
+    yearIndex = data.findIndex(function(d){ return d.year === 1977; });
+    if(yearIndex < 0) yearIndex = Math.min(2, data.length - 1);
+    albumIndex = 0;
+    albumsReady = true;
+    mainApp.classList.remove("is-hidden");
+    loadError.classList.remove("is-visible");
+    loadError.setAttribute("aria-hidden","true");
+    modal.classList.remove("is-hidden");
+    render();
+  })
+  .catch(function(){
+    showLoadFailure();
+  });
+</script>
+
+</body>
+</html>
