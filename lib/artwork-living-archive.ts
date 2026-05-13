@@ -71,6 +71,9 @@ function emptyRegistry(): ArtworkStateRegistry {
 }
 
 export async function loadArtworkStateRegistry(): Promise<ArtworkStateRegistry> {
+  // The registry path is a dev laptop absolute path; skip the FS read on
+  // Vercel where it can't exist. Supabase is the source of truth at runtime.
+  if (process.env.NODE_ENV === "production") return emptyRegistry();
   try {
     const raw = await readFile(ARTWORK_STATE_REGISTRY_PATH, "utf8");
     const parsed = JSON.parse(raw) as ArtworkStateRegistry;
@@ -82,6 +85,11 @@ export async function loadArtworkStateRegistry(): Promise<ArtworkStateRegistry> 
 }
 
 export async function saveArtworkStateRegistry(registry: ArtworkStateRegistry): Promise<void> {
+  // Dev-only convenience log of curator actions. In production this would
+  // mkdir under `/Users/...` which Vercel's serverless FS can't satisfy —
+  // and Supabase already holds the authoritative state after the route's
+  // earlier update call.
+  if (process.env.NODE_ENV === "production") return;
   const now = new Date().toISOString();
   const next: ArtworkStateRegistry = {
     ...registry,
