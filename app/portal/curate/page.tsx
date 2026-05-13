@@ -1,18 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { hydrateDiscoverAlbumRows } from "@/lib/discover-hydrate-rows";
-
-import PortalCurateClient from "./portal-curate-client";
-
 export const metadata: Metadata = {
-  title: "Curator · Portal · Retroverse",
+  title: "Curator · Retroverse",
   description: "Replace artwork with a chosen candidate.",
 };
 
 export const dynamic = "force-dynamic";
-
-const RVAL = /^RVAL[0-9]{6}$/;
 
 type Search = Record<string, string | string[] | undefined>;
 
@@ -22,14 +16,18 @@ function firstString(v: string | string[] | undefined): string | undefined {
   return undefined;
 }
 
-export default async function PortalCuratePage({ searchParams }: { searchParams: Promise<Search> }) {
+// Legacy entry point — every long-press / right-click handler now targets
+// /portal-v2/curate. We keep this URL alive so stale tabs, bookmarks, and
+// cached client chunks land on the v2 curator instead of the old UI.
+export default async function PortalCurateLegacyRedirect({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
   const sp = await searchParams;
-  const raw = firstString(sp.albumId)?.trim().toUpperCase() ?? "";
-  if (!RVAL.test(raw)) redirect("/portal");
-
-  const rows = await hydrateDiscoverAlbumRows([raw]);
-  const row = rows.find((r) => r.kind === "album" && r.albumId === raw);
-  if (!row || row.kind !== "album") redirect("/portal");
-
-  return <PortalCurateClient row={row} />;
+  const albumId = firstString(sp.albumId)?.trim() ?? "";
+  const target = albumId
+    ? `/portal-v2/curate?albumId=${encodeURIComponent(albumId)}`
+    : "/portal-v2";
+  redirect(target);
 }
