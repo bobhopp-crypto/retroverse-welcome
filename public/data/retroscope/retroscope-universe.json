@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "generated_at": "2026-05-15T22:46:45.463748+00:00",
+  "source_db": "/Users/bobhopp/RETROVERSE_DATA/databases/billboard-200-albums-charts.db",
+  "discovery": {
+    "billboard_200_db": "Primary: `albums` weekly rows; `acoustic_features` is enrichment only.",
+    "retroverse_master_db": "`retroverse-master.db` under same folder is Hot-100-style graph (person/work/event); not used for BB200 album coordinates.",
+    "coordinate_resolution": "Per calendar year: last chart `date` in DB for that year; dedupe `(date, rank)` via MIN(id)."
+  },
+  "coordinate_model": {
+    "x_axis": "calendar_year",
+    "y_axis": "billboard_200_position",
+    "rank_max": 200
+  },
+  "year_range_present": [
+    1963,
+    2019
+  ],
+  "cell_count": 11200,
+  "identity": {
+    "identity_state_counts": {
+      "canonical": 10591,
+      "unresolved": 433,
+      "ambiguous": 134,
+      "fuzzy_unique": 42
+    },
+    "trustState_counts": {
+      "verified": 10591,
+      "unresolved": 567,
+      "provisional": 42
+    },
+    "cells_with_canonical_cover_path": 10633
+  }
+}

@@ -19,6 +19,9 @@ export type RetroscopeCellDTO = {
   canonicalCoverPath: string | null;
   trustState: "verified" | "provisional" | "unresolved";
   sourceNote: string | null;
+  /** From materialized runtime (materialize_retroscope_runtime.py). */
+  trustScore?: number;
+  identityState?: string;
 };
 
 export function retroscopeCellKey(chartYear: number, retroverseRank: number): string {

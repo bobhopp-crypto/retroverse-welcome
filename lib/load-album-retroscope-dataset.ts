@@ -3,6 +3,7 @@ import path from "node:path";
 
 import seedBundled from "@/data/album-retroscope-seed.json";
 import type { AlbumRetroscopeSeedFile, AlbumRetroscopeSeedRow } from "@/lib/album-retroscope-seed";
+import type { RetroscopeCoordinateCell, RetroscopeCoordinatesFile } from "@/lib/retroscope-coordinates-schema";
 import {
   RETROSCOPE_YEAR_MAX,
   RETROSCOPE_YEAR_MIN,
@@ -21,6 +22,34 @@ export {
   RETROSCOPE_YEAR_MIN,
   retroscopeCellKey,
 } from "@/lib/album-retroscope-constants";
+
+function loadCoordinatesFile(): RetroscopeCoordinatesFile | null {
+  const envPath = process.env.ALBUM_RETROSCOPE_COORDINATES_PATH?.trim();
+  const fromRoot = process.env.RETROVERSE_DATA_ROOT?.trim()
+    ? path.join(process.env.RETROVERSE_DATA_ROOT!.trim(), "runtime", "retroscope-coordinates.json")
+    : "";
+  const publicBundled = path.join(
+    process.cwd(),
+    "public",
+    "data",
+    "retroscope",
+    "retroscope-coordinates.json",
+  );
+
+  for (const p of [envPath, fromRoot, publicBundled]) {
+    if (!p) continue;
+    try {
+      const raw = readFileSync(p, "utf8");
+      const parsed = JSON.parse(raw) as RetroscopeCoordinatesFile;
+      if (parsed && Array.isArray(parsed.cells) && parsed.cells.length > 0) {
+        return parsed;
+      }
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
 
 function loadSeedFile(): AlbumRetroscopeSeedFile {
   const override = process.env.ALBUM_RETROSCOPE_SEED_PATH?.trim();
@@ -47,6 +76,31 @@ function shuffleInPlace<T>(xs: T[], random: () => number): void {
     const j = Math.floor(random() * (i + 1));
     [xs[i], xs[j]] = [xs[j]!, xs[i]!];
   }
+}
+
+function normalizeTrustState(raw: string | undefined): RetroscopeCellDTO["trustState"] {
+  if (raw === "verified" || raw === "provisional") return raw;
+  return "unresolved";
+}
+
+function coordToDto(row: RetroscopeCoordinateCell): RetroscopeCellDTO | null {
+  if (!Number.isFinite(row.chartYear) || !Number.isFinite(row.chartRank) || row.chartRank < 1) return null;
+  const id = row.albumId?.trim();
+  if (!id) return null;
+  const pathVal = row.canonical_cover_path?.trim() || null;
+  return {
+    chartYear: row.chartYear,
+    retroverseRank: row.chartRank,
+    albumId: id,
+    title: row.album?.trim() || "—",
+    artist: row.artist?.trim() || "—",
+    releaseYear: row.chartYear,
+    canonicalCoverPath: pathVal,
+    trustState: normalizeTrustState(row.trustState),
+    sourceNote: row.source_note?.trim() || null,
+    trustScore: Number.isFinite(row.trust_score) ? row.trust_score : undefined,
+    identityState: row.identity_state?.trim() || undefined,
+  };
 }
 
 function rowToCell(row: AlbumRetroscopeSeedRow): RetroscopeCellDTO | null {
@@ -81,13 +135,64 @@ function seedToCells(seed: AlbumRetroscopeSeedFile): RetroscopeCellDTO[] {
   return out;
 }
 
-/** Server-only: static Billboard 200 seed (no Supabase). */
+function cellsFromCoordinates(file: RetroscopeCoordinatesFile): RetroscopeCellDTO[] {
+  const out: RetroscopeCellDTO[] = [];
+  const seen = new Set<string>();
+  for (const row of file.cells) {
+    const cell = coordToDto(row);
+    if (!cell) continue;
+    const k = retroscopeCellKey(cell.chartYear, cell.retroverseRank);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(cell);
+  }
+  return out;
+}
+
+/** Server-only: Billboard 200 corpus from materialized runtime JSON or small bundled seed (no Supabase). */
 export function loadAlbumRetroscopeDataset(seedRandom?: () => number): {
   cells: RetroscopeCellDTO[];
   initialActiveKey: string;
 } | null {
   const rnd = seedRandom ?? Math.random;
   const log = "[album-retroscope:data]";
+
+  const coords = loadCoordinatesFile();
+  if (coords) {
+    const cells = cellsFromCoordinates(coords);
+    if (cells.length === 0) {
+      console.warn(log, "coordinates file produced zero cells");
+      return null;
+    }
+
+    const topBand = cells.filter(
+      (c) =>
+        c.chartYear >= RETROSCOPE_YEAR_MIN &&
+        c.chartYear <= RETROSCOPE_YEAR_MAX &&
+        c.retroverseRank >= 1 &&
+        c.retroverseRank <= 10,
+    );
+    const firstCell = cells[0]!;
+    let initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+    if (topBand.length > 0) {
+      const shuffled = [...topBand];
+      shuffleInPlace(shuffled, rnd);
+      const chosen = shuffled[0]!;
+      initialActiveKey = retroscopeCellKey(chosen.chartYear, chosen.retroverseRank);
+    }
+    if (!cells.some((c) => retroscopeCellKey(c.chartYear, c.retroverseRank) === initialActiveKey)) {
+      initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+    }
+
+    console.info(log, {
+      corpusSize: cells.length,
+      initialActiveKey,
+      source: coords.source_db,
+      generatedAt: coords.generated_at,
+      runtime: "retroscope-coordinates.json",
+    });
+    return { cells, initialActiveKey };
+  }
 
   let seed: AlbumRetroscopeSeedFile;
   try {

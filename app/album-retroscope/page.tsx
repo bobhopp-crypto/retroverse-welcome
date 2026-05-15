@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: "Spatial year × Retroverse rank exploration prototype.",
 };
 
+/** File-backed corpus can change without a rebuild (local runtime JSON). */
+export const dynamic = "force-dynamic";
+
 export default async function AlbumRetroscopePage() {
   let data: ReturnType<typeof loadAlbumRetroscopeDataset> = null;
   try {
