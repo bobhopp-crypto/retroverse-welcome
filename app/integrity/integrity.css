@@ -1,0 +1,116 @@
+.int-root {
+  min-height: 100vh;
+  background: #0d0f12;
+  color: #e4e4e7;
+  padding: 1.5rem 1.75rem 3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.int-h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.int-sub {
+  margin: 0 0 1.25rem;
+  color: #8b8fa3;
+  font-size: 12px;
+}
+.int-err {
+  color: #f87171;
+  margin-bottom: 1rem;
+}
+.int-warn-banner {
+  border: 1px solid #854d0e;
+  background: #1c1508;
+  color: #fcd34d;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: 2px;
+  font-size: 12px;
+}
+.int-warn-banner p {
+  margin: 0 0 0.4rem;
+}
+.int-warn-banner p:last-child {
+  margin-bottom: 0;
+}
+.int-warn-inline {
+  color: #fcd34d;
+  margin: 0.35rem 0 0;
+}
+.int-card {
+  border: 1px solid #2a2f3a;
+  background: #12151a;
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 2px;
+}
+.int-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f4f4f5;
+}
+.int-meta {
+  color: #8b8fa3;
+  font-size: 12px;
+  margin-bottom: 0.75rem;
+}
+.int-sev {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+}
+.int-sev-info {
+  background: #1e3a5f;
+  color: #93c5fd;
+}
+.int-sev-warn {
+  background: #422006;
+  color: #fdba74;
+}
+.int-sev-crit {
+  background: #450a0a;
+  color: #fca5a5;
+}
+.int-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+.int-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.int-table th,
+.int-table td {
+  border-bottom: 1px solid #252a32;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+.int-table th {
+  color: #8b8fa3;
+  font-weight: 500;
+}
+.int-table tr:hover td {
+  background: #1a1f27;
+}
+.int-link {
+  color: #7dd3fc;
+  text-decoration: none;
+}
+.int-link:hover {
+  text-decoration: underline;
+}
+.int-muted {
+  color: #6b7280;
+  font-size: 11px;
+  margin-top: 0.5rem;
+}

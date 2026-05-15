@@ -10,6 +10,7 @@
     "import:canonical": "tsx scripts/import_canonical_album_csv.ts",
     "import:canonical:1977-1979": "RETROVERSE_IMPORT_ROOT=\"/Users/bobhopp/RETROVERSE_v2/apps/retroverse-welcome/data/imports/canonical_1977_1979\" tsx scripts/import_canonical_album_csv.ts",
     "validate:retroverse": "tsx scripts/validate_retroverse_quality.ts",
+    "validate:canonical-album-chart": "tsx scripts/validate_canonical_album_chart_runs.ts",
     "audit:major-albums": "tsx scripts/audit_major_albums.ts",
     "report:inventory": "tsx scripts/generate_retroverse_inventory_report.ts",
     "report:rank-inspection": "tsx scripts/report_retroverse_rank_inspection.ts",
