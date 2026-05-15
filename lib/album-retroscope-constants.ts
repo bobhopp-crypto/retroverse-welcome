@@ -3,7 +3,10 @@ export const RETROSCOPE_YEAR_MAX = 1995;
 export const RETROSCOPE_WORLD_YEAR_MIN = 1950;
 export const RETROSCOPE_WORLD_YEAR_MAX = 2030;
 export const RETROSCOPE_GRID_COLS = 7;
+/** Desktop / wide fallback viewport height in cells. */
 export const RETROSCOPE_GRID_ROWS = 10;
+/** Mobile visible viewport only (universe logic unchanged). */
+export const RETROSCOPE_GRID_ROWS_MOBILE = 5;
 export const RETROSCOPE_RANK_MAX = 200;
 
 export type RetroscopeCellDTO = {

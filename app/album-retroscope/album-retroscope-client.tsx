@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { RetroscopeCellDTO } from "@/lib/album-retroscope-data";
 import {
   RETROSCOPE_GRID_COLS,
   RETROSCOPE_GRID_ROWS,
+  RETROSCOPE_GRID_ROWS_MOBILE,
   RETROSCOPE_RANK_MAX,
   RETROSCOPE_WORLD_YEAR_MAX,
   RETROSCOPE_WORLD_YEAR_MIN,
@@ -14,8 +16,34 @@ import {
 } from "@/lib/album-retroscope-data";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 
+const SWIPE_MIN_PX = 28;
+const CURATOR_DOUBLE_TAP_MS = 420;
+const MOBILE_MQ = "(max-width: 767px)";
+const RVAL_RE = /RVAL[0-9]{6}/i;
+
+function rvalFromCoverPath(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const m = path.match(RVAL_RE);
+  return m ? m[0].toUpperCase() : null;
+}
+
+function curatorHrefForCell(cell: RetroscopeCellDTO | null): string | null {
+  if (!cell) return null;
+  const rval = rvalFromCoverPath(cell.canonicalCoverPath);
+  if (rval) return `/portal-v2/curate?albumId=${encodeURIComponent(rval)}`;
+  if (RVAL_RE.test(cell.albumId)) {
+    return `/portal-v2/curate?albumId=${encodeURIComponent(cell.albumId.toUpperCase())}`;
+  }
+  return "/internal/curator";
+}
+
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
+}
+
+function visibleRowsForViewport(): number {
+  if (typeof window === "undefined") return RETROSCOPE_GRID_ROWS;
+  return window.matchMedia(MOBILE_MQ).matches ? RETROSCOPE_GRID_ROWS_MOBILE : RETROSCOPE_GRID_ROWS;
 }
 
 function parseInitialKey(key: string): { y: number; r: number } {
@@ -60,6 +88,8 @@ export default function AlbumRetroscopeClient({
   cells: RetroscopeCellDTO[];
   initialActiveKey: string;
 }) {
+  const initialRows = visibleRowsForViewport();
+
   const byKey = useMemo(() => {
     const m = new Map<string, RetroscopeCellDTO>();
     for (const c of cells) {
@@ -80,17 +110,33 @@ export default function AlbumRetroscopeClient({
     return parsed;
   }, [cells, initialActiveKey]);
 
+  const [visibleGridRows, setVisibleGridRows] = useState(initialRows);
   const [activeYear, setActiveYear] = useState(safeInit.y);
   const [activeRank, setActiveRank] = useState(safeInit.r);
   const [explored, setExplored] = useState<Set<string>>(() => new Set([retroscopeCellKey(safeInit.y, safeInit.r)]));
+  const [operatorFlash, setOperatorFlash] = useState(false);
+  const [portalPulse, setPortalPulse] = useState(false);
+  const router = useRouter();
   const [viewYear0, setViewYear0] = useState(() =>
     clamp(safeInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
   );
   const [viewRank0, setViewRank0] = useState(() =>
-    clamp(safeInit.r, 1, RETROSCOPE_RANK_MAX - RETROSCOPE_GRID_ROWS + 1),
+    clamp(safeInit.r, 1, RETROSCOPE_RANK_MAX - initialRows + 1),
   );
 
   const posRef = useRef({ y: safeInit.y, r: safeInit.r });
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  const curatorTapRef = useRef<number | null>(null);
+  const portalPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_MQ);
+    const apply = () => setVisibleGridRows(mq.matches ? RETROSCOPE_GRID_ROWS_MOBILE : RETROSCOPE_GRID_ROWS);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   useEffect(() => {
     posRef.current = { y: activeYear, r: activeRank };
   }, [activeYear, activeRank]);
@@ -98,27 +144,36 @@ export default function AlbumRetroscopeClient({
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
 
-  const bumpViewportToInclude = useCallback((ny: number, nr: number) => {
-    const ynn = Number.isFinite(ny) ? Math.round(ny) : RETROSCOPE_WORLD_YEAR_MIN;
-    const rnn = Number.isFinite(nr) ? Math.round(nr) : 1;
+  const bumpViewportToInclude = useCallback(
+    (ny: number, nr: number) => {
+      const ynn = Number.isFinite(ny) ? Math.round(ny) : RETROSCOPE_WORLD_YEAR_MIN;
+      const rnn = Number.isFinite(nr) ? Math.round(nr) : 1;
 
-    setViewYear0((prev) => {
-      const v0 = Number.isFinite(prev) ? prev : RETROSCOPE_WORLD_YEAR_MIN;
-      const yMax = v0 + RETROSCOPE_GRID_COLS - 1;
-      let next = v0;
-      if (ynn < v0) next = ynn;
-      else if (ynn > yMax) next = ynn - (RETROSCOPE_GRID_COLS - 1);
-      return clamp(next, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
-    });
+      setViewYear0((prev) => {
+        const v0 = Number.isFinite(prev) ? prev : RETROSCOPE_WORLD_YEAR_MIN;
+        const yMax = v0 + RETROSCOPE_GRID_COLS - 1;
+        let next = v0;
+        if (ynn < v0) next = ynn;
+        else if (ynn > yMax) next = ynn - (RETROSCOPE_GRID_COLS - 1);
+        return clamp(next, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
+      });
 
-    setViewRank0((prev) => {
-      const r0 = Number.isFinite(prev) ? prev : 1;
-      const rMax = r0 + RETROSCOPE_GRID_ROWS - 1;
-      let next = r0;
-      if (rnn < r0) next = rnn;
-      else if (rnn > rMax) next = rnn - (RETROSCOPE_GRID_ROWS - 1);
-      return clamp(next, 1, RETROSCOPE_RANK_MAX - RETROSCOPE_GRID_ROWS + 1);
-    });
+      setViewRank0((prev) => {
+        const r0 = Number.isFinite(prev) ? prev : 1;
+        const rMax = r0 + visibleGridRows - 1;
+        let next = r0;
+        if (rnn < r0) next = rnn;
+        else if (rnn > rMax) next = rnn - (visibleGridRows - 1);
+        return clamp(next, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
+      });
+    },
+    [visibleGridRows],
+  );
+
+  const flashPortal = useCallback(() => {
+    setPortalPulse(true);
+    if (portalPulseTimer.current) clearTimeout(portalPulseTimer.current);
+    portalPulseTimer.current = setTimeout(() => setPortalPulse(false), 120);
   }, []);
 
   const moveTo = useCallback(
@@ -146,23 +201,91 @@ export default function AlbumRetroscopeClient({
     (dir: "u" | "d" | "l" | "r") => {
       const { y, r } = posRef.current;
       const from = retroscopeCellKey(y, r);
+      flashPortal();
       if (dir === "l") moveTo(y - 1, r, from);
       if (dir === "r") moveTo(y + 1, r, from);
       if (dir === "u") moveTo(y, r - 1, from);
       if (dir === "d") moveTo(y, r + 1, from);
     },
-    [moveTo],
+    [flashPortal, moveTo],
   );
+
+  const resolveSwipe = useCallback(
+    (dx: number, dy: number) => {
+      if (Math.abs(dx) < SWIPE_MIN_PX && Math.abs(dy) < SWIPE_MIN_PX) return;
+      flashPortal();
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        onPad(dx > 0 ? "r" : "l");
+        return;
+      }
+      onPad(dy < 0 ? "u" : "d");
+    },
+    [flashPortal, onPad],
+  );
+
+  const onPortalTouchStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    if (!t) return;
+    swipeRef.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onPortalTouchMove = (e: React.TouchEvent) => {
+    if (swipeRef.current) e.preventDefault();
+  };
+
+  const onPortalTouchEnd = (e: React.TouchEvent) => {
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    resolveSwipe(t.clientX - start.x, t.clientY - start.y);
+  };
+
+  const onPortalPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") return;
+    swipeRef.current = { x: e.clientX, y: e.clientY };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  };
+
+  const onPortalPointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") return;
+    const start = swipeRef.current;
+    swipeRef.current = null;
+    if (!start) return;
+    resolveSwipe(e.clientX - start.x, e.clientY - start.y);
+  };
+
+  const onCuratorHotspotTap = () => {
+    const now = Date.now();
+    if (curatorTapRef.current != null && now - curatorTapRef.current < CURATOR_DOUBLE_TAP_MS) {
+      curatorTapRef.current = null;
+      const href = curatorHrefForCell(activeCell);
+      if (!href) return;
+      setOperatorFlash(true);
+      window.setTimeout(() => router.push(href), 220);
+      return;
+    }
+    curatorTapRef.current = now;
+  };
 
   useEffect(() => {
     const blockScroll = (e: TouchEvent) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
-      if (t.closest(".arv-pad-btn, .arv-cell, .arv-back, a")) return;
+      if (t.closest(".arv-portal, .arv-hero, .arv-pad-btn, .arv-cell, .arv-back, .arv-curator-hotspot, a")) {
+        return;
+      }
       e.preventDefault();
     };
     document.addEventListener("touchmove", blockScroll, { passive: false });
     return () => document.removeEventListener("touchmove", blockScroll);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (portalPulseTimer.current) clearTimeout(portalPulseTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -199,15 +322,55 @@ export default function AlbumRetroscopeClient({
       ? `/search?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`
       : null;
 
+  const cellCount = visibleGridRows * RETROSCOPE_GRID_COLS;
+
   return (
-    <div className="arv-machine">
+    <div className={`arv-machine${operatorFlash ? " arv-machine--operator" : ""}`}>
+      <div className="arv-device-face" aria-hidden>
+        <span className="arv-screw arv-screw--tl" />
+        <span className="arv-screw arv-screw--tr" />
+        <span className="arv-device-led" />
+        <span className="arv-device-brand">Retroscope</span>
+        <span className="arv-device-sub">Catalog Explorer · Solid State</span>
+        <span className="arv-device-vents" />
+        <span className="arv-screw arv-screw--bl" />
+        <span className="arv-screw arv-screw--br" />
+      </div>
+
+      <button
+        type="button"
+        className="arv-curator-hotspot"
+        aria-label="Operator access"
+        onClick={onCuratorHotspotTap}
+      />
+
       <Link href="/" className="arv-back">
-        ← Portal
+        Exit
       </Link>
 
       <section className="arv-portal" aria-label="Album portal">
-        <div className="arv-hero">
-          <HeroCover key={activeKey} cell={activeCell} />
+        <span className="arv-portal-tag" aria-hidden>
+          Portal
+        </span>
+        <div className="arv-portal-bezel">
+          <div
+            className={`arv-hero arv-hero--surface${portalPulse ? " arv-hero--pulse" : ""}`}
+          onTouchStart={onPortalTouchStart}
+          onTouchMove={onPortalTouchMove}
+          onTouchEnd={onPortalTouchEnd}
+          onTouchCancel={() => {
+            swipeRef.current = null;
+          }}
+          onPointerDown={onPortalPointerDown}
+          onPointerUp={onPortalPointerUp}
+          onPointerCancel={() => {
+            swipeRef.current = null;
+          }}
+        >
+            <HeroCover key={activeKey} cell={activeCell} />
+            <span className="arv-portal-glass" aria-hidden />
+            <span className="arv-portal-scan" aria-hidden />
+          </div>
         </div>
       </section>
 
@@ -238,13 +401,13 @@ export default function AlbumRetroscopeClient({
         </div>
       </section>
 
-      <section className="arv-strip" aria-label="Retroscope controls">
+      <section className="arv-strip arv-strip--secondary" aria-label="Retroscope controls (secondary)">
         <div className="arv-readout arv-readout--year">
           <div className="arv-readout-label">Year</div>
           <div className="arv-readout-value">{activeYear}</div>
         </div>
 
-        <div className="arv-controls">
+        <div className="arv-controls" aria-label="Directional fallback">
           <button
             type="button"
             className="arv-pad-btn arv-pad-btn--lr"
@@ -272,14 +435,22 @@ export default function AlbumRetroscopeClient({
         </div>
 
         <div className="arv-readout arv-readout--rank">
+          <span className="arv-readout-dot" aria-hidden />
           <div className="arv-readout-label">Rank</div>
           <div className="arv-readout-value">#{activeRank}</div>
         </div>
       </section>
 
       <section className="arv-viewport" aria-label="Exploration viewport">
-        <div className="arv-grid" role="grid">
-          {Array.from({ length: RETROSCOPE_GRID_ROWS * RETROSCOPE_GRID_COLS }, (_, i) => {
+        <span className="arv-viewport-label" aria-hidden>
+          Coordinate Bay
+        </span>
+        <div
+          className="arv-grid"
+          role="grid"
+          style={{ gridTemplateRows: `repeat(${visibleGridRows}, minmax(0, 1fr))` }}
+        >
+          {Array.from({ length: cellCount }, (_, i) => {
             const col = i % RETROSCOPE_GRID_COLS;
             const row = Math.floor(i / RETROSCOPE_GRID_COLS);
             const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;

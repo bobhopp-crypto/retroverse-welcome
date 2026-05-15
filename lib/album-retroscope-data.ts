@@ -3,6 +3,7 @@ export type { RetroscopeCellDTO } from "@/lib/album-retroscope-constants";
 export {
   RETROSCOPE_GRID_COLS,
   RETROSCOPE_GRID_ROWS,
+  RETROSCOPE_GRID_ROWS_MOBILE,
   RETROSCOPE_RANK_MAX,
   RETROSCOPE_WORLD_YEAR_MAX,
   RETROSCOPE_WORLD_YEAR_MIN,
