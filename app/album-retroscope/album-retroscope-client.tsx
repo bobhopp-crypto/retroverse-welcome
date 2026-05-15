@@ -98,7 +98,6 @@ export default function AlbumRetroscopeClient({
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
 
-  /** Shift viewport only when `(ny, nr)` would sit outside current visible bounds (no per-move recenter). */
   const bumpViewportToInclude = useCallback((ny: number, nr: number) => {
     const ynn = Number.isFinite(ny) ? Math.round(ny) : RETROSCOPE_WORLD_YEAR_MIN;
     const rnn = Number.isFinite(nr) ? Math.round(nr) : 1;
@@ -122,23 +121,26 @@ export default function AlbumRetroscopeClient({
     });
   }, []);
 
-  const moveTo = useCallback((nextYear: number, nextRank: number, markExploredFrom: string | null) => {
-    const { y: cy, r: cr } = posRef.current;
-    const ny = clamp(nextYear, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
-    const nr = clamp(nextRank, 1, RETROSCOPE_RANK_MAX);
-    const nk = retroscopeCellKey(ny, nr);
-    if (nk === retroscopeCellKey(cy, cr)) return;
-    setExplored((prev) => {
-      const n = new Set(prev);
-      if (markExploredFrom) n.add(markExploredFrom);
-      n.add(nk);
-      return n;
-    });
-    posRef.current = { y: ny, r: nr };
-    setActiveYear(ny);
-    setActiveRank(nr);
-    bumpViewportToInclude(ny, nr);
-  }, [bumpViewportToInclude]);
+  const moveTo = useCallback(
+    (nextYear: number, nextRank: number, markExploredFrom: string | null) => {
+      const { y: cy, r: cr } = posRef.current;
+      const ny = clamp(nextYear, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
+      const nr = clamp(nextRank, 1, RETROSCOPE_RANK_MAX);
+      const nk = retroscopeCellKey(ny, nr);
+      if (nk === retroscopeCellKey(cy, cr)) return;
+      setExplored((prev) => {
+        const n = new Set(prev);
+        if (markExploredFrom) n.add(markExploredFrom);
+        n.add(nk);
+        return n;
+      });
+      posRef.current = { y: ny, r: nr };
+      setActiveYear(ny);
+      setActiveRank(nr);
+      bumpViewportToInclude(ny, nr);
+    },
+    [bumpViewportToInclude],
+  );
 
   const onPad = useCallback(
     (dir: "u" | "d" | "l" | "r") => {
@@ -151,6 +153,17 @@ export default function AlbumRetroscopeClient({
     },
     [moveTo],
   );
+
+  useEffect(() => {
+    const blockScroll = (e: TouchEvent) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (t.closest(".arv-pad-btn, .arv-cell, .arv-back, a")) return;
+      e.preventDefault();
+    };
+    document.addEventListener("touchmove", blockScroll, { passive: false });
+    return () => document.removeEventListener("touchmove", blockScroll);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -181,78 +194,91 @@ export default function AlbumRetroscopeClient({
     moveTo(y, r, retroscopeCellKey(posRef.current.y, posRef.current.r));
   };
 
+  const searchHref =
+    activeCell != null
+      ? `/search?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`
+      : null;
+
   return (
-    <div className="arv-root-inner px-2 pb-2 pt-1">
+    <div className="arv-machine">
       <Link href="/" className="arv-back">
         ← Portal
       </Link>
 
-      <div className="arv-hero mx-auto mt-1">
-        <HeroCover key={activeKey} cell={activeCell} />
-      </div>
+      <section className="arv-portal" aria-label="Album portal">
+        <div className="arv-hero">
+          <HeroCover key={activeKey} cell={activeCell} />
+        </div>
+      </section>
 
-      <div className="arv-title-block">
-        {activeCell ? (
-          <>
-            <p className="arv-eyebrow">
-              {activeCell.chartYear} · #{activeCell.retroverseRank}
-              {activeCell.sourceNote ? ` · ${activeCell.sourceNote}` : ""}
-            </p>
-            <p className="arv-title">{activeCell.artist}</p>
-            <p className="arv-title mt-1 opacity-90">{activeCell.title}</p>
-            <p className="arv-eyebrow mt-2">
-              <Link
-                href={`/search?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`}
-                className="underline-offset-4 hover:underline"
-              >
-                Search catalog
-              </Link>
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="arv-eyebrow">
-              {activeYear} · Rank #{activeRank}
-            </p>
-            <p className="arv-title opacity-70">Off corpus · keep moving</p>
-          </>
-        )}
-      </div>
+      <section className="arv-meta" aria-live="polite">
+        <div className="arv-meta-inner">
+          {activeCell ? (
+            <>
+              <p className="arv-eyebrow">
+                {activeCell.chartYear} · #{activeCell.retroverseRank}
+                {searchHref ? (
+                  <Link href={searchHref} className="arv-meta-link">
+                    · search
+                  </Link>
+                ) : null}
+              </p>
+              <p className="arv-title-line">
+                {activeCell.artist} — {activeCell.title}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="arv-eyebrow">
+                {activeYear} · #{activeRank}
+              </p>
+              <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
+            </>
+          )}
+        </div>
+      </section>
 
-      <div className="arv-strip">
-        <div className="arv-readout">
+      <section className="arv-strip" aria-label="Retroscope controls">
+        <div className="arv-readout arv-readout--year">
           <div className="arv-readout-label">Year</div>
           <div className="arv-readout-value">{activeYear}</div>
         </div>
 
-        <div className="arv-controls" aria-label="Retroscope pad">
-          <span className="arv-pad-spacer" />
-          <button type="button" className="arv-pad-btn" aria-label="Up toward number one" onClick={() => onPad("u")}>
-            ↑
-          </button>
-          <span className="arv-pad-spacer" />
-          <button type="button" className="arv-pad-btn" aria-label="Previous year" onClick={() => onPad("l")}>
+        <div className="arv-controls">
+          <button
+            type="button"
+            className="arv-pad-btn arv-pad-btn--lr"
+            aria-label="Previous year"
+            onClick={() => onPad("l")}
+          >
             ←
           </button>
-          <span className="arv-pad-spacer" />
-          <button type="button" className="arv-pad-btn" aria-label="Next year" onClick={() => onPad("r")}>
+          <div className="arv-pad-col">
+            <button type="button" className="arv-pad-btn" aria-label="Up toward number one" onClick={() => onPad("u")}>
+              ↑
+            </button>
+            <button type="button" className="arv-pad-btn" aria-label="Deeper rank" onClick={() => onPad("d")}>
+              ↓
+            </button>
+          </div>
+          <button
+            type="button"
+            className="arv-pad-btn arv-pad-btn--lr"
+            aria-label="Next year"
+            onClick={() => onPad("r")}
+          >
             →
           </button>
-          <span className="arv-pad-spacer" />
-          <button type="button" className="arv-pad-btn" aria-label="Deeper in year ranking" onClick={() => onPad("d")}>
-            ↓
-          </button>
-          <span className="arv-pad-spacer" />
         </div>
 
-        <div className="arv-readout arv-readout--right">
+        <div className="arv-readout arv-readout--rank">
           <div className="arv-readout-label">Rank</div>
           <div className="arv-readout-value">#{activeRank}</div>
         </div>
-      </div>
+      </section>
 
-      <div className="arv-grid-wrap">
-        <div className="arv-grid" role="grid" aria-label="Year and rank viewport">
+      <section className="arv-viewport" aria-label="Exploration viewport">
+        <div className="arv-grid" role="grid">
           {Array.from({ length: RETROSCOPE_GRID_ROWS * RETROSCOPE_GRID_COLS }, (_, i) => {
             const col = i % RETROSCOPE_GRID_COLS;
             const row = Math.floor(i / RETROSCOPE_GRID_COLS);
@@ -279,9 +305,7 @@ export default function AlbumRetroscopeClient({
                 role="gridcell"
                 aria-current={isActive ? "true" : undefined}
                 aria-label={
-                  cell
-                    ? `${cell.title}, ${y}, rank ${r}`
-                    : `Empty coordinate ${y} rank ${r}`
+                  cell ? `${cell.title}, ${y}, rank ${r}` : `Empty coordinate ${y} rank ${r}`
                 }
                 className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""}`}
                 onClick={() => onCellTap(y, r)}
@@ -304,7 +328,7 @@ export default function AlbumRetroscopeClient({
             );
           })}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
