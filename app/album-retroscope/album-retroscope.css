@@ -1,10 +1,22 @@
-/* Route shell: fills main below global header; no document growth from this subtree. */
+/* Route shell: full viewport instrument; no document scroll. */
 .arv-route-shell {
   flex: 1 1 0;
   min-height: 0;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+body.arv-body-lock .rv-global-header {
+  display: none;
+}
+
+body.arv-body-lock main {
+  padding-top: 0;
+  min-height: 0;
+  flex: 1 1 0;
 }
 
 .arv-root--empty {
@@ -59,8 +71,8 @@ body.arv-body-lock {
 .arv-hero {
   aspect-ratio: 1;
   flex-shrink: 1;
-  width: min(88vw, 30dvh, 420px);
-  max-height: min(30dvh, 420px);
+  width: min(92vw, 38dvh, 440px);
+  max-height: min(38dvh, 440px);
   margin-inline: auto;
   border-radius: 3px;
   border: 1px solid var(--arv-line-strong);
@@ -106,7 +118,7 @@ body.arv-body-lock {
   text-align: left;
 }
 
-.arv-strip > .arv-readout:last-of-type {
+.arv-readout--right {
   text-align: right;
 }
 
@@ -262,10 +274,55 @@ body.arv-body-lock {
 }
 
 .arv-cell-thumb {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.85;
+  opacity: 0.2;
+  z-index: 1;
+}
+
+.arv-cell--explored .arv-cell-thumb,
+.arv-cell--active .arv-cell-thumb {
+  opacity: 0.88;
+}
+
+.arv-cell-reveal {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(40, 72, 120, 0.55) 0%,
+    rgba(120, 88, 160, 0.45) 42%,
+    rgba(200, 140, 72, 0.5) 100%
+  );
+  opacity: 0.95;
+}
+
+.arv-cell-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.15) 0px,
+      rgba(0, 0, 0, 0.15) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    radial-gradient(circle at 30% 20%, rgba(80, 90, 110, 0.25), transparent 55%),
+    linear-gradient(165deg, rgba(4, 5, 8, 0.92), rgba(10, 12, 16, 0.98));
+  pointer-events: none;
 }
 
 .arv-cell-meta {

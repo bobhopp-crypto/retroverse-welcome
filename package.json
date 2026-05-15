@@ -13,6 +13,7 @@
     "validate:canonical-album-chart": "tsx scripts/validate_canonical_album_chart_runs.ts",
     "audit:major-albums": "tsx scripts/audit_major_albums.ts",
     "report:inventory": "tsx scripts/generate_retroverse_inventory_report.ts",
+    "retroscope:seed": "python3 /Users/bobhopp/RETROVERSE_DATA/scripts/generate_album_retroscope_seed.py",
     "report:rank-inspection": "tsx scripts/report_retroverse_rank_inspection.ts",
     "billboard200:chart-history": "tsx scripts/backfill_billboard200_chart_appearances.ts",
     "inventory:cover-archives": "tsx scripts/inventory_cover_archives.ts",

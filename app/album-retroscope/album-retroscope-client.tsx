@@ -82,7 +82,7 @@ export default function AlbumRetroscopeClient({
 
   const [activeYear, setActiveYear] = useState(safeInit.y);
   const [activeRank, setActiveRank] = useState(safeInit.r);
-  const [explored, setExplored] = useState<Set<string>>(() => new Set());
+  const [explored, setExplored] = useState<Set<string>>(() => new Set([retroscopeCellKey(safeInit.y, safeInit.r)]));
   const [viewYear0, setViewYear0] = useState(() =>
     clamp(safeInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
   );
@@ -131,6 +131,7 @@ export default function AlbumRetroscopeClient({
     setExplored((prev) => {
       const n = new Set(prev);
       if (markExploredFrom) n.add(markExploredFrom);
+      n.add(nk);
       return n;
     });
     posRef.current = { y: ny, r: nr };
@@ -150,23 +151,6 @@ export default function AlbumRetroscopeClient({
     },
     [moveTo],
   );
-
-  useEffect(() => {
-    const k = retroscopeCellKey(activeYear, activeRank);
-    console.info("[album-retroscope:client]", {
-      corpusSize: cells.length,
-      initialActiveKey,
-      selectedCoordinate: k,
-      activeLookup: byKey.has(k) ? "hit" : "miss",
-      viewport: {
-        year0: viewYear0,
-        rank0: viewRank0,
-        yearEnd: viewYear0 + RETROSCOPE_GRID_COLS - 1,
-        rankEnd: viewRank0 + RETROSCOPE_GRID_ROWS - 1,
-      },
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot mount debug
-  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -198,14 +182,12 @@ export default function AlbumRetroscopeClient({
   };
 
   return (
-    <div className="arv-root-inner px-2 pb-2 pt-2">
+    <div className="arv-root-inner px-2 pb-2 pt-1">
       <Link href="/" className="arv-back">
         ← Portal
       </Link>
 
-      <p className="arv-kicker">Album Retroscope</p>
-
-      <div className="arv-hero mx-auto mt-3">
+      <div className="arv-hero mx-auto mt-1">
         <HeroCover key={activeKey} cell={activeCell} />
       </div>
 
@@ -213,16 +195,17 @@ export default function AlbumRetroscopeClient({
         {activeCell ? (
           <>
             <p className="arv-eyebrow">
-              {activeCell.chartYear} · Year rank #{activeCell.retroverseRank}
-              {activeCell.releaseYear != null && activeCell.releaseYear !== activeCell.chartYear
-                ? ` · release ${activeCell.releaseYear}`
-                : ""}
+              {activeCell.chartYear} · #{activeCell.retroverseRank}
+              {activeCell.sourceNote ? ` · ${activeCell.sourceNote}` : ""}
             </p>
             <p className="arv-title">{activeCell.artist}</p>
             <p className="arv-title mt-1 opacity-90">{activeCell.title}</p>
             <p className="arv-eyebrow mt-2">
-              <Link href={`/albums/${activeCell.albumId}`} className="underline-offset-4 hover:underline">
-                Open album
+              <Link
+                href={`/search?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`}
+                className="underline-offset-4 hover:underline"
+              >
+                Search catalog
               </Link>
             </p>
           </>
@@ -238,9 +221,8 @@ export default function AlbumRetroscopeClient({
 
       <div className="arv-strip">
         <div className="arv-readout">
-          <div className="arv-readout-label">Year axis</div>
+          <div className="arv-readout-label">Year</div>
           <div className="arv-readout-value">{activeYear}</div>
-          <div className="arv-readout-sub">West · East · calendar</div>
         </div>
 
         <div className="arv-controls" aria-label="Retroscope pad">
@@ -263,15 +245,13 @@ export default function AlbumRetroscopeClient({
           <span className="arv-pad-spacer" />
         </div>
 
-        <div className="arv-readout">
-          <div className="arv-readout-label">Rank axis</div>
+        <div className="arv-readout arv-readout--right">
+          <div className="arv-readout-label">Rank</div>
           <div className="arv-readout-value">#{activeRank}</div>
-          <div className="arv-readout-sub">North · South · Retroverse order</div>
         </div>
       </div>
 
       <div className="arv-grid-wrap">
-        <p className="arv-readout-label mb-2 text-center">Exploration grid · 7 × 10 viewport</p>
         <div className="arv-grid" role="grid" aria-label="Year and rank viewport">
           {Array.from({ length: RETROSCOPE_GRID_ROWS * RETROSCOPE_GRID_COLS }, (_, i) => {
             const col = i % RETROSCOPE_GRID_COLS;
@@ -291,8 +271,6 @@ export default function AlbumRetroscopeClient({
             else if (isExplored) stateClass = "arv-cell--explored";
 
             const thumb = cell ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
-            const signalStub = cell?.trustState === "unresolved" ? "signal" : "none";
-            const relatedStub = false;
 
             return (
               <button
@@ -305,17 +283,17 @@ export default function AlbumRetroscopeClient({
                     ? `${cell.title}, ${y}, rank ${r}`
                     : `Empty coordinate ${y} rank ${r}`
                 }
-                className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""} ${
-                  relatedStub ? "arv-cell--related" : ""
-                } ${signalStub === "signal" ? "arv-cell--signal" : ""}`}
-                data-signal={signalStub}
-                data-related={relatedStub ? "1" : "0"}
+                className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""}`}
                 onClick={() => onCellTap(y, r)}
               >
                 <div className="arv-cell-inner">
+                  {isExplored && !isVoid ? <span className="arv-cell-reveal" aria-hidden /> : null}
                   {thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt="" className="arv-cell-thumb" draggable={false} loading="lazy" />
+                  ) : null}
+                  {!isVoid && !isExplored && !isActive ? (
+                    <span className="arv-cell-mask" aria-hidden />
                   ) : null}
                   <span className="arv-cell-meta">
                     {y}

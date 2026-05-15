@@ -1,0 +1,136 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import seedBundled from "@/data/album-retroscope-seed.json";
+import type { AlbumRetroscopeSeedFile, AlbumRetroscopeSeedRow } from "@/lib/album-retroscope-seed";
+import {
+  RETROSCOPE_YEAR_MAX,
+  RETROSCOPE_YEAR_MIN,
+  retroscopeCellKey,
+  type RetroscopeCellDTO,
+} from "@/lib/album-retroscope-constants";
+
+export type { RetroscopeCellDTO } from "@/lib/album-retroscope-constants";
+export {
+  RETROSCOPE_GRID_COLS,
+  RETROSCOPE_GRID_ROWS,
+  RETROSCOPE_RANK_MAX,
+  RETROSCOPE_WORLD_YEAR_MAX,
+  RETROSCOPE_WORLD_YEAR_MIN,
+  RETROSCOPE_YEAR_MAX,
+  RETROSCOPE_YEAR_MIN,
+  retroscopeCellKey,
+} from "@/lib/album-retroscope-constants";
+
+function loadSeedFile(): AlbumRetroscopeSeedFile {
+  const override = process.env.ALBUM_RETROSCOPE_SEED_PATH?.trim();
+  if (override) {
+    const raw = readFileSync(override, "utf8");
+    return JSON.parse(raw) as AlbumRetroscopeSeedFile;
+  }
+  const runtime = process.env.RETROVERSE_DATA_ROOT
+    ? path.join(process.env.RETROVERSE_DATA_ROOT, "runtime", "album-retroscope-seed.json")
+    : "";
+  if (runtime) {
+    try {
+      const raw = readFileSync(runtime, "utf8");
+      return JSON.parse(raw) as AlbumRetroscopeSeedFile;
+    } catch {
+      /* bundled fallback */
+    }
+  }
+  return seedBundled as AlbumRetroscopeSeedFile;
+}
+
+function shuffleInPlace<T>(xs: T[], random: () => number): void {
+  for (let i = xs.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [xs[i], xs[j]] = [xs[j]!, xs[i]!];
+  }
+}
+
+function rowToCell(row: AlbumRetroscopeSeedRow): RetroscopeCellDTO | null {
+  const id = row.albumId.trim();
+  if (!id || !Number.isFinite(row.year) || !Number.isFinite(row.rank) || row.rank < 1) return null;
+  const pathVal = row.canonical_cover_path?.trim() || null;
+  return {
+    chartYear: row.year,
+    retroverseRank: row.rank,
+    albumId: id,
+    title: row.album.trim() || "—",
+    artist: row.artist.trim() || "—",
+    releaseYear: row.year,
+    canonicalCoverPath: pathVal,
+    trustState: pathVal ? "verified" : "unresolved",
+    sourceNote: row.source_note?.trim() || null,
+  };
+}
+
+function seedToCells(seed: AlbumRetroscopeSeedFile): RetroscopeCellDTO[] {
+  const out: RetroscopeCellDTO[] = [];
+  const seen = new Set<string>();
+  for (const row of seed.albums ?? []) {
+    const cell = rowToCell(row);
+    if (!cell) continue;
+    const k = retroscopeCellKey(cell.chartYear, cell.retroverseRank);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(cell);
+    if (out.length >= 25) break;
+  }
+  return out;
+}
+
+/** Server-only: static Billboard 200 seed (no Supabase). */
+export function loadAlbumRetroscopeDataset(seedRandom?: () => number): {
+  cells: RetroscopeCellDTO[];
+  initialActiveKey: string;
+} | null {
+  const rnd = seedRandom ?? Math.random;
+  const log = "[album-retroscope:data]";
+
+  let seed: AlbumRetroscopeSeedFile;
+  try {
+    seed = loadSeedFile();
+  } catch (e) {
+    console.warn(log, "seed file load failed", e);
+    return null;
+  }
+
+  const cells = seedToCells(seed);
+  if (cells.length === 0) {
+    console.warn(log, "seed produced zero cells");
+    return null;
+  }
+
+  const topBand = cells.filter(
+    (c) =>
+      c.chartYear >= RETROSCOPE_YEAR_MIN &&
+      c.chartYear <= RETROSCOPE_YEAR_MAX &&
+      c.retroverseRank >= 1 &&
+      c.retroverseRank <= 10,
+  );
+
+  const firstCell = cells[0]!;
+  let initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+
+  if (topBand.length > 0) {
+    const shuffled = [...topBand];
+    shuffleInPlace(shuffled, rnd);
+    const chosen = shuffled[0]!;
+    initialActiveKey = retroscopeCellKey(chosen.chartYear, chosen.retroverseRank);
+  }
+
+  if (!cells.some((c) => retroscopeCellKey(c.chartYear, c.retroverseRank) === initialActiveKey)) {
+    initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+  }
+
+  console.info(log, {
+    corpusSize: cells.length,
+    initialActiveKey,
+    source: seed.source_db ?? "bundled-seed",
+    generatedAt: seed.generated_at,
+  });
+
+  return { cells, initialActiveKey };
+}

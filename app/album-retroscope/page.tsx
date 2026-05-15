@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { loadAlbumRetroscopeDataset } from "@/lib/album-retroscope-data";
+import { loadAlbumRetroscopeDataset } from "@/lib/load-album-retroscope-dataset";
 
 import AlbumRetroscopeClient from "./album-retroscope-client";
 
