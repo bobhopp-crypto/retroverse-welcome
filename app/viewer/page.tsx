@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Retired — replaced by /portal */
+/** Retired — legacy viewer entry points straight at canonical RetroScope. */
 export default function ViewerRedirectPage() {
-  redirect("/");
+  redirect("/album-retroscope");
 }

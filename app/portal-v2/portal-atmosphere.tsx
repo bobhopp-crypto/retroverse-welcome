@@ -19,7 +19,7 @@ const pv2Sans = Inter({
   display: "swap",
 });
 
-/** Shared portal shell: fonts, atmosphere, and viewport fill (used by `/` and `/portal-v2`). */
+/** Shared portal shell: fonts, atmosphere, and viewport fill (used under `/portal-v2`). */
 export default function PortalAtmosphere({ children }: { children: ReactNode }) {
   return (
     <div

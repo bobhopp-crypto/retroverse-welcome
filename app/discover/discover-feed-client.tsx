@@ -122,7 +122,7 @@ function AlbumCard({
 export default function DiscoverFeedClient({ rows, stats: _stats, pagination, eraNav, eraSlug }: DiscoverFeedProps) {
   const { page, pageSize, totalAlbums, totalPages } = pagination;
   const { listBasePath } = eraNav;
-  const isDiscoverHome = listBasePath === "/";
+  const isDiscoverHome = listBasePath === "/portal-v2";
 
   const [memoryTick, setMemoryTick] = useState(0);
   const bumpMemory = useCallback(() => setMemoryTick((n) => n + 1), []);
@@ -336,9 +336,7 @@ export default function DiscoverFeedClient({ rows, stats: _stats, pagination, er
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center sm:gap-4">
               {page > 1 ? (
                 <Link
-                  href={
-                    listBasePath === "/" ? (page <= 2 ? "/" : `/?page=${page - 1}`) : `${listBasePath}?page=${page - 1}`
-                  }
+                  href={page <= 2 ? listBasePath : `${listBasePath}?page=${page - 1}`}
                   className={navBtn}
                 >
                   Earlier batch
@@ -358,7 +356,7 @@ export default function DiscoverFeedClient({ rows, stats: _stats, pagination, er
           <p className="mt-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-[0.7rem] tracking-[0.08em] text-[#7d6554]/85">
             {isDiscoverHome ? (
               <>
-                <Link href="/portal" className="underline-offset-2 hover:text-[#c4a990] hover:underline">
+                <Link href="/portal-v2" className="underline-offset-2 hover:text-[#c4a990] hover:underline">
                   Portal
                 </Link>
                 <span aria-hidden>·</span>
@@ -371,7 +369,7 @@ export default function DiscoverFeedClient({ rows, stats: _stats, pagination, er
                 </Link>
               </>
             ) : (
-                <Link href="/portal" className="underline-offset-2 hover:text-[#c4a990] hover:underline">
+                <Link href="/portal-v2" className="underline-offset-2 hover:text-[#c4a990] hover:underline">
                 Portal
                 </Link>
             )}

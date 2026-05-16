@@ -29,7 +29,7 @@ function buildHomeNav(): DiscoverEraNav {
   return {
     headline: "Discover",
     subline: "Twelve albums at a time — chart memories, slow and deliberate.",
-    listBasePath: "/",
+    listBasePath: "/portal-v2",
     prevEraSlug: null,
     nextEraSlug: null,
   };

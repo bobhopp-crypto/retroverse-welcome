@@ -37,6 +37,17 @@ function curatorHrefForCell(cell: RetroscopeCellDTO | null): string | null {
   return "/internal/curator";
 }
 
+/** RVAL album page, or search fallback when identity is bb200-only. */
+function archiveHrefForCell(cell: RetroscopeCellDTO | null): string | null {
+  if (!cell) return null;
+  const rval = rvalFromCoverPath(cell.canonicalCoverPath);
+  if (rval) return `/albums/${rval}`;
+  if (RVAL_RE.test(cell.albumId)) return `/albums/${cell.albumId.toUpperCase()}`;
+  const q = `${cell.artist} ${cell.title}`.trim();
+  if (q) return `/search?q=${encodeURIComponent(q)}`;
+  return null;
+}
+
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
@@ -212,7 +223,13 @@ export default function AlbumRetroscopeClient({
 
   const resolveSwipe = useCallback(
     (dx: number, dy: number) => {
-      if (Math.abs(dx) < SWIPE_MIN_PX && Math.abs(dy) < SWIPE_MIN_PX) return;
+      if (Math.abs(dx) < SWIPE_MIN_PX && Math.abs(dy) < SWIPE_MIN_PX) {
+        const { y, r } = posRef.current;
+        const cell = byKey.get(retroscopeCellKey(y, r)) ?? null;
+        const href = archiveHrefForCell(cell);
+        if (href) router.push(href);
+        return;
+      }
       flashPortal();
       if (Math.abs(dx) >= Math.abs(dy)) {
         onPad(dx > 0 ? "r" : "l");
@@ -220,7 +237,7 @@ export default function AlbumRetroscopeClient({
       }
       onPad(dy < 0 ? "u" : "d");
     },
-    [flashPortal, onPad],
+    [byKey, flashPortal, onPad, router],
   );
 
   const onPortalTouchStart = (e: React.TouchEvent) => {
@@ -313,8 +330,14 @@ export default function AlbumRetroscopeClient({
 
   const onCellTap = (y: number, r: number) => {
     const k = retroscopeCellKey(y, r);
-    if (k === retroscopeCellKey(posRef.current.y, posRef.current.r)) return;
-    moveTo(y, r, retroscopeCellKey(posRef.current.y, posRef.current.r));
+    const cur = retroscopeCellKey(posRef.current.y, posRef.current.r);
+    if (k === cur) {
+      const cell = byKey.get(k) ?? null;
+      const href = archiveHrefForCell(cell);
+      if (href) router.push(href);
+      return;
+    }
+    moveTo(y, r, cur);
   };
 
   const searchHref =
@@ -329,9 +352,15 @@ export default function AlbumRetroscopeClient({
       <div className="arv-device-face" aria-hidden>
         <span className="arv-screw arv-screw--tl" />
         <span className="arv-screw arv-screw--tr" />
-        <span className="arv-device-led" />
-        <span className="arv-device-brand">Retroscope</span>
-        <span className="arv-device-sub">Catalog Explorer · Solid State</span>
+        <span className="arv-device-led arv-device-led--pwr" />
+        <span className="arv-device-led arv-device-led--sig" />
+        <span className="arv-device-brand">
+          Retroscope<span className="arv-device-model"> 2000</span>
+        </span>
+        <span className="arv-device-sub">
+          <span className="arv-device-sub-line">Solid State</span>
+          <span className="arv-device-sub-line">Catalog Explorer</span>
+        </span>
         <span className="arv-device-vents" />
         <span className="arv-screw arv-screw--bl" />
         <span className="arv-screw arv-screw--br" />
@@ -344,29 +373,30 @@ export default function AlbumRetroscopeClient({
         onClick={onCuratorHotspotTap}
       />
 
-      <Link href="/" className="arv-back">
+      <Link href="/welcome" className="arv-back">
         Exit
       </Link>
 
       <section className="arv-portal" aria-label="Album portal">
-        <span className="arv-portal-tag" aria-hidden>
+        <Link href="/toc" className="arv-portal-tag" aria-label="Retroverse index">
           Portal
-        </span>
+        </Link>
         <div className="arv-portal-bezel">
+          <span className="arv-portal-rim" aria-hidden />
           <div
             className={`arv-hero arv-hero--surface${portalPulse ? " arv-hero--pulse" : ""}`}
-          onTouchStart={onPortalTouchStart}
-          onTouchMove={onPortalTouchMove}
-          onTouchEnd={onPortalTouchEnd}
-          onTouchCancel={() => {
-            swipeRef.current = null;
-          }}
-          onPointerDown={onPortalPointerDown}
-          onPointerUp={onPortalPointerUp}
-          onPointerCancel={() => {
-            swipeRef.current = null;
-          }}
-        >
+            onTouchStart={onPortalTouchStart}
+            onTouchMove={onPortalTouchMove}
+            onTouchEnd={onPortalTouchEnd}
+            onTouchCancel={() => {
+              swipeRef.current = null;
+            }}
+            onPointerDown={onPortalPointerDown}
+            onPointerUp={onPortalPointerUp}
+            onPointerCancel={() => {
+              swipeRef.current = null;
+            }}
+          >
             <HeroCover key={activeKey} cell={activeCell} />
             <span className="arv-portal-glass" aria-hidden />
             <span className="arv-portal-scan" aria-hidden />
@@ -375,6 +405,9 @@ export default function AlbumRetroscopeClient({
       </section>
 
       <section className="arv-meta" aria-live="polite">
+        <span className="arv-meta-plate-label" aria-hidden>
+          Readout
+        </span>
         <div className="arv-meta-inner">
           {activeCell ? (
             <>
@@ -403,10 +436,14 @@ export default function AlbumRetroscopeClient({
 
       <section className="arv-strip arv-strip--secondary" aria-label="Retroscope controls (secondary)">
         <div className="arv-readout arv-readout--year">
+          <span className="arv-readout-lamp" aria-hidden />
           <div className="arv-readout-label">Year</div>
           <div className="arv-readout-value">{activeYear}</div>
         </div>
 
+        <span className="arv-strip-plate-label" aria-hidden>
+          Nav
+        </span>
         <div className="arv-controls" aria-label="Directional fallback">
           <button
             type="button"
@@ -435,6 +472,7 @@ export default function AlbumRetroscopeClient({
         </div>
 
         <div className="arv-readout arv-readout--rank">
+          <span className="arv-readout-lamp" aria-hidden />
           <span className="arv-readout-dot" aria-hidden />
           <div className="arv-readout-label">Rank</div>
           <div className="arv-readout-value">#{activeRank}</div>

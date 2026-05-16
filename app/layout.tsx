@@ -57,13 +57,13 @@ export default function RootLayout({
         <header className="rv-global-header" role="banner">
           <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 sm:px-5">
             <Link
-              href="/"
+              href="/album-retroscope"
               className="font-serif text-[1.05rem] tracking-[0.04em] text-[var(--text-primary)] sm:text-[1.12rem]"
             >
               Retroverse
             </Link>
             <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4" aria-label="Primary">
-              <Link className={navLink} href="/">
+              <Link className={navLink} href="/portal-v2">
                 Portal
               </Link>
               <Link className={navLink} href="/eras">

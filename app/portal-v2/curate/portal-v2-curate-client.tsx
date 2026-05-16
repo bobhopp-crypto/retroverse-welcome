@@ -556,16 +556,14 @@ export default function PortalV2CurateClient({
   }
 
   /**
-   * Page-mode return path. The curator is launched as a route from a variety
-   * of surfaces (era page, discover feed, album detail), so a hard-coded "/"
-   * is wrong. Prefer browser history; only fall back to "/" if we have no
-   * history to walk back to (direct URL / bookmark).
+   * Page-mode return path. Prefer browser history; only fall back to /portal-v2 if we have no
+   * history (direct URL / bookmark).
    */
   function goBack() {
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/");
+      router.push("/portal-v2");
     }
   }
 

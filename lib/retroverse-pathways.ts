@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { RetroverseProvenanceLevel } from "@/lib/retroverse-editorial";
-import { albumRoute, artistRoute } from "@/lib/retroverse-routes";
+import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage } from "@/lib/retroverse-lineage";
 
 type PathwayEntityKind = "track" | "album" | "artist" | "era";
@@ -201,14 +201,6 @@ function maybeDebugPathways(kind: PathwayEntityKind, entityId: string, pathways:
   }
 }
 
-function albumHrefFromTitle(title: string): string {
-  return albumRoute(title);
-}
-
-function artistHrefFromName(name: string): string {
-  return artistRoute(name);
-}
-
 function eraHref(era: EraRow): string {
   if (era.start_year === 1974 && era.end_year === 1977) return "/eras/1974-1977";
   return `/eras/${era.slug}`;
@@ -302,7 +294,7 @@ export async function generateTrackPathways(supabase: SupabaseClient, retroverse
         key: "soundtrack-crossover",
         label: "Soundtrack crossover corridor",
         summary: `${track.canonical_title} moves through soundtrack sequencing while retaining chart and album identity.`,
-        href: albumHrefFromTitle(soundtrackAppearance.canonicalAlbumTitle),
+        href: hrefForAlbum(soundtrackAppearance.retroverseAlbumId, soundtrackAppearance.canonicalAlbumTitle),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -322,7 +314,7 @@ export async function generateTrackPathways(supabase: SupabaseClient, retroverse
         key: "compilation-canonization",
         label: "Compilation-era canonization",
         summary: "The track is re-anchored in later compilation sequencing as catalog memory hardens.",
-        href: albumHrefFromTitle(compilationAppearance.canonicalAlbumTitle),
+        href: hrefForAlbum(compilationAppearance.retroverseAlbumId, compilationAppearance.canonicalAlbumTitle),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -363,7 +355,9 @@ export async function generateTrackPathways(supabase: SupabaseClient, retroverse
         key: "era-carry-forward",
         label: "Era carry-forward chain",
         summary: "The track persists beyond its first period and remains active in later-era album contexts.",
-        href: firstAppearance ? albumHrefFromTitle(firstAppearance.canonicalAlbumTitle) : `/tracks/${retroverseTrackId}`,
+        href: firstAppearance
+          ? hrefForAlbum(firstAppearance.retroverseAlbumId, firstAppearance.canonicalAlbumTitle)
+          : `/tracks/${retroverseTrackId}`,
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -515,7 +509,7 @@ export async function generateAlbumPathways(supabase: SupabaseClient, retroverse
         key: "compilation-canonization",
         label: "Compilation-era canonization",
         summary: "Tracks from this album reappear in compilation packaging and consolidate catalog memory.",
-        href: albumHrefFromTitle(firstCompilation.canonical_album_title),
+        href: hrefForAlbum(firstCompilation.retroverse_album_id, firstCompilation.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -534,7 +528,9 @@ export async function generateAlbumPathways(supabase: SupabaseClient, retroverse
         key: "soundtrack-crossover",
         label: "Soundtrack crossover pathway",
         summary: "Album tracks intersect with soundtrack circulation, linking sequence context to soundtrack exposure.",
-        href: firstSoundtrack ? albumHrefFromTitle(firstSoundtrack.canonical_album_title) : albumHrefFromTitle(album.canonical_album_title),
+        href: firstSoundtrack
+          ? hrefForAlbum(firstSoundtrack.retroverse_album_id, firstSoundtrack.canonical_album_title)
+          : hrefForAlbum(album.retroverse_album_id, album.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -553,7 +549,7 @@ export async function generateAlbumPathways(supabase: SupabaseClient, retroverse
         key: "era-bridge",
         label: "Era bridge traversal",
         summary: "Track reuse moves out of the album's origin era and into adjacent chronology windows.",
-        href: albumHrefFromTitle(eraCarrierAlbum.canonical_album_title),
+        href: hrefForAlbum(eraCarrierAlbum.retroverse_album_id, eraCarrierAlbum.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -679,7 +675,7 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
       key: "album-dominance",
       label: `${eraResult.data?.display_name ?? "Era"} album dominance`,
       summary: `${artist.canonical_artist_name} maintains repeat album presence inside a concentrated chronology window.`,
-      href: eraResult.data ? eraHref(eraResult.data) : artistHrefFromName(artist.canonical_artist_name),
+      href: eraResult.data ? eraHref(eraResult.data) : hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name),
       provenanceLevel: "inferred",
       qualityScoreAdjustment: 0,
       qualityNotes: [],
@@ -694,7 +690,9 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
       key: "chart-album-transition",
       label: "Chart-to-album transition",
       summary: "Chart outcomes remain connected to album sequencing rather than separated single logic.",
-      href: firstAlbum ? albumHrefFromTitle(firstAlbum.canonical_album_title) : artistHrefFromName(artist.canonical_artist_name),
+      href: firstAlbum
+        ? hrefForAlbum(firstAlbum.retroverse_album_id, firstAlbum.canonical_album_title)
+        : hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name),
       provenanceLevel: "inferred",
       qualityScoreAdjustment: 0,
       qualityNotes: [],
@@ -712,7 +710,7 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
         key: "soundtrack-crossover",
         label: "Disco soundtrack crossover",
         summary: "Soundtrack memberships route artist identity into broader chart-facing circulation.",
-        href: albumHrefFromTitle(firstSoundtrack.canonical_album_title),
+        href: hrefForAlbum(firstSoundtrack.retroverse_album_id, firstSoundtrack.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -731,7 +729,7 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
         key: "compilation-canonization",
         label: "Compilation-era canonization",
         summary: "Compilation memberships convert release history into a durable artist canon layer.",
-        href: albumHrefFromTitle(firstCompilation.canonical_album_title),
+        href: hrefForAlbum(firstCompilation.retroverse_album_id, firstCompilation.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -896,7 +894,9 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
         key: "soundtrack-crossover",
         label: "Soundtrack crossover corridor",
         summary: "Soundtrack-linked albums route era tracks into broader circulation channels.",
-        href: firstForeignEraAlbum ? albumHrefFromTitle(firstForeignEraAlbum.canonical_album_title) : eraHref(era),
+        href: firstForeignEraAlbum
+          ? hrefForAlbum(firstForeignEraAlbum.retroverse_album_id, firstForeignEraAlbum.canonical_album_title)
+          : eraHref(era),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -915,7 +915,9 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
         key: "compilation-canonization",
         label: "Compilation-era canonization",
         summary: "Compilation releases stabilize the era's track memory across later catalog windows.",
-        href: firstForeignEraAlbum ? albumHrefFromTitle(firstForeignEraAlbum.canonical_album_title) : eraHref(era),
+        href: firstForeignEraAlbum
+          ? hrefForAlbum(firstForeignEraAlbum.retroverse_album_id, firstForeignEraAlbum.canonical_album_title)
+          : eraHref(era),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],
@@ -934,7 +936,7 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
         key: "later-era-bridge",
         label: "Later-era carry-forward",
         summary: "Tracks from this era continue into later-era album contexts through reuse and re-sequencing.",
-        href: albumHrefFromTitle(firstForeignEraAlbum.canonical_album_title),
+        href: hrefForAlbum(firstForeignEraAlbum.retroverse_album_id, firstForeignEraAlbum.canonical_album_title),
         provenanceLevel: "inferred",
         qualityScoreAdjustment: 0,
         qualityNotes: [],

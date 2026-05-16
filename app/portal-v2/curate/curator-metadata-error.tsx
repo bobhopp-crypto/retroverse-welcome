@@ -55,7 +55,7 @@ export default function CuratorAlbumResolveError({
         </div>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/"
+            href="/portal-v2"
             className="inline-flex min-h-11 touch-manipulation items-center justify-center rounded-full bg-[#c8a96b] px-6 py-3 text-[15px] font-semibold text-[#05070b] no-underline"
           >
             Back to portal

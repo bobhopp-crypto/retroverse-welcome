@@ -27,12 +27,12 @@ function firstString(v: string | string[] | undefined): string | undefined {
 export default async function PortalV2CuratePage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
   const raw = firstString(sp.albumId)?.trim().toUpperCase() ?? "";
-  if (!RVAL.test(raw)) redirect("/");
+  if (!RVAL.test(raw)) redirect("/portal-v2");
 
   /** Uncached — curator must reflect current Supabase joins (artist/title) */
   const rows = await hydrateDiscoverAlbumRowsFresh([raw]);
   const row = rows.find((r) => r.kind === "album" && r.albumId === raw);
-  if (!row || row.kind !== "album") redirect("/");
+  if (!row || row.kind !== "album") redirect("/portal-v2");
 
   const meta = validateAlbumRowForCurator(row);
   console.log("[portal-v2/curate] metadata resolution", {

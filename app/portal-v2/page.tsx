@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Portal · Retroverse",
   description: "A framed aperture through the archive — year by year, album by album.",
 };
-/** Same payload as `/`; share the same edge cache window. */
+/** Portal aperture home (`/portal-v2`); share the edge cache window. */
 export const revalidate = 300;
 
 export default PortalHomeContent;

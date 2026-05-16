@@ -7,7 +7,7 @@ import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildTrackContextLine, buildTrackCulturalRole } from "@/lib/retroverse-editorial";
 import { getEraBySlug } from "@/lib/eras";
-import { albumRoute, artistRoute } from "@/lib/retroverse-routes";
+import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage, type TrackLineageAppearance } from "@/lib/retroverse-lineage";
 import { generateTrackPathways } from "@/lib/retroverse-pathways";
 import { createClient } from "@/lib/supabase";
@@ -63,6 +63,7 @@ type ChartRow = {
 
 type RelatedTrack = {
   retroverseTrackId: string;
+  retroverseArtistId: string | null;
   title: string;
   artist: string;
   albumId: string | null;
@@ -88,14 +89,6 @@ function albumTypeLabel(albumType: string | null, soundtrackFlag: boolean): stri
   if (albumType === "studio") return "Studio album";
   if (albumType === "live") return "Live album";
   return "Album";
-}
-
-function albumHrefFromTitle(title: string): string {
-  return albumRoute(title);
-}
-
-function artistHrefFromName(name: string): string {
-  return artistRoute(name);
 }
 
 function eraHref(era: EraRow): string {
@@ -435,6 +428,7 @@ async function loadTrackGraph(idParam: string) {
       if (reusePatternCandidateIds.has(row.retroverse_track_id)) reasons.push("Shares reuse pattern");
       return {
         retroverseTrackId: row.retroverse_track_id,
+        retroverseArtistId: row.retroverse_artist_id,
         title: row.canonical_title,
         artist: relatedArtistById.get(row.retroverse_artist_id) ?? "Unknown artist",
         albumId: row.retroverse_album_id ?? null,
@@ -442,8 +436,8 @@ async function loadTrackGraph(idParam: string) {
           ? relatedAlbumTitleById.get(row.retroverse_album_id) ?? "Album unknown"
           : "Album unknown",
         albumHref:
-          row.retroverse_album_id && relatedAlbumTitleById.get(row.retroverse_album_id)
-            ? albumRoute(relatedAlbumTitleById.get(row.retroverse_album_id) ?? "")
+          row.retroverse_album_id
+            ? hrefForAlbum(row.retroverse_album_id, relatedAlbumTitleById.get(row.retroverse_album_id) ?? "")
             : "/albums",
         coverPath:
           row.retroverse_album_id
@@ -532,11 +526,11 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     borderLeftColor: eraAccent,
     background: `color-mix(in srgb, var(--surface-raised) 86%, ${eraAccent} 14%)`,
   } as const;
-  const artistHref = artistHrefFromName(artist.canonical_artist_name);
+  const artistHref = hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name);
   const primaryAlbumHref = originalAppearance
-    ? albumHrefFromTitle(originalAppearance.canonicalAlbumTitle)
+    ? hrefForAlbum(originalAppearance.retroverseAlbumId, originalAppearance.canonicalAlbumTitle)
     : directTrackAlbum
-    ? albumHrefFromTitle(directTrackAlbum.canonical_album_title)
+    ? hrefForAlbum(directTrackAlbum.retroverse_album_id, directTrackAlbum.canonical_album_title)
     : "/albums";
 
   return (
@@ -676,7 +670,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
               {directTrackAlbum ? (
                 <p className="text-[0.95rem] text-[var(--text-secondary)]">
                   Album link:{" "}
-                  <Link href={albumHrefFromTitle(directTrackAlbum.canonical_album_title)} className="underline-offset-2 hover:underline">
+                  <Link href={hrefForAlbum(directTrackAlbum.retroverse_album_id, directTrackAlbum.canonical_album_title)} className="underline-offset-2 hover:underline">
                     {directTrackAlbum.canonical_album_title}
                   </Link>
                 </p>
@@ -721,7 +715,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
                     />
                     <div className="min-w-0">
                       <p className="text-[0.98rem] font-medium text-[var(--text-primary)] sm:text-[1.01rem]">
-                        <Link href={albumHrefFromTitle(appearance.canonicalAlbumTitle)} className="underline-offset-4 hover:underline">
+                        <Link href={hrefForAlbum(appearance.retroverseAlbumId, appearance.canonicalAlbumTitle)} className="underline-offset-4 hover:underline">
                           {appearance.canonicalAlbumTitle}
                         </Link>
                       </p>
@@ -795,7 +789,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
                             {row.title}
                           </Link>{" "}
                           -{" "}
-                          <Link href={artistHrefFromName(row.artist)} className="underline-offset-2 hover:underline">
+                          <Link href={hrefForArtist(row.retroverseArtistId, row.artist)} className="underline-offset-2 hover:underline">
                             {row.artist}
                           </Link>
                         </p>

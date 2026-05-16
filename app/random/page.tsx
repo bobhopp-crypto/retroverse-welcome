@@ -170,5 +170,5 @@ export default async function RandomTraversalPage() {
           ? weightedPick(trackPool)?.href
           : weightedPick(eraPool)?.href;
 
-  redirect(destination ?? "/");
+  redirect(destination ?? "/album-retroscope");
 }

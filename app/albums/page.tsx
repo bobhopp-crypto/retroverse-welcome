@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { ArtworkFrame } from "@/app/components/artwork-frame";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
-import { albumRoute, artistRoute } from "@/lib/retroverse-routes";
+import { hrefForArtist, hrefForAlbum } from "@/lib/retroverse-routes";
 import { createClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
@@ -120,8 +120,8 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
               primaryEdition?.retroverse_album_edition_id ?? null,
             );
 
-            const traversalHref = albumRoute(album.canonical_album_title);
-            const artistProfileHref = artist ? artistRoute(artist.canonical_artist_name) : null;
+            const traversalHref = hrefForAlbum(album.retroverse_album_id, album.canonical_album_title);
+            const artistProfileHref = artist ? hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name) : null;
 
             return (
               <li key={album.retroverse_album_id} className="min-w-0">

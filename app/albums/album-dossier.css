@@ -1,0 +1,317 @@
+/**
+ * Local-first album dossier — deeper bay inside the RetroScope instrument.
+ * Data: public/data/albums/album-dossiers.json (generated, no Supabase).
+ */
+.dossier-body {
+  --d-plastic: #c9b995;
+  --d-void: #0a0908;
+  --d-panel: #14110e;
+  --d-amber: #e88818;
+  --d-amber-hot: #ffb84a;
+  --d-cream: #f0e0bc;
+  --d-cream-dim: rgba(240, 224, 188, 0.55);
+  background: linear-gradient(168deg, #2a2620 0%, #12100e 55%, #060504 100%);
+  color: var(--d-cream);
+  min-height: 100dvh;
+}
+
+.dossier-shell {
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.75rem) 1rem calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+.dossier-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.dossier-back {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--d-amber-hot);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dossier-back:hover {
+  color: #ffd695;
+}
+
+.dossier-plate-id {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.52rem;
+  color: var(--d-cream-dim);
+  letter-spacing: 0.08em;
+}
+
+.dossier-hero-bezel {
+  padding: 0.45rem;
+  border-radius: 12px;
+  background: linear-gradient(165deg, #1a1612 0%, #0a0908 100%);
+  box-shadow:
+    inset 0 4px 14px rgba(0, 0, 0, 0.85),
+    inset 0 0 0 2px rgba(232, 136, 24, 0.25);
+  margin-bottom: 1rem;
+}
+
+.dossier-hero-inner {
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2px solid #020201;
+  aspect-ratio: 1;
+  max-height: min(72vw, 20rem);
+  margin-inline: auto;
+  background: #000;
+}
+
+.dossier-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.dossier-cover-void {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--d-amber);
+  padding: 1rem;
+  text-align: center;
+}
+
+.dossier-readout {
+  text-align: center;
+  margin-bottom: 1.1rem;
+}
+
+.dossier-title {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  margin: 0 0 0.25rem;
+  text-shadow: 0 0 20px rgba(232, 136, 24, 0.12);
+}
+
+.dossier-artist {
+  margin: 0 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--d-cream-dim);
+}
+
+.dossier-eyebrow {
+  margin: 0;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--d-amber-hot);
+}
+
+.dossier-trust {
+  margin: 0.35rem 0 0;
+  font-size: 0.55rem;
+  letter-spacing: 0.06em;
+  color: var(--d-cream-dim);
+  text-transform: uppercase;
+}
+
+.dossier-panel {
+  background: var(--d-panel);
+  border: 1px solid rgba(0, 0, 0, 0.65);
+  border-radius: 8px;
+  padding: 0.85rem 0.9rem;
+  margin-bottom: 0.75rem;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.dossier-panel--signal {
+  border-color: rgba(232, 136, 24, 0.22);
+}
+
+.dossier-panel-label {
+  margin: 0 0 0.55rem;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--d-amber);
+}
+
+.dossier-dl {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.dossier-dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+}
+
+.dossier-dl dt {
+  color: var(--d-cream-dim);
+  font-weight: 500;
+}
+
+.dossier-dl dd {
+  margin: 0;
+  font-family: var(--font-geist-mono), monospace;
+  color: var(--d-cream);
+  text-align: right;
+}
+
+.dossier-related-mini {
+  margin: 0.6rem 0 0;
+  padding-left: 1rem;
+  font-size: 0.68rem;
+  color: var(--d-cream-dim);
+}
+
+.dossier-editorial {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--d-cream);
+}
+
+.dossier-descriptors {
+  margin: 0 0 0.55rem;
+  padding-left: 1.1rem;
+  font-size: 0.72rem;
+  color: var(--d-cream-dim);
+  line-height: 1.35;
+}
+
+.dossier-track-count {
+  margin: 0 0 0.6rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  color: var(--d-cream-dim);
+}
+
+.dossier-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dossier-meter {
+  display: grid;
+  grid-template-columns: 6.2rem 1fr 3.5rem;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.62rem;
+}
+
+.dossier-meter-label {
+  color: var(--d-cream-dim);
+}
+
+.dossier-meter-track {
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.dossier-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a85e10, var(--d-amber-hot));
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(255, 184, 74, 0.35);
+}
+
+.dossier-meter-val {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.58rem;
+  color: var(--d-amber-hot);
+  text-align: right;
+}
+
+.dossier-track-scroll {
+  overflow-x: auto;
+  margin: 0 -0.25rem;
+}
+
+.dossier-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.65rem;
+}
+
+.dossier-table th,
+.dossier-table td {
+  padding: 0.28rem 0.35rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 248, 230, 0.06);
+}
+
+.dossier-table th {
+  color: var(--d-amber);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.52rem;
+}
+
+.dossier-subhead {
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.52rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--d-cream-dim);
+}
+
+.dossier-subhead:first-of-type {
+  margin-top: 0;
+}
+
+.dossier-related {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--d-cream-dim);
+}
+
+.dossier-related-meta {
+  font-size: 0.65rem;
+  opacity: 0.85;
+}
+
+.dossier-a {
+  color: var(--d-amber-hot);
+  text-decoration: none;
+}
+
+.dossier-a:hover {
+  text-decoration: underline;
+}
+
+.dossier-a--quiet {
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.dossier-foot {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 248, 230, 0.08);
+  text-align: center;
+}

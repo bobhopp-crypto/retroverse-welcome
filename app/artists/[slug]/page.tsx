@@ -7,7 +7,7 @@ import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildArtistContextLine, buildArtistCulturalRole } from "@/lib/retroverse-editorial";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
-import { albumRoute, normalizeEntitySlug } from "@/lib/retroverse-routes";
+import { hrefForAlbum, normalizeEntitySlug } from "@/lib/retroverse-routes";
 import { createClient } from "@/lib/supabase";
 
 /**
@@ -291,7 +291,7 @@ async function loadArtistExperience(slug: string) {
       return {
         id: album.retroverse_album_id,
         title: album.canonical_album_title,
-        href: albumRoute(album.canonical_album_title),
+        href: hrefForAlbum(album.retroverse_album_id, album.canonical_album_title),
         albumTypeLabel: albumTypeLabel(album.album_type, album.soundtrack_flag),
         releaseYear: album.release_year,
         roleLabel: roleLabel(role?.role ?? null),
@@ -321,7 +321,7 @@ async function loadArtistExperience(slug: string) {
         id: track.retroverse_track_id,
         title: track.canonical_title,
         albumTitle: album.canonical_album_title,
-        albumHref: albumRoute(album.canonical_album_title),
+        albumHref: hrefForAlbum(album.retroverse_album_id, album.canonical_album_title),
         releaseYear: track.release_year,
         peakChartPosition: peak,
         contextLabel,
@@ -391,7 +391,7 @@ async function loadArtistExperience(slug: string) {
         id: track.retroverse_track_id,
         title: track.canonical_title,
         albumTitle: album?.canonical_album_title ?? "Album unknown",
-        albumHref: album ? albumRoute(album.canonical_album_title) : "/albums",
+        albumHref: album ? hrefForAlbum(album.retroverse_album_id, album.canonical_album_title) : "/albums",
         releaseYear: track.release_year,
         peakChartPosition: peakChartByTrackId.get(track.retroverse_track_id) ?? null,
       };
