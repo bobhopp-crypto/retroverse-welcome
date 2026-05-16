@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { cache } from "react";
 
 import seedBundled from "@/data/album-retroscope-seed.json";
 import type { AlbumRetroscopeSeedFile, AlbumRetroscopeSeedRow } from "@/lib/album-retroscope-seed";
@@ -9,6 +10,7 @@ import {
   type RetroscopeCellDTO,
 } from "@/lib/album-retroscope-constants";
 import { mergeCanonicalArtworkOverridesIntoRetroscopeCells } from "@/lib/canonical-artwork-overrides";
+import { retroscopeDatasetCorpusId } from "@/lib/retroscope-persist-session";
 
 export type { RetroscopeCellDTO } from "@/lib/album-retroscope-constants";
 export {
@@ -80,12 +82,16 @@ function coordToDto(row: RetroscopeCoordinateCell): RetroscopeCellDTO | null {
   const id = row.albumId?.trim();
   if (!id) return null;
   const pathVal = row.canonical_cover_path?.trim() || null;
+  const title = row.album?.trim() || "—";
+  const artist = row.artist?.trim() || "—";
   return {
     chartYear: row.chartYear,
     retroverseRank: row.chartRank,
+    entityKind: "album",
+    entityId: id,
     albumId: id,
-    title: row.album?.trim() || "—",
-    artist: row.artist?.trim() || "—",
+    title,
+    artist,
     releaseYear: row.chartYear,
     canonicalCoverPath: pathVal,
     trustState: normalizeTrustState(row.trustState),
@@ -99,12 +105,16 @@ function rowToCell(row: AlbumRetroscopeSeedRow): RetroscopeCellDTO | null {
   const id = row.albumId.trim();
   if (!id || !Number.isFinite(row.year) || !Number.isFinite(row.rank) || row.rank < 1) return null;
   const pathVal = row.canonical_cover_path?.trim() || null;
+  const title = row.album.trim() || "—";
+  const artist = row.artist.trim() || "—";
   return {
     chartYear: row.year,
     retroverseRank: row.rank,
+    entityKind: "album",
+    entityId: id,
     albumId: id,
-    title: row.album.trim() || "—",
-    artist: row.artist.trim() || "—",
+    title,
+    artist,
     releaseYear: row.year,
     canonicalCoverPath: pathVal,
     trustState: pathVal ? "verified" : "unresolved",
@@ -149,11 +159,14 @@ function sortCellsStableForRetroscope(cells: RetroscopeCellDTO[]): RetroscopeCel
   });
 }
 
-/** Server-only: Billboard 200 corpus from materialized runtime JSON or small bundled seed (no Supabase). */
-export function loadAlbumRetroscopeDataset(): {
+export type AlbumRetroscopeDataset = {
   cells: RetroscopeCellDTO[];
   initialActiveKey: string;
-} | null {
+  corpusId: string;
+};
+
+/** Server-only: Billboard 200 corpus from materialized runtime JSON or small bundled seed (no Supabase). */
+async function loadAlbumRetroscopeDatasetUncached(): Promise<AlbumRetroscopeDataset | null> {
   const log = "[album-retroscope:data]";
 
   const coords = loadCoordinatesFile();
@@ -164,18 +177,25 @@ export function loadAlbumRetroscopeDataset(): {
       return null;
     }
 
-    const cells = sortCellsStableForRetroscope(mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
+    const cells = sortCellsStableForRetroscope(await mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
     const firstCell = cells[0]!;
     const initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+    const corpusId = retroscopeDatasetCorpusId({
+      source: coords.source_db ?? "retroscope-coordinates",
+      version: coords.version,
+      generatedAt: coords.generated_at,
+      cellCount: coords.cell_count ?? cells.length,
+    });
 
     console.info(log, {
       corpusSize: cells.length,
       initialActiveKey,
+      corpusId,
       source: coords.source_db,
       generatedAt: coords.generated_at,
       runtime: "retroscope-coordinates.json",
     });
-    return { cells, initialActiveKey };
+    return { cells, initialActiveKey, corpusId };
   }
 
   let seed: AlbumRetroscopeSeedFile;
@@ -192,16 +212,42 @@ export function loadAlbumRetroscopeDataset(): {
     return null;
   }
 
-  const cells = sortCellsStableForRetroscope(mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
+  const cells = sortCellsStableForRetroscope(await mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
   const firstCell = cells[0]!;
   const initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
+  const corpusId = retroscopeDatasetCorpusId({
+    source: seed.source_db ?? "bundled-seed",
+    version: 1,
+    generatedAt: seed.generated_at,
+    cellCount: cells.length,
+  });
 
   console.info(log, {
     corpusSize: cells.length,
     initialActiveKey,
+    corpusId,
     source: seed.source_db ?? "bundled-seed",
     generatedAt: seed.generated_at,
   });
 
-  return { cells, initialActiveKey };
+  return { cells, initialActiveKey, corpusId };
+}
+
+const loadAlbumRetroscopeDatasetPerRequest = cache(loadAlbumRetroscopeDatasetUncached);
+
+let moduleAlbumDataset: AlbumRetroscopeDataset | null | undefined;
+let moduleAlbumInFlight: Promise<AlbumRetroscopeDataset | null> | null = null;
+
+/** Dedupes within a request (`cache`) and across warm server instances (module memo). */
+export async function loadAlbumRetroscopeDataset(): Promise<AlbumRetroscopeDataset | null> {
+  if (moduleAlbumDataset !== undefined) return moduleAlbumDataset;
+  if (moduleAlbumInFlight) return moduleAlbumInFlight;
+
+  moduleAlbumInFlight = loadAlbumRetroscopeDatasetPerRequest().then((result) => {
+    moduleAlbumDataset = result;
+    moduleAlbumInFlight = null;
+    return result;
+  });
+
+  return moduleAlbumInFlight;
 }

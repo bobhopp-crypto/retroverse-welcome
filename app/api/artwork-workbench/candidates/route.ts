@@ -18,10 +18,10 @@ function parseYear(v: string | null): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
-function resolveApprovedRetroverseCoverUrl(albumId: string | null): string | null {
+async function resolveApprovedRetroverseCoverUrl(albumId: string | null): Promise<string | null> {
   const id = albumId?.trim().toUpperCase();
   if (!id || !RVAL_ALBUM_ID.test(id)) return null;
-  const raw = pickCanonicalCoverPathForAlbum(id);
+  const raw = await pickCanonicalCoverPathForAlbum(id);
   return canonicalCoverPathToUrl(raw ?? null);
 }
 
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   });
 
   try {
-    const approvedCoverUrl = resolveApprovedRetroverseCoverUrl(albumIdRaw || null);
+    const approvedCoverUrl = await resolveApprovedRetroverseCoverUrl(albumIdRaw || null);
     console.log("[artwork-workbench/candidates] request_context", {
       albumId: albumNorm || null,
       artistPreview: artist.slice(0, 72),

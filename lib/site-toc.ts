@@ -11,47 +11,56 @@ export type SiteTocPattern = {
   note?: string;
 };
 
-/** Primary shortcuts (also in header). */
+/** RetroScope — primary product entry points. */
+export const indexRetroscopeNav: SiteTocEntry[] = [
+  { href: "/album-retroscope", label: "Album mode", note: "year × rank · Billboard 200" },
+  { href: "/artist-retroscope", label: "Artist mode", note: "year × artist rank" },
+  { href: "/track-retroscope", label: "Track mode", note: "Hot 100 stub" },
+];
+
+/** Browse surfaces (header nav). */
 export const indexPrimaryNav: SiteTocEntry[] = [
-  { href: "/", label: "Discover" },
-  { href: "/eras", label: "Eras" },
   { href: "/artists", label: "Artists" },
   { href: "/albums", label: "Albums" },
+  { href: "/eras", label: "Eras" },
   { href: "/search", label: "Search" },
-  { href: "/index", label: "Index", note: "this page — tools + coverage" },
-  { href: "/toc", label: "Full route table", note: "verbose TOC" },
+  { href: "/tracks", label: "Tracks" },
 ];
 
-/** Internal: curator, ops, legacy entry points; not in main header. */
+/** Editorial and utilities. */
+export const indexSecondaryNav: SiteTocEntry[] = [
+  { href: "/welcome", label: "Welcome", note: "marketing landing" },
+  { href: "/week", label: "This week", note: "editorial" },
+  { href: "/random", label: "Random jump", note: "weighted explore" },
+];
+
+/** Internal / ops — not in main header. */
 export const indexToolsNav: SiteTocEntry[] = [
-  { href: "/internal/curator", label: "Curator" },
-  { href: "/internal/artwork", label: "Internal artwork" },
-  { href: "/artwork-workbench", label: "Artwork workbench" },
-  { href: "/ops/review", label: "Review console" },
-  { href: "/ops/itunes-album-review", label: "iTunes calibration" },
-  { href: "/api/discover/review-state", label: "POST discover review-state", note: "API" },
+  { href: "/internal/curator", label: "Curator", note: "artwork triage" },
+  { href: "/portal-v2/curate", label: "Curator deep link", note: "?albumId=RVAL…" },
+  { href: "/dev-index", label: "Dev route index", note: "all routes + status" },
+  { href: "/toc", label: "Full route table" },
+];
+
+/** Fixed app routes (no params) — used by /toc. */
+export const siteTocStaticPages: SiteTocEntry[] = [
+  { href: "/", label: "Home", note: "→ /album-retroscope" },
+  { href: "/album-retroscope", label: "RetroScope · Albums" },
+  { href: "/artist-retroscope", label: "RetroScope · Artists" },
+  { href: "/track-retroscope", label: "RetroScope · Tracks" },
   { href: "/welcome", label: "Welcome landing" },
   { href: "/week", label: "This week" },
-  { href: "/random", label: "Random" },
-  { href: "/tracks", label: "Tracks index" },
-  { href: "/discover", label: "Discover redirect", note: "→ /" },
-];
-
-/** Fixed app routes (no params). */
-export const siteTocStaticPages: SiteTocEntry[] = [
-  { href: "/", label: "Discover (home)" },
-  { href: "/welcome", label: "Welcome landing", note: "early-access marketing page" },
-  { href: "/week", label: "This Week" },
   { href: "/eras", label: "Eras index" },
   { href: "/eras/1974-1977", label: "Era 1974–1977 (canonical graph)" },
   { href: "/artists", label: "Artists index" },
   { href: "/albums", label: "Albums index" },
   { href: "/tracks", label: "Tracks index" },
   { href: "/search", label: "Search" },
-  { href: "/index", label: "Index", note: "internal TOC + coverage" },
-  { href: "/discover", label: "Discover", note: "redirects to /" },
-  { href: "/random", label: "Random explore (redirect)" },
-  { href: "/toc", label: "Table of contents", note: "this page" },
+  { href: "/random", label: "Random explore" },
+  { href: "/index", label: "Index", note: "this page" },
+  { href: "/discover", label: "Discover", note: "→ /album-retroscope" },
+  { href: "/viewer", label: "Viewer", note: "→ /album-retroscope" },
+  { href: "/toc", label: "Table of contents" },
 ];
 
 export const siteTocDynamicPatterns: SiteTocPattern[] = [
@@ -63,22 +72,21 @@ export const siteTocDynamicPatterns: SiteTocPattern[] = [
   },
   {
     pattern: "/albums/[slug]",
-    label: "Album detail",
+    label: "Album dossier",
     examples: [
-      { href: "/albums/saturday-night-fever", label: "Saturday Night Fever" },
-      { href: "/albums/rumours", label: "Rumours" },
-      { href: "/albums/eagles-their-greatest-hits-1971-1975", label: "Eagles Greatest Hits" },
+      { href: "/albums/RVAL275844", label: "Sample RVAL dossier" },
+      { href: "/albums/rumours", label: "Rumours (slug)" },
     ],
   },
   {
     pattern: "/artists/[slug]",
-    label: "Artist detail",
-    examples: [{ href: "/artists/bee-gees", label: "Bee Gees" }],
+    label: "Artist profile",
+    examples: [{ href: "/artists/linda-ronstadt", label: "Linda Ronstadt" }],
   },
   {
     pattern: "/tracks/[id]",
     label: "Track detail",
-    note: "RVTR… id or matched slug",
+    note: "RVTR… id",
     examples: [{ href: "/tracks/RVTR000001", label: "Example RVTR id" }],
   },
 ];
@@ -86,7 +94,10 @@ export const siteTocDynamicPatterns: SiteTocPattern[] = [
 export const siteTocInternalPages: SiteTocEntry[] = [
   { href: "/internal/curator", label: "Curator / repair surface" },
   { href: "/internal/artwork", label: "Internal artwork (archived notice)" },
-  { href: "/artwork-workbench", label: "Artwork workbench", note: "redirects → /internal/curator" },
+  { href: "/internal/ops-pin", label: "Ops PIN gate" },
+  { href: "/artwork-workbench", label: "Artwork workbench", note: "→ /internal/curator" },
+  { href: "/ops/review", label: "Review console" },
+  { href: "/ops/itunes-album-review", label: "iTunes calibration" },
 ];
 
 export const siteTocApiRoutes: SiteTocEntry[] = [

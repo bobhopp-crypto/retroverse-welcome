@@ -6,7 +6,11 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 
-import { writeCanonicalArtworkOverride, pickCanonicalCoverPathForAlbum } from "@/lib/canonical-artwork-overrides";
+import {
+  CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG,
+  writeCanonicalArtworkOverride,
+  pickCanonicalCoverPathForAlbum,
+} from "@/lib/canonical-artwork-overrides";
 import {
   loadArtworkStateRegistry,
   saveArtworkStateRegistry,
@@ -262,7 +266,7 @@ export async function POST(request: Request) {
   }
 
   const registry = await loadArtworkStateRegistry();
-  const beforePath = pickCanonicalCoverPathForAlbum(body.albumId);
+  const beforePath = await pickCanonicalCoverPathForAlbum(body.albumId);
   const beforeSnapshot = {
     retroverse_album_id: body.albumId,
     canonical_cover_path: beforePath,
@@ -368,6 +372,7 @@ export async function POST(request: Request) {
      * "old cover returns after refresh" bug we're stabilizing.
      */
     revalidateTag(`artwork:${body.albumId}`, { expire: 0 });
+    revalidateTag(CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG, { expire: 0 });
     revalidatePath("/album-retroscope");
     revalidatePath(`/albums/${encodeURIComponent(body.albumId)}`);
     console.log("[living-action] step=cache_invalidated", { traceId, tag: `artwork:${body.albumId}` });
@@ -378,7 +383,8 @@ export async function POST(request: Request) {
 
   const afterSnapshot = {
     retroverse_album_id: body.albumId,
-    canonical_cover_path: pickCanonicalCoverPathForAlbum(body.albumId),
+    /** Authoritative in-process value after write — do not re-pick here (would hit stale per-request memo). */
+    canonical_cover_path: canonicalPath,
     artwork_status: statusForState(nextState),
   };
   upsertArtworkState(registry, {

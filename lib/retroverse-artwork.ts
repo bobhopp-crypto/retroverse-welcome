@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { chunkIds, throwSupabase } from "@/lib/supabase-in-query";
+
 export type RetroverseArtworkRow = {
   retroverse_album_artwork_id?: string;
   retroverse_album_id: string;
@@ -17,38 +19,45 @@ export async function loadAlbumArtworkRows(
 ): Promise<RetroverseArtworkRow[]> {
   if (retroverseAlbumIds.length === 0) return [];
 
-  const withPrimaryResult = await supabase
-    .from("retroverse_album_artwork")
-    .select(
-      "retroverse_album_artwork_id, retroverse_album_id, retroverse_album_edition_id, artwork_role, is_primary, canonical_cover_path, cover_source, artwork_status",
-    )
-    .in("retroverse_album_id", retroverseAlbumIds)
-    .order("created_at", { ascending: true })
-    .limit(10_000);
+  const merged: RetroverseArtworkRow[] = [];
+  for (const albumChunk of chunkIds(retroverseAlbumIds)) {
+    const withPrimaryResult = await supabase
+      .from("retroverse_album_artwork")
+      .select(
+        "retroverse_album_artwork_id, retroverse_album_id, retroverse_album_edition_id, artwork_role, is_primary, canonical_cover_path, cover_source, artwork_status",
+      )
+      .in("retroverse_album_id", albumChunk)
+      .order("created_at", { ascending: true })
+      .limit(10_000);
 
-  const fallbackResult =
-    withPrimaryResult.error && withPrimaryResult.error.code === "42703"
-      ? await supabase
-          .from("retroverse_album_artwork")
-          .select(
-            "retroverse_album_artwork_id, retroverse_album_id, retroverse_album_edition_id, artwork_role, canonical_cover_path, cover_source, artwork_status",
-          )
-          .in("retroverse_album_id", retroverseAlbumIds)
-          .order("created_at", { ascending: true })
-          .limit(10_000)
-      : null;
+    const fallbackResult =
+      withPrimaryResult.error && withPrimaryResult.error.code === "42703"
+        ? await supabase
+            .from("retroverse_album_artwork")
+            .select(
+              "retroverse_album_artwork_id, retroverse_album_id, retroverse_album_edition_id, artwork_role, canonical_cover_path, cover_source, artwork_status",
+            )
+            .in("retroverse_album_id", albumChunk)
+            .order("created_at", { ascending: true })
+            .limit(10_000)
+        : null;
 
-  if (withPrimaryResult.error && !fallbackResult) {
-    throw withPrimaryResult.error;
+    if (withPrimaryResult.error && !fallbackResult) {
+      throwSupabase(`retroverse_album_artwork(albums chunk ${albumChunk.length})`, withPrimaryResult.error);
+    }
+    if (fallbackResult?.error) {
+      throwSupabase(`retroverse_album_artwork fallback(albums chunk ${albumChunk.length})`, fallbackResult.error);
+    }
+
+    const rows = (fallbackResult?.data ?? withPrimaryResult.data ?? []) as RetroverseArtworkRow[];
+    merged.push(
+      ...rows.map((row) => ({
+        ...row,
+        is_primary: row.is_primary ?? row.artwork_role === "primary",
+      })),
+    );
   }
-  if (fallbackResult?.error) {
-    throw fallbackResult.error;
-  }
-
-  return ((fallbackResult?.data ?? withPrimaryResult.data ?? []) as RetroverseArtworkRow[]).map((row) => ({
-    ...row,
-    is_primary: row.is_primary ?? row.artwork_role === "primary",
-  }));
+  return merged;
 }
 
 function artworkStatusScore(status: string | undefined): number {

@@ -3,6 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { RetroverseProvenanceLevel } from "@/lib/retroverse-editorial";
 import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage } from "@/lib/retroverse-lineage";
+import {
+  chunkIds,
+  fetchAlbumTracksForEditionsAndTracks,
+  fetchChartAppearancesForTrackIds,
+  throwSupabase,
+} from "@/lib/supabase-in-query";
 
 type PathwayEntityKind = "track" | "album" | "artist" | "era";
 
@@ -472,7 +478,11 @@ export async function generateAlbumPathways(supabase: SupabaseClient, retroverse
   for (const a of albumTracks) {
     for (const b of albumTracks) {
       if (a.retroverse_track_id === b.retroverse_track_id) continue;
-      if (a.disc_number === b.disc_number && a.side_code === b.side_code && Math.abs(a.track_number - b.track_number) === 1) {
+      if (
+        a.disc_number === b.disc_number &&
+        a.side_code === b.side_code &&
+        Math.abs((a.track_number ?? 0) - (b.track_number ?? 0)) === 1
+      ) {
         sequencingAdjacency += 1;
       }
     }
@@ -584,9 +594,9 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
       .select("retroverse_album_id, retroverse_artist_id")
       .eq("retroverse_artist_id", retroverseArtistId),
   ]);
-  if (artistResult.error) throw artistResult.error;
-  if (tracksResult.error) throw tracksResult.error;
-  if (albumRolesResult.error) throw albumRolesResult.error;
+  if (artistResult.error) throwSupabase("generateArtistPathways:artist", artistResult.error);
+  if (tracksResult.error) throwSupabase("generateArtistPathways:tracks", tracksResult.error);
+  if (albumRolesResult.error) throwSupabase("generateArtistPathways:album_roles", albumRolesResult.error);
   if (!artistResult.data) return [];
 
   const artist = artistResult.data;
@@ -596,42 +606,39 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
   const albumIds = [...new Set([...tracks.map((row) => row.retroverse_album_id).filter(Boolean), ...roleAlbumIds])] as string[];
   if (albumIds.length === 0) return [];
 
-  const [albumsResult, chartsResult, editionsResult] = await Promise.all([
-    supabase
-      .from("retroverse_albums")
-      .select("retroverse_album_id, canonical_album_title, retroverse_artist_id, era_id, release_year, album_type, soundtrack_flag")
-      .in("retroverse_album_id", albumIds),
-    trackIds.length > 0
-      ? supabase
-          .from("retroverse_chart_appearances")
-          .select("retroverse_track_id, chart_position")
-          .in("retroverse_track_id", trackIds)
-      : Promise.resolve({ data: [], error: null }),
-    supabase
-      .from("retroverse_album_editions")
-      .select("retroverse_album_edition_id, retroverse_album_id")
-      .in("retroverse_album_id", albumIds)
-      .eq("is_primary", true),
+  const [albumsFlat, charts, editionsFlat] = await Promise.all([
+    Promise.all(
+      chunkIds(albumIds).map(async (chunk) => {
+        const r = await supabase
+          .from("retroverse_albums")
+          .select("retroverse_album_id, canonical_album_title, retroverse_artist_id, era_id, release_year, album_type, soundtrack_flag")
+          .in("retroverse_album_id", chunk);
+        throwSupabase(`generateArtistPathways:albums(chunk ${chunk.length})`, r.error);
+        return (r.data ?? []) as AlbumRow[];
+      }),
+    ).then((c) => c.flat()),
+    fetchChartAppearancesForTrackIds(supabase, trackIds),
+    Promise.all(
+      chunkIds(albumIds).map(async (chunk) => {
+        const r = await supabase
+          .from("retroverse_album_editions")
+          .select("retroverse_album_edition_id, retroverse_album_id")
+          .in("retroverse_album_id", chunk)
+          .eq("is_primary", true);
+        throwSupabase(`generateArtistPathways:editions(chunk ${chunk.length})`, r.error);
+        return (r.data ?? []) as EditionRow[];
+      }),
+    ).then((c) => c.flat()),
   ]);
-  if (albumsResult.error) throw albumsResult.error;
-  if (chartsResult.error) throw chartsResult.error;
-  if (editionsResult.error) throw editionsResult.error;
 
-  const albums = (albumsResult.data ?? []) as AlbumRow[];
-  const charts = (chartsResult.data ?? []) as ChartRow[];
-  const editions = (editionsResult.data ?? []) as EditionRow[];
+  const albums = albumsFlat;
+  const editions = editionsFlat;
 
   const editionIds = editions.map((row) => row.retroverse_album_edition_id);
-  const sequencingResult =
+  const sequencingRows =
     editionIds.length > 0 && trackIds.length > 0
-      ? await supabase
-          .from("retroverse_album_tracks")
-          .select("retroverse_album_edition_id, retroverse_track_id, disc_number, track_number, side_code")
-          .in("retroverse_album_edition_id", editionIds)
-          .in("retroverse_track_id", trackIds)
-      : { data: [], error: null };
-  if (sequencingResult.error) throw sequencingResult.error;
-  const sequencingRows = (sequencingResult.data ?? []) as AlbumTrackRow[];
+      ? await fetchAlbumTracksForEditionsAndTracks(supabase, editionIds, trackIds)
+      : [];
 
   const soundtrackAlbums = albums.filter((row) => row.soundtrack_flag);
   const compilationAlbums = albums.filter((row) => row.album_type === "compilation");
@@ -648,7 +655,11 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
     for (const b of sequencingRows) {
       if (a.retroverse_album_edition_id !== b.retroverse_album_edition_id) continue;
       if (a.retroverse_track_id === b.retroverse_track_id) continue;
-      if (a.disc_number === b.disc_number && a.side_code === b.side_code && Math.abs(a.track_number - b.track_number) === 1) {
+      if (
+        a.disc_number === b.disc_number &&
+        a.side_code === b.side_code &&
+        Math.abs((a.track_number ?? 0) - (b.track_number ?? 0)) === 1
+      ) {
         sequencingAdjacency += 1;
       }
     }
@@ -664,7 +675,7 @@ export async function generateArtistPathways(supabase: SupabaseClient, retrovers
           .limit(1)
           .maybeSingle<EraRow>()
       : { data: null, error: null };
-  if (eraResult.error) throw eraResult.error;
+  if (eraResult.error) throwSupabase("generateArtistPathways:dominant_era", eraResult.error);
 
   const firstCompilation = compilationAlbums.sort((a, b) => (a.release_year ?? 9999) - (b.release_year ?? 9999))[0];
   const firstSoundtrack = soundtrackAlbums.sort((a, b) => (a.release_year ?? 9999) - (b.release_year ?? 9999))[0];
@@ -760,8 +771,8 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
       .select("retroverse_album_id, canonical_album_title, retroverse_artist_id, era_id, release_year, album_type, soundtrack_flag")
       .eq("era_id", retroverseEraId),
   ]);
-  if (eraResult.error) throw eraResult.error;
-  if (albumsResult.error) throw albumsResult.error;
+  if (eraResult.error) throwSupabase("generateEraPathways:era", eraResult.error);
+  if (albumsResult.error) throwSupabase("generateEraPathways:albums", albumsResult.error);
   if (!eraResult.data) return [];
 
   const era = eraResult.data;
@@ -774,7 +785,7 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
     .select("retroverse_album_edition_id, retroverse_album_id")
     .in("retroverse_album_id", albumIds)
     .eq("is_primary", true);
-  if (editionsResult.error) throw editionsResult.error;
+  if (editionsResult.error) throwSupabase("generateEraPathways:editions", editionsResult.error);
   const editions = (editionsResult.data ?? []) as EditionRow[];
   const editionIds = editions.map((row) => row.retroverse_album_edition_id);
   const tracksResult =
@@ -851,7 +862,11 @@ export async function generateEraPathways(supabase: SupabaseClient, retroverseEr
     for (const b of albumTracks) {
       if (a.retroverse_album_edition_id !== b.retroverse_album_edition_id) continue;
       if (a.retroverse_track_id === b.retroverse_track_id) continue;
-      if (a.disc_number === b.disc_number && a.side_code === b.side_code && Math.abs(a.track_number - b.track_number) === 1) {
+      if (
+        a.disc_number === b.disc_number &&
+        a.side_code === b.side_code &&
+        Math.abs((a.track_number ?? 0) - (b.track_number ?? 0)) === 1
+      ) {
         sequencingAdjacency += 1;
       }
     }

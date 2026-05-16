@@ -111,7 +111,7 @@ export default async function AlbumDossierPage({ params }: Props) {
   if (!dossier) notFound();
 
   const { identity, chart, acoustic, related, scores, musicbrainz } = dossier;
-  const coverUrl = canonicalCoverPathToUrl(pickCanonicalCoverPathForAlbum(dossier.albumId));
+  const coverUrl = canonicalCoverPathToUrl(await pickCanonicalCoverPathForAlbum(dossier.albumId));
   const means = acoustic.means;
   const curateHref = `/portal-v2/curate?albumId=${encodeURIComponent(dossier.albumId)}`;
   const avgDurMs = meanDurationMs(acoustic.tracks);

@@ -3,13 +3,47 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { HistoryBackButton } from "@/app/history-back-button";
-import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildArtistContextLine, buildArtistCulturalRole } from "@/lib/retroverse-editorial";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
 import { hrefForAlbum, normalizeEntitySlug } from "@/lib/retroverse-routes";
 import { createClient } from "@/lib/supabase";
+import { loadArtistExperienceFromDossierBundle } from "@/lib/load-artist-dossier-fallback";
+import {
+  loadArtistExperienceFromUniverse,
+  type ArtistUniverseExperience,
+} from "@/lib/load-artist-universe-experience";
+import {
+  awaitSupabase,
+  chunkIds,
+  fetchAlbumTracksForEditionsAndTracks,
+  fetchChartAppearancesForTrackIds,
+  throwSupabase,
+} from "@/lib/supabase-in-query";
 
+function logArtistPageFallback(phase: string, slug: string, e: unknown): void {
+  const err = e instanceof Error ? e : new Error(String(e));
+  console.warn("[artists:slug:fallback]", {
+    phase,
+    slug,
+    message: err.message,
+  });
+}
+
+function logArtistPageError(phase: string, slug: string, e: unknown): void {
+  const err = e instanceof Error ? e : new Error(String(e));
+  console.error("[artists:slug]", {
+    phase,
+    slug,
+    message: err.message,
+    stack: err.stack,
+  });
+}
+
+function slugToNameGuess(slug: string): string {
+  return slug.replace(/-/g, " ").replace(/\s+/g, " ").trim();
+}
+import "../artist-universe.css";
 /**
  * Artist metadata is essentially static. ISR keeps cross-page navigation
  * fast; data refreshes hourly or on-demand via revalidateTag from saves.
@@ -124,70 +158,115 @@ function eraHref(era: EraRow): string {
 }
 
 async function resolveArtistBySlug(slug: string, supabase: ReturnType<typeof createClient>): Promise<ArtistRow | null> {
-  if (/^RVAR[0-9]{6}$/i.test(slug)) {
-    const byIdResult = await supabase
-      .from("retroverse_artists")
-      .select("retroverse_artist_id, canonical_artist_name")
-      .eq("retroverse_artist_id", slug.toUpperCase())
-      .limit(1)
-      .maybeSingle<ArtistRow>();
-    if (byIdResult.error) throw byIdResult.error;
-    return byIdResult.data ?? null;
-  }
-
-  const sourceMatchResult = await supabase
-    .from("retroverse_source_matches")
-    .select("retroverse_entity_id")
-    .eq("retroverse_entity_type", "artist")
-    .ilike("source_key", `%::${slug.toLowerCase()}`)
-    .limit(1);
-  if (sourceMatchResult.error) throw sourceMatchResult.error;
-  const matchedArtistId = sourceMatchResult.data?.[0]?.retroverse_entity_id;
-  if (matchedArtistId) {
-    const bySourceResult = await supabase
-      .from("retroverse_artists")
-      .select("retroverse_artist_id, canonical_artist_name")
-      .eq("retroverse_artist_id", matchedArtistId)
-      .limit(1)
-      .maybeSingle<ArtistRow>();
-    if (bySourceResult.error) throw bySourceResult.error;
-    if (bySourceResult.data) return bySourceResult.data;
-  }
-
-  const allArtistsResult = await supabase
-    .from("retroverse_artists")
-    .select("retroverse_artist_id, canonical_artist_name")
-    .range(0, 5000);
-  if (allArtistsResult.error) throw allArtistsResult.error;
   const normalized = normalizeEntitySlug(slug);
-  return (
-    ((allArtistsResult.data ?? []) as ArtistRow[]).find(
+
+  if (/^RVAR[0-9]{6}$/i.test(slug)) {
+    const row = await awaitSupabase(
+      "resolveArtistBySlug:byId",
+      () =>
+        supabase
+          .from("retroverse_artists")
+          .select("retroverse_artist_id, canonical_artist_name")
+          .eq("retroverse_artist_id", slug.toUpperCase())
+          .limit(1)
+          .maybeSingle<ArtistRow>(),
+    );
+    return row ?? null;
+  }
+
+  const nameGuess = slugToNameGuess(slug);
+  if (nameGuess.length >= 2) {
+    const nameCandidates = await awaitSupabase(
+      "resolveArtistBySlug:name_ilike",
+      () =>
+        supabase
+          .from("retroverse_artists")
+          .select("retroverse_artist_id, canonical_artist_name")
+          .ilike("canonical_artist_name", `%${nameGuess}%`)
+          .limit(40),
+    );
+    const exact = ((nameCandidates ?? []) as ArtistRow[]).find(
       (row) => normalizeEntitySlug(row.canonical_artist_name) === normalized,
-    ) ?? null
-  );
+    );
+    if (exact) return exact;
+    if ((nameCandidates ?? []).length === 1) return (nameCandidates as ArtistRow[])[0]!;
+  }
+
+  try {
+    const sourceMatchResult = await awaitSupabase(
+      "resolveArtistBySlug:source_matches",
+      () =>
+        supabase
+          .from("retroverse_source_matches")
+          .select("retroverse_entity_id")
+          .eq("retroverse_entity_type", "artist")
+          .ilike("source_key", `%::${slug.toLowerCase()}`)
+          .limit(1),
+    );
+    const matchedArtistId = (sourceMatchResult as { retroverse_entity_id: string }[] | null)?.[0]
+      ?.retroverse_entity_id;
+    if (matchedArtistId) {
+      const bySource = await awaitSupabase(
+        "resolveArtistBySlug:by_source",
+        () =>
+          supabase
+            .from("retroverse_artists")
+            .select("retroverse_artist_id, canonical_artist_name")
+            .eq("retroverse_artist_id", matchedArtistId)
+            .limit(1)
+            .maybeSingle<ArtistRow>(),
+      );
+      if (bySource) return bySource;
+    }
+  } catch (e) {
+    console.warn("[artists:slug] resolveArtistBySlug:source_matches skipped", {
+      slug,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const pageSize = 500;
+  for (let offset = 0; offset < 20_000; offset += pageSize) {
+    const batch = await awaitSupabase(
+      `resolveArtistBySlug:scan(offset=${offset})`,
+      () =>
+        supabase
+          .from("retroverse_artists")
+          .select("retroverse_artist_id, canonical_artist_name")
+          .order("canonical_artist_name", { ascending: true })
+          .range(offset, offset + pageSize - 1),
+    );
+    const rows = (batch ?? []) as ArtistRow[];
+    const hit = rows.find((row) => normalizeEntitySlug(row.canonical_artist_name) === normalized);
+    if (hit) return hit;
+    if (rows.length < pageSize) break;
+  }
+
+  return null;
 }
 
-async function loadArtistExperience(slug: string) {
+async function loadArtistExperienceFromSupabase(slug: string) {
   const supabase = createClient();
+
   const artist = await resolveArtistBySlug(slug, supabase);
   if (!artist) return null;
 
-  const [tracksResult, albumRolesResult] = await Promise.all([
-    supabase
-      .from("retroverse_tracks")
-      .select("retroverse_track_id, canonical_title, retroverse_album_id, era_id, release_year")
-      .eq("retroverse_artist_id", artist.retroverse_artist_id),
-    supabase
-      .from("retroverse_album_artist_roles")
-      .select("retroverse_album_id, role:relationship_role, role_priority:billing_order")
-      .eq("retroverse_artist_id", artist.retroverse_artist_id),
+  const [tracksRows, albumRoleRows] = await Promise.all([
+    awaitSupabase("loadArtistExperience:tracks", () =>
+      supabase
+        .from("retroverse_tracks")
+        .select("retroverse_track_id, canonical_title, retroverse_album_id, era_id, release_year")
+        .eq("retroverse_artist_id", artist.retroverse_artist_id),
+    ),
+    awaitSupabase("loadArtistExperience:album_roles", () =>
+      supabase
+        .from("retroverse_album_artist_roles")
+        .select("retroverse_album_id, role:relationship_role, role_priority:billing_order")
+        .eq("retroverse_artist_id", artist.retroverse_artist_id),
+    ),
   ]);
-
-  if (tracksResult.error) throw tracksResult.error;
-  if (albumRolesResult.error) throw albumRolesResult.error;
-
-  const tracks = (tracksResult.data ?? []) as TrackRow[];
-  const albumRoles = (albumRolesResult.data ?? []) as AlbumRoleRow[];
+  const tracks = (tracksRows ?? []) as TrackRow[];
+  const albumRoles = (albumRoleRows ?? []) as AlbumRoleRow[];
   const trackIds = tracks.map((track) => track.retroverse_track_id);
   const albumIds = [
     ...new Set([
@@ -196,55 +275,52 @@ async function loadArtistExperience(slug: string) {
     ]),
   ];
 
-  const [albumsResult, editionsResult, artworkRows] = await Promise.all([
+  const [albumsResultFlat, editionsResultFlat, artworkRows] = await Promise.all([
     albumIds.length > 0
-      ? supabase
-          .from("retroverse_albums")
-          .select(
-            "retroverse_album_id, canonical_album_title, retroverse_artist_id, release_year, album_type, soundtrack_flag, era_id",
-          )
-          .in("retroverse_album_id", albumIds)
-      : Promise.resolve({ data: [], error: null }),
+      ? Promise.all(
+          chunkIds(albumIds).map(async (chunk) => {
+            const r = await supabase
+              .from("retroverse_albums")
+              .select(
+                "retroverse_album_id, canonical_album_title, retroverse_artist_id, release_year, album_type, soundtrack_flag, era_id",
+              )
+              .in("retroverse_album_id", chunk);
+            throwSupabase(`loadArtistExperience:albums(chunk ${chunk.length})`, r.error);
+            return (r.data ?? []) as AlbumRow[];
+          }),
+        ).then((chunks) => chunks.flat())
+      : Promise.resolve([] as AlbumRow[]),
     albumIds.length > 0
-      ? supabase
-          .from("retroverse_album_editions")
-          .select("retroverse_album_edition_id, retroverse_album_id")
-          .in("retroverse_album_id", albumIds)
-          .eq("is_primary", true)
-      : Promise.resolve({ data: [], error: null }),
+      ? Promise.all(
+          chunkIds(albumIds).map(async (chunk) => {
+            const r = await supabase
+              .from("retroverse_album_editions")
+              .select("retroverse_album_edition_id, retroverse_album_id")
+              .in("retroverse_album_id", chunk)
+              .eq("is_primary", true);
+            throwSupabase(`loadArtistExperience:editions(chunk ${chunk.length})`, r.error);
+            return (r.data ?? []) as EditionRow[];
+          }),
+        ).then((chunks) => chunks.flat())
+      : Promise.resolve([] as EditionRow[]),
     loadAlbumArtworkRows(supabase, albumIds),
   ]);
-  if (albumsResult.error) throw albumsResult.error;
-  if (editionsResult.error) throw editionsResult.error;
 
-  const albums = (albumsResult.data ?? []) as AlbumRow[];
-  const primaryEditions = (editionsResult.data ?? []) as EditionRow[];
+  const albums = albumsResultFlat;
+  const primaryEditions = editionsResultFlat;
   const albumPrimaryEditionByAlbumId = new Map(primaryEditions.map((row) => [row.retroverse_album_id, row]));
   const albumById = new Map(albums.map((album) => [album.retroverse_album_id, album]));
 
-  const [chartsResult, sequencingResult] = await Promise.all([
-    trackIds.length > 0
-      ? supabase
-          .from("retroverse_chart_appearances")
-          .select("retroverse_track_id, chart_position")
-          .in("retroverse_track_id", trackIds)
-      : Promise.resolve({ data: [], error: null }),
+  const [charts, sequencingRows] = await Promise.all([
+    fetchChartAppearancesForTrackIds(supabase, trackIds),
     trackIds.length > 0 && primaryEditions.length > 0
-      ? supabase
-          .from("retroverse_album_tracks")
-          .select("retroverse_album_edition_id, retroverse_track_id, disc_number, side_code")
-          .in(
-            "retroverse_album_edition_id",
-            primaryEditions.map((edition) => edition.retroverse_album_edition_id),
-          )
-          .in("retroverse_track_id", trackIds)
-      : Promise.resolve({ data: [], error: null }),
+      ? fetchAlbumTracksForEditionsAndTracks(
+          supabase,
+          primaryEditions.map((edition) => edition.retroverse_album_edition_id),
+          trackIds,
+        )
+      : Promise.resolve([] as AlbumTrackRow[]),
   ]);
-  if (chartsResult.error) throw chartsResult.error;
-  if (sequencingResult.error) throw sequencingResult.error;
-
-  const charts = (chartsResult.data ?? []) as ChartRow[];
-  const sequencingRows = (sequencingResult.data ?? []) as AlbumTrackRow[];
 
   const eraIds = [
     ...new Set([
@@ -252,15 +328,22 @@ async function loadArtistExperience(slug: string) {
       ...albums.map((album) => album.era_id).filter((id): id is string => Boolean(id)),
     ]),
   ];
-  const erasResult =
+  const erasResultRows =
     eraIds.length > 0
-      ? await supabase
-          .from("retroverse_eras")
-          .select("retroverse_era_id, slug, display_name, start_year, end_year")
-          .in("retroverse_era_id", eraIds)
-      : { data: [], error: null };
-  if (erasResult.error) throw erasResult.error;
-  const eras = (erasResult.data ?? []) as EraRow[];
+      ? (
+          await Promise.all(
+            chunkIds(eraIds).map(async (chunk) => {
+              const r = await supabase
+                .from("retroverse_eras")
+                .select("retroverse_era_id, slug, display_name, start_year, end_year")
+                .in("retroverse_era_id", chunk);
+              throwSupabase(`loadArtistExperience:eras(chunk ${chunk.length})`, r.error);
+              return (r.data ?? []) as EraRow[];
+            }),
+          )
+        ).flat()
+      : ([] as EraRow[]);
+  const eras = erasResultRows;
   const eraById = new Map(eras.map((era) => [era.retroverse_era_id, era]));
 
   const peakChartByTrackId = new Map<string, number>();
@@ -423,6 +506,33 @@ async function loadArtistExperience(slug: string) {
   };
 }
 
+async function loadArtistExperience(slug: string) {
+  const local = loadArtistExperienceFromUniverse(slug);
+  if (local) return local;
+
+  if (process.env.ARTIST_SUPABASE_ENRICH === "1") {
+    try {
+      return await loadArtistExperienceFromSupabase(slug);
+    } catch (e) {
+      const dossier = loadArtistExperienceFromDossierBundle(slug);
+      if (dossier) {
+        logArtistPageFallback("loadArtistExperienceFromSupabase", slug, e);
+        return dossier;
+      }
+      logArtistPageError("loadArtistExperienceFromSupabase", slug, e);
+      throw e;
+    }
+  }
+
+  const dossier = loadArtistExperienceFromDossierBundle(slug);
+  if (dossier) {
+    console.warn("[artists:slug:fallback] artist-universe miss — dossier bundle", { slug });
+    return dossier;
+  }
+
+  return null;
+}
+
 export async function generateMetadata({ params }: ArtistPageProps): Promise<Metadata> {
   const { slug } = await params;
   return {
@@ -568,6 +678,8 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
   const data = await loadArtistExperience(slug);
   if (!data) notFound();
 
+  const universe = (data as Partial<ArtistUniverseExperience>).universe ?? null;
+
   const contextLine = buildArtistContextLine({
     numberOneCount: data.metrics.numberOneCount,
     soundtrackLinkedSinglesCount: data.metrics.soundtrackLinkedSinglesCount,
@@ -629,52 +741,93 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             contextLabel: "Track",
             eraId: null,
           }));
-  const releaseAnchors = data.connectedAlbums.slice(0, densityTier === "minimal" ? 4 : densityTier === "standard" ? 7 : 9);
-  const topSongAnchors = keySongs.slice(0, densityTier === "minimal" ? 3 : 4);
-
+  const releaseAnchors = data.connectedAlbums.slice(0, densityTier === "minimal" ? 4 : densityTier === "standard" ? 10 : 14);
   return (
-    <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="mx-auto max-w-[52rem] px-4 py-10 pb-16 sm:px-6 sm:py-[4.25rem]">
-        <header className="mb-10 space-y-3 border-b border-[var(--card-border)]/65 pb-5 sm:mb-12 sm:pb-6">
-          <p className="text-[0.74rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-            <Link href="/artists" className="underline-offset-2 hover:underline">
+    <div className="artist-universe min-h-full">
+      <div className="artist-uni-atmosphere" aria-hidden />
+      <article className="artist-uni-article mx-auto max-w-[52rem] px-4 py-10 pb-16 sm:px-6 sm:py-[4.25rem]">
+        <header className="artist-uni-hero mb-10 space-y-3 sm:mb-12">
+          <p className="artist-uni-breadcrumb text-[0.74rem] uppercase tracking-[0.14em]">
+            <Link href="/artists">
               Artists
             </Link>
             {" → "}
-            {data.artist.canonical_artist_name}
+            <span>{data.artist.canonical_artist_name}</span>
             {data.primaryEra ? (
               <>
                 {" → "}
-                <Link href={data.primaryEra.href} className="underline-offset-2 hover:underline">
-                  {data.primaryEra.name}
-                </Link>
+                <Link href={data.primaryEra.href}>{data.primaryEra.name}</Link>
               </>
             ) : null}
           </p>
-          <p className="text-[0.9rem] tracking-[0.04em] text-[var(--text-secondary)]">Artist archive</p>
-          <h1 className="font-serif text-[2.35rem] leading-[1.05] tracking-tight text-[var(--text-primary)] sm:text-[3rem]">
-            {data.artist.canonical_artist_name}
-          </h1>
+          <p className="artist-uni-eyebrow">Artist universe · constellation view</p>
+          <h1 className="artist-uni-title text-[2.35rem] sm:text-[3rem]">{data.artist.canonical_artist_name}</h1>
+          {universe ? (
+            <>
+              <div
+                className="artist-uni-signal-field"
+                style={
+                  {
+                    ["--au-signal-hue" as string]: String(universe.signal_palette.hue),
+                    ["--au-signal-accent" as string]: universe.signal_palette.accent,
+                  } as Record<string, string>
+                }
+                aria-hidden
+              />
+              <p className="artist-uni-meta-line text-[0.88rem]">
+                {universe.active_years.first !== null && universe.active_years.last !== null
+                  ? `${universe.active_years.first}–${universe.active_years.last} in archive`
+                  : "Years still resolving"}
+                {universe.retroverse_summary.best_year !== null &&
+                universe.retroverse_summary.best_year_rank !== null
+                  ? ` · Retroverse #${universe.retroverse_summary.best_year_rank} in ${universe.retroverse_summary.best_year}`
+                  : ""}
+                {universe.retroverse_summary.top_coordinate
+                  ? ` · coordinate ${universe.retroverse_summary.top_coordinate}`
+                  : ""}
+              </p>
+              {universe.dominant_years.length > 0 ? (
+                <div className="artist-uni-coord-orbit" aria-label="Dominant Retroverse years">
+                  {universe.dominant_years.map((year) => {
+                    const row = universe.yearly_rankings.find((yr) => yr.year === year);
+                    if (!row) return null;
+                    return (
+                      <span key={year} className="artist-uni-coord-chip">
+                        {year} · A{row.retroverse_artist_rank}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {data.primaryEra ? (
-            <Link
-              href={data.primaryEra.href}
-              className="inline-flex text-[0.74rem] uppercase tracking-[0.13em] text-[var(--text-secondary)]/84 underline decoration-[var(--card-border)]/65 underline-offset-4 transition-colors hover:text-[var(--text-primary)]"
-            >
-              Primary era: {data.primaryEra.name}
+            <Link href={data.primaryEra.href} className="artist-uni-inline-link artist-uni-eyebrow !text-[0.56rem] !tracking-[0.2em]">
+              Primary orbit · {data.primaryEra.name}
             </Link>
           ) : null}
-          <p className="max-w-[44ch] text-[1.03rem] leading-[1.68] text-[var(--text-secondary)] sm:text-[1.08rem]">
-            {contextLine}
-          </p>
-          <p className="text-[0.9rem] tracking-[0.03em] text-[var(--text-secondary)]">
+          <p className="artist-uni-sub text-[1.03rem] sm:text-[1.08rem]">{contextLine}</p>
+          <p className="artist-uni-meta-line text-[0.9rem] tracking-[0.03em]">
             {hasYearRange ? `${firstActiveYear}-${lastActiveYear} on record` : "Years still resolving"}
             {data.metrics.numberOneCount > 0 ? ` · ${data.metrics.numberOneCount} #1 records` : ""}
-            {data.metrics.dominantEra ? ` · peak era: ${data.metrics.dominantEra.name}` : ""}
+            {data.metrics.dominantEra ? ` · peak era signal: ${data.metrics.dominantEra.name}` : ""}
           </p>
+          {data.eraConnections.length > 0 ? (
+            <div className="artist-uni-era-orbit" aria-label="ERA CONSTELLATION">
+              {data.eraConnections.slice(0, densityTier === "minimal" ? 5 : 10).map((era) => (
+                <Link key={era.id} href={era.href} className="artist-uni-era-chip">
+                  {era.name}
+                  <span className="sr-only">
+                    · {era.trackCount} archive tracks{densityTier === "minimal" ? "" : `, ${era.chartingTrackCount} charting`}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          ) : null}
           {showChapters ? (
-            <nav className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-[0.78rem] tracking-[0.06em] text-[var(--text-secondary)]">
+            <nav className="artist-uni-chapter-nav" aria-label="Career arcs">
               {chapters.map((chapter) => (
-                <a key={chapter.key} href={`#${chapter.key}`} className="uppercase underline-offset-2 hover:underline">
+                <a key={chapter.key} href={`#${chapter.key}`}>
                   {chapter.title}
                 </a>
               ))}
@@ -686,61 +839,25 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           <HistoryBackButton
             fallbackHref="/artists"
             label="Back"
-            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2.5 text-base font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+            className="artist-uni-back inline-flex items-center rounded-full px-4 py-2.5 text-base font-medium"
           />
         </div>
 
         {releaseAnchors.length > 0 ? (
-          <section className="mb-10 space-y-2.5">
-            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/86">Selected releases</p>
-            <ul className="border-y border-[var(--card-border)]/50">
-              {releaseAnchors.map((album) => {
-                return (
-                  <li key={`anchor-${album.id}`} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                    <Link href={album.href} className="flex items-start gap-3 underline-offset-2 hover:underline">
-                      <CompactArtworkThumb
-                        title={album.title}
-                        canonicalCoverPath={album.coverPath}
-                        albumId={album.id}
-                        artist={data.artist.canonical_artist_name}
-                        year={album.releaseYear}
-                        artworkStatus={album.artworkStatus}
-                        className="h-14 w-14"
-                      />
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="text-[0.98rem] leading-tight text-[var(--text-primary)]">{album.title}</p>
-                        <p className="text-[0.83rem] leading-tight text-[var(--text-secondary)]">
-                          {album.releaseYear ?? "Year unknown"} · {album.albumTypeLabel}
-                        </p>
-                      </div>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ) : null}
-
-        {topSongAnchors.length > 0 ? (
-          <section className="mb-10 space-y-2.5">
-            <p className="text-[0.72rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/86">Notable songs</p>
-            <ul className="border-y border-[var(--card-border)]/50">
-              {topSongAnchors.map((track) => (
-                <li key={`song-anchor-${track.id}`} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="min-w-0 text-[0.95rem] text-[var(--text-primary)]">
-                      <Link href={`/tracks/${track.id}`} className="underline-offset-2 hover:underline">
-                        {track.title}
-                      </Link>
-                      {" · "}
-                      <Link href={track.albumHref} className="underline-offset-2 hover:underline">
-                        {track.albumTitle}
-                      </Link>
-                    </p>
-                    {track.releaseYear !== null ? (
-                      <span className="text-[0.72rem] uppercase tracking-[0.1em] text-[var(--text-secondary)]/82">{track.releaseYear}</span>
-                    ) : null}
-                  </div>
+          <section className="artist-uni-sector mb-10 space-y-2.5">
+            <p className="artist-uni-section-label">Major albums</p>
+            <ul className="artist-uni-plate artist-uni-list overflow-hidden py-1">
+              {releaseAnchors.map((album) => (
+                <li key={`anchor-${album.id}`} className="artist-uni-row">
+                  <Link href={album.href} className="group flex min-w-0 flex-col gap-0.5 no-underline">
+                      <p className="text-[0.98rem] font-medium leading-tight text-[color:rgba(255,248,255,0.95)] underline-offset-2 group-hover:underline">
+                        {album.title}
+                      </p>
+                      <p className="artist-uni-muted text-[0.83rem] leading-tight">
+                        {album.releaseYear ?? "Year unknown"} · {album.albumTypeLabel}
+                        {album.roleLabel ? ` · ${album.roleLabel}` : ""}
+                      </p>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -749,32 +866,33 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
 
         {showChapters ? (
           <section className="mb-12 space-y-8">
+            <p className="artist-uni-section-label">Temporal arcs</p>
             <div className="space-y-8">
               {chapters.map((chapter) => (
-                <article key={chapter.key} id={chapter.key} className="border-l-2 border-[var(--card-border)]/60 pl-4 sm:pl-5">
+                <article key={chapter.key} id={chapter.key} className="artist-uni-chapter-card sm:pl-5">
                   <header className="space-y-1.5">
-                    <p className="text-[0.78rem] uppercase tracking-[0.1em] text-[var(--text-secondary)]">{chapter.rangeLabel}</p>
-                    <h3 className="font-serif text-[1.34rem] leading-tight text-[var(--text-primary)] sm:text-[1.46rem]">
+                    <p className="artist-uni-muted text-[0.78rem] uppercase tracking-[0.12em]">{chapter.rangeLabel}</p>
+                    <h3 className="font-serif text-[1.34rem] leading-tight text-[color:rgba(252,248,255,0.95)] sm:text-[1.46rem]">
                       {chapter.title}
                     </h3>
-                    <p className="text-[0.92rem] text-[var(--text-secondary)]">{chapter.summary}</p>
+                    <p className="artist-uni-muted text-[0.92rem]">{chapter.summary}</p>
                   </header>
 
                   {chapter.chartTracks.length > 0 ? (
-                    <ul className="mt-3 border-y border-[var(--card-border)]/50">
+                    <ul className="artist-uni-plate artist-uni-list mt-3 overflow-hidden py-1">
                       {chapter.chartTracks.map((track) => (
-                        <li key={`${chapter.key}-${track.id}`} className="border-b border-[var(--card-border)]/42 py-2 last:border-b-0">
+                        <li key={`${chapter.key}-${track.id}`} className="artist-uni-row">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-[0.96rem] text-[var(--text-primary)]">
-                              <Link href={`/tracks/${track.id}`} className="underline-offset-2 hover:underline">
+                            <p className="text-[0.96rem]">
+                              <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
                                 {track.title}
                               </Link>{" "}
                               ·{" "}
-                              <Link href={track.albumHref} className="underline-offset-2 hover:underline">
+                              <Link href={track.albumHref} className="artist-uni-inline-link">
                                 {track.albumTitle}
                               </Link>
                             </p>
-                            <span className="text-[0.72rem] uppercase tracking-[0.1em] text-[var(--text-secondary)]">
+                            <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.45)]">
                               Peak #{track.peakChartPosition}
                             </span>
                           </div>
@@ -784,12 +902,12 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                   ) : null}
 
                   {chapter.albums.length > 0 ? (
-                    <p className="mt-3 text-[0.92rem] leading-[1.58] text-[var(--text-secondary)]">
+                    <p className="artist-uni-muted mt-3 text-[0.92rem] leading-[1.58]">
                       Album landmarks:{" "}
                       {chapter.albums.map((album, idx) => (
                         <span key={`${chapter.key}-${album.id}`}>
                           {idx > 0 ? " · " : ""}
-                          <Link href={album.href} className="underline-offset-2 hover:underline">
+                          <Link href={album.href} className="artist-uni-inline-link">
                             {album.title}
                           </Link>
                         </span>
@@ -798,12 +916,12 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                   ) : null}
 
                   {chapter.representativeTracks.length > 0 ? (
-                    <p className="mt-2 text-[0.9rem] leading-[1.58] text-[var(--text-secondary)]">
+                    <p className="artist-uni-muted mt-2 text-[0.9rem] leading-[1.58]">
                       Also heard:{" "}
                       {chapter.representativeTracks.map((track, idx) => (
                         <span key={`${chapter.key}-rep-${track.id}`}>
                           {idx > 0 ? " · " : ""}
-                          <Link href={`/tracks/${track.id}`} className="underline-offset-2 hover:underline">
+                          <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
                             {track.title}
                           </Link>
                         </span>
@@ -818,28 +936,29 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
 
         {keySongs.length > 0 ? (
           <section className="mb-10 space-y-3">
-            <h2 className="font-serif text-[1.5rem] leading-[1.15] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.72rem]">
-              {densityTier === "minimal" ? "Key Songs" : "In Rotation"}
-            </h2>
-            <ul className="border-y border-[var(--card-border)]/50">
+            <h2 className="artist-uni-h2">Major tracks</h2>
+            <p className="artist-uni-section-label -mt-1 !mb-2">
+              {densityTier === "minimal" ? "Signals in heavy rotation" : "Phosphor pathways through the archive"}
+            </p>
+            <ul className="artist-uni-plate artist-uni-list overflow-hidden py-1">
               {keySongs.map((track) => (
-                <li key={track.id} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
+                <li key={track.id} className="artist-uni-row">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 pr-2">
-                      <p className="text-[0.98rem] font-medium text-[var(--text-primary)] sm:text-[1.01rem]">
-                        <Link href={`/tracks/${track.id}`} className="underline-offset-2 hover:underline">
+                      <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
+                        <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
                           {track.title}
                         </Link>
                       </p>
-                      <p className="text-[0.9rem] text-[var(--text-secondary)]">
-                        <Link href={track.albumHref} className="underline-offset-2 hover:underline">
+                      <p className="artist-uni-muted text-[0.9rem]">
+                        <Link href={track.albumHref} className="artist-uni-inline-link">
                           {track.albumTitle}
                         </Link>
                         {track.releaseYear !== null ? ` · ${track.releaseYear}` : ""}
                       </p>
                     </div>
                     {track.peakChartPosition !== null && track.peakChartPosition !== 999 ? (
-                      <span className="text-[0.68rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/82">
+                      <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.42)]">
                         Peak #{track.peakChartPosition}
                       </span>
                     ) : null}
@@ -852,10 +971,8 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
 
         {densityTier !== "minimal" && data.chartingTracks.length > 0 ? (
           <section className="mb-10 space-y-3">
-            <h2 className="font-serif text-[1.5rem] leading-[1.15] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.72rem]">
-              Chart Run
-            </h2>
-            <ul className="border-y border-[var(--card-border)]/50">
+            <h2 className="artist-uni-h2">Chart broadcast</h2>
+            <ul className="artist-uni-plate artist-uni-list max-w-[36rem] overflow-hidden py-1">
               {data.chartingTracks
                 .slice()
                 .sort((a, b) => {
@@ -865,40 +982,43 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                 })
                 .slice(0, 12)
                 .map((track) => (
-                <li key={track.id} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0 pr-2">
-                      <p className="text-[0.98rem] font-medium text-[var(--text-primary)] sm:text-[1.01rem]">
-                        <Link href={`/tracks/${track.id}`} className="underline-offset-2 hover:underline">
-                          {track.title}
-                        </Link>
-                      </p>
-                      <p className="text-[0.88rem] text-[var(--text-secondary)] sm:text-[0.9rem]">
-                        <Link href={track.albumHref} className="underline-offset-2 hover:underline">
-                          {track.albumTitle}
-                        </Link>
-                        {track.releaseYear !== null ? ` · ${track.releaseYear}` : ""}
-                        {" · "}
-                        {track.contextLabel}
-                      </p>
+                  <li key={track.id} className="artist-uni-row">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0 pr-2">
+                        <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
+                          <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                            {track.title}
+                          </Link>
+                        </p>
+                        <p className="artist-uni-muted text-[0.88rem] sm:text-[0.9rem]">
+                          <Link href={track.albumHref} className="artist-uni-inline-link">
+                            {track.albumTitle}
+                          </Link>
+                          {track.releaseYear !== null ? ` · ${track.releaseYear}` : ""}
+                          {" · "}
+                          {track.contextLabel}
+                        </p>
+                      </div>
+                      <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.42)]">
+                        Peak #{track.peakChartPosition}
+                      </span>
                     </div>
-                    <span className="text-[0.68rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/82">
-                      Peak #{track.peakChartPosition}
-                    </span>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                ))}
             </ul>
           </section>
         ) : null}
 
-        {densityTier === "expansive" && culturalRoleLines.length > 0 ? (
-          <section className="mb-14 max-w-[35.5rem] space-y-4 pl-1 sm:pl-2">
-            <h2 className="font-serif text-[1.46rem] leading-[1.16] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.58rem]">
-              Cultural Role
-            </h2>
-            <ul className="space-y-4 text-[0.98rem] leading-[1.74] text-[var(--text-secondary)] sm:text-[1.03rem]">
-              {culturalRoleLines.map((line) => (
+        {culturalRoleLines.length > 0 ? (
+          <section className="artist-uni-plate mb-14 max-w-[35.5rem] space-y-3 px-5 py-6 sm:space-y-4">
+            <h2 className="artist-uni-h2 !mb-0">Archive mood</h2>
+            <ul className="space-y-4 text-[0.98rem] leading-[1.74] text-[color:rgba(210,215,240,0.65)] sm:text-[1.03rem]">
+              {(densityTier === "minimal"
+                ? culturalRoleLines.slice(0, 2)
+                : densityTier === "standard"
+                  ? culturalRoleLines.slice(0, 4)
+                  : culturalRoleLines
+              ).map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
@@ -906,19 +1026,19 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
         ) : null}
 
         {data.eraConnections.length > 0 ? (
-          <section className="space-y-4">
-            <h2 className="font-serif text-[1.42rem] leading-[1.18] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.5rem]">
-              {densityTier === "minimal" ? "Around This Time" : "Era Movement"}
-            </h2>
-            <ul className="max-w-[36rem] border-y border-[var(--card-border)]/50">
+          <section className="mb-10 space-y-4">
+            <h2 className="artist-uni-h2">Era signal detail</h2>
+            <p className="artist-uni-muted -mt-1 text-[0.85rem] leading-relaxed">
+              How this voice maps across Retroverse time corridors (same chips also ring the hero — follow any thread).
+            </p>
+            <ul className="artist-uni-plate artist-uni-list max-w-[36rem] overflow-hidden py-1">
               {data.eraConnections.slice(0, densityTier === "minimal" ? 3 : data.eraConnections.length).map((era) => (
-                <li key={era.id} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <Link
-                    href={era.href}
-                    className="flex flex-wrap items-center justify-between gap-2 pl-1.5 transition-colors hover:text-[var(--text-primary)]"
-                  >
-                    <span className="text-[0.95rem] font-medium text-[var(--text-primary)] sm:text-[0.99rem]">{era.name}</span>
-                    <span className="text-[0.67rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/82 sm:text-[0.7rem]">
+                <li key={era.id} className="artist-uni-row">
+                  <Link href={era.href} className="flex flex-wrap items-center justify-between gap-2 pl-0.5 no-underline">
+                    <span className="text-[0.95rem] font-medium text-[color:rgba(252,248,255,0.92)] sm:text-[0.99rem]">
+                      {era.name}
+                    </span>
+                    <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.42)] sm:text-[0.7rem]">
                       {era.trackCount} tracks{densityTier === "minimal" ? "" : ` · ${era.chartingTrackCount} charting`}
                     </span>
                   </Link>
@@ -928,26 +1048,48 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           </section>
         ) : null}
 
-        <section className="mt-10 space-y-4">
-          <h2 className="font-serif text-[1.42rem] leading-[1.18] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.5rem]">
-            Continue Through...
-          </h2>
-          <ul className="max-w-[36rem] border-y border-[var(--card-border)]/50">
+        <section className="exploration-grid mb-10 space-y-3">
+          <h2 className="artist-uni-h2">Exploration</h2>
+          <p className="artist-uni-muted text-[0.88rem] leading-relaxed">
+            Leave the lane without leaving the constellation.
+          </p>
+          <div className="flex flex-wrap gap-2.5 pt-1">
+            <Link href="/album-retroscope" className="artist-uni-inline-link">
+              RetroScope grid
+            </Link>
+            <Link href="/random" className="artist-uni-inline-link">
+              Random doorway
+            </Link>
+            <Link href="/search" className="artist-uni-inline-link">
+              Search the archive
+            </Link>
+            <Link href="/eras" className="artist-uni-inline-link">
+              Era stack
+            </Link>
+          </div>
+        </section>
+
+        <section className="mt-2 space-y-4">
+          <h2 className="artist-uni-h2">Retroverse pathways</h2>
+          <p className="artist-uni-muted -mt-1 text-[0.85rem]">
+            Graph edges to nearby artists, albums, sessions, and eras — not a directory, a neighborhood.
+          </p>
+          <ul className="artist-uni-plate artist-uni-list max-w-[36rem] overflow-hidden py-1">
             {data.pathways.length > 0 ? (
               data.pathways.map((pathway) => (
-                <li key={pathway.key} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <Link href={pathway.href} className="block hover:underline">
-                    <span className="text-[0.95rem] font-medium text-[var(--text-primary)]">{pathway.label}</span>
-                    <p className="text-[0.84rem] text-[var(--text-secondary)]/85 sm:text-[0.88rem]">{pathway.summary}</p>
+                <li key={pathway.key} className="artist-uni-row">
+                  <Link href={pathway.href} className="block no-underline">
+                    <span className="text-[0.95rem] font-medium text-[color:rgba(252,248,255,0.92)]">{pathway.label}</span>
+                    <p className="artist-uni-muted mt-0.5 text-[0.84rem] sm:text-[0.88rem]">{pathway.summary}</p>
                   </Link>
                 </li>
               ))
             ) : (
-              <li className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                <Link href="/random" className="block hover:underline">
-                  <span className="text-[0.95rem] font-medium text-[var(--text-primary)]">Explore Randomly</span>
-                  <p className="text-[0.84rem] text-[var(--text-secondary)]/85 sm:text-[0.88rem]">
-                    Continue to another connected artist, album, track, or era node.
+              <li className="artist-uni-row">
+                <Link href="/random" className="block no-underline">
+                  <span className="text-[0.95rem] font-medium text-[color:rgba(252,248,255,0.92)]">Open a random node</span>
+                  <p className="artist-uni-muted mt-0.5 text-[0.84rem]">
+                    Continue to another connected artist, album, track, or era.
                   </p>
                 </Link>
               </li>

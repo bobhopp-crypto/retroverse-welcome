@@ -63,9 +63,6 @@ export default function RootLayout({
               Retroverse
             </Link>
             <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4" aria-label="Primary">
-              <Link className={navLink} href="/portal-v2">
-                Portal
-              </Link>
               <Link className={navLink} href="/eras">
                 Eras
               </Link>

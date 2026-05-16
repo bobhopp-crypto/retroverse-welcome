@@ -13,9 +13,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AlbumRetroscopePage() {
-  let data: ReturnType<typeof loadAlbumRetroscopeDataset> = null;
+  let data: Awaited<ReturnType<typeof loadAlbumRetroscopeDataset>> = null;
   try {
-    data = loadAlbumRetroscopeDataset();
+    data = await loadAlbumRetroscopeDataset();
   } catch (e) {
     console.error("[album-retroscope:page]", "load failed", e);
     data = null;
@@ -32,7 +32,12 @@ export default async function AlbumRetroscopePage() {
 
   return (
     <div className="arv-root">
-      <AlbumRetroscopeClient cells={data.cells} initialActiveKey={data.initialActiveKey} />
+      <AlbumRetroscopeClient
+        mode="album"
+        cells={data.cells}
+        initialActiveKey={data.initialActiveKey}
+        corpusId={data.corpusId}
+      />
     </div>
   );
 }

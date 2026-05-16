@@ -1,5 +1,8 @@
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
-import { pickCanonicalCoverPathForAlbum, readCanonicalArtworkOverridesSync } from "@/lib/canonical-artwork-overrides";
+import {
+  pickCanonicalCoverPathForAlbum,
+  getCanonicalArtworkOverrides,
+} from "@/lib/canonical-artwork-overrides";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 
 function dossierTrustToDiscover(ts: string | undefined): DiscoverStableAlbumRow["trustState"] {
@@ -12,14 +15,15 @@ function dossierTrustToDiscover(ts: string | undefined): DiscoverStableAlbumRow[
 /**
  * Hydrate curator row from dossier bundle + canonical artwork overlays (SQLite-era Supabase hydrate removed).
  */
-export function discoverStableAlbumRowFromLocalDossier(albumId: string): DiscoverStableAlbumRow | null {
+export async function discoverStableAlbumRowFromLocalDossier(albumId: string): Promise<DiscoverStableAlbumRow | null> {
   const id = albumId.trim().toUpperCase();
   if (!/^RVAL\d{6}$/.test(id)) return null;
   const d = getAlbumDossier(id);
   if (!d) return null;
 
-  const overrides = readCanonicalArtworkOverridesSync().albums[id];
-  const path = pickCanonicalCoverPathForAlbum(id);
+  const file = await getCanonicalArtworkOverrides();
+  const overrides = file.albums[id];
+  const path = await pickCanonicalCoverPathForAlbum(id);
 
   let trustState: DiscoverStableAlbumRow["trustState"] = dossierTrustToDiscover(d.identity.trust_state);
   if (

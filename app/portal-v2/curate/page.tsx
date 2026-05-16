@@ -30,7 +30,7 @@ export default async function PortalV2CuratePage({ searchParams }: { searchParam
   if (!RVAL.test(raw)) redirect("/portal-v2");
 
   /** Dossiers + canonical artwork overlays (no Supabase). */
-  const row = discoverStableAlbumRowFromLocalDossier(raw);
+  const row = await discoverStableAlbumRowFromLocalDossier(raw);
   if (!row || row.kind !== "album") redirect("/portal-v2");
 
   const meta = validateAlbumRowForCurator(row);

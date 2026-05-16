@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from "react";
 
 import type { RetroscopeCellDTO } from "@/lib/album-retroscope-data";
 import {
@@ -16,11 +25,22 @@ import {
   RETROSCOPE_YEAR_MIN,
   retroscopeCellKey,
 } from "@/lib/album-retroscope-data";
+import { retroscopeRankDisplayLabel, type RetroscopeMode } from "@/lib/retroscope-mode";
+import { hrefForArtist } from "@/lib/retroverse-routes";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+
+import {
+  artistSignalVars,
+  cellNeighborhoodSuffix,
+  HeroArtistSignal,
+  HeroAlbumFocus,
+  HeroTrackStub,
+} from "./retroscope-hero";
+import { RetroscopeModeStrip } from "./retroscope-mode-strip";
+import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
   fitViewportToIncludeCoordinate,
-  loadRetroscopePersistedSession,
-  retroscopeCorpusId,
+  saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
 } from "@/lib/retroscope-persist-session";
 
@@ -39,18 +59,26 @@ function curatorHrefForCell(cell: RetroscopeCellDTO | null): string | null {
   if (!cell) return null;
   const rval = rvalFromCoverPath(cell.canonicalCoverPath);
   if (rval) return `/portal-v2/curate?albumId=${encodeURIComponent(rval)}`;
-  if (RVAL_RE.test(cell.albumId)) {
-    return `/portal-v2/curate?albumId=${encodeURIComponent(cell.albumId.toUpperCase())}`;
+  if (cell.entityKind === "artist") return null;
+  if (RVAL_RE.test(cell.entityId)) {
+    return `/portal-v2/curate?albumId=${encodeURIComponent(cell.entityId.toUpperCase())}`;
   }
   return "/internal/curator";
 }
 
-/** RVAL album page, or search fallback when identity is bb200-only. */
-function archiveHrefForCell(cell: RetroscopeCellDTO | null): string | null {
+/** Entity dossier route (album or artist). */
+function entityHrefForCell(cell: RetroscopeCellDTO | null, mode: RetroscopeMode): string | null {
   if (!cell) return null;
+  if (mode === "artist" || cell.entityKind === "artist") {
+    return hrefForArtist(cell.entityId, cell.title);
+  }
+  if (mode === "track" || cell.entityKind === "track") {
+    const q = `${cell.artist} ${cell.title}`.trim();
+    return q ? `/search?q=${encodeURIComponent(q)}` : null;
+  }
   const rval = rvalFromCoverPath(cell.canonicalCoverPath);
   if (rval) return `/albums/${rval}`;
-  if (RVAL_RE.test(cell.albumId)) return `/albums/${cell.albumId.toUpperCase()}`;
+  if (RVAL_RE.test(cell.entityId)) return `/albums/${cell.entityId.toUpperCase()}`;
   const q = `${cell.artist} ${cell.title}`.trim();
   if (q) return `/search?q=${encodeURIComponent(q)}`;
   return null;
@@ -177,73 +205,22 @@ function serverSnapshotRetroscopeGridRows(): number {
   return RETROSCOPE_GRID_ROWS;
 }
 
-function parseInitialKey(key: string): { y: number; r: number } {
-  const [a, b] = key.split(":");
-  const y = Math.round(Number(a));
-  const r = Math.round(Number(b));
-  if (!Number.isFinite(y) || !Number.isFinite(r)) {
-    return { y: RETROSCOPE_WORLD_YEAR_MIN, r: 1 };
-  }
-  return {
-    y: clamp(y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX),
-    r: clamp(r, 1, RETROSCOPE_RANK_MAX),
-  };
-}
-
-/** Only when nothing is persisted: random top-5 cell in billboard core band (years per RETROSCOPE_YEAR_*). */
-function randomFirstVisitBootstrap(
-  cells: RetroscopeCellDTO[],
-  rnd: () => number = () => Math.random(),
-): { y: number; r: number } {
-  const band = cells.filter(
-    (c) =>
-      c.chartYear >= RETROSCOPE_YEAR_MIN &&
-      c.chartYear <= RETROSCOPE_YEAR_MAX &&
-      Number.isFinite(c.retroverseRank) &&
-      c.retroverseRank >= 1 &&
-      c.retroverseRank <= 5,
-  );
-  if (band.length > 0) {
-    const pick = band[Math.floor(rnd() * band.length)]!;
-    return { y: pick.chartYear, r: pick.retroverseRank };
-  }
-  const sorted = [...cells].sort((a, b) =>
-    a.chartYear !== b.chartYear ? a.chartYear - b.chartYear : a.retroverseRank - b.retroverseRank,
-  );
-  const head = sorted[0];
-  if (head) return { y: head.chartYear, r: head.retroverseRank };
-  return { y: RETROSCOPE_WORLD_YEAR_MIN, r: 1 };
-}
-
-function HeroCover({ cell }: { cell: RetroscopeCellDTO | null }) {
-  const [broken, setBroken] = useState(false);
-  const url = cell && !broken ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
-  if (!cell) {
-    return <div className="arv-hero-void">No anchor · move or scan</div>;
-  }
-  if (!url) {
-    return <div className="arv-hero-void">Cover unresolved</div>;
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- canonical R2 / http URLs; onError fallback
-    <img
-      src={url}
-      alt=""
-      className="arv-hero-img"
-      draggable={false}
-      decoding="async"
-      onError={() => setBroken(true)}
-    />
-  );
-}
-
-export default function AlbumRetroscopeClient({
-  cells,
-  initialActiveKey,
-}: {
+export type RetroscopeClientProps = {
+  mode?: RetroscopeMode;
   cells: RetroscopeCellDTO[];
   initialActiveKey: string;
-}) {
+  corpusId: string;
+};
+
+export default function RetroscopeClient({
+  mode = "album",
+  cells,
+  initialActiveKey,
+  corpusId,
+}: RetroscopeClientProps) {
+  const persistScope = mode;
+  const isArtistMode = mode === "artist";
+  const isTrackMode = mode === "track";
   const byKey = useMemo(() => {
     const m = new Map<string, RetroscopeCellDTO>();
     for (const c of cells) {
@@ -253,37 +230,28 @@ export default function AlbumRetroscopeClient({
     return m;
   }, [cells]);
 
-  const safeInit = useMemo(() => {
-    const parsed = parseInitialKey(initialActiveKey);
-    const k = retroscopeCellKey(parsed.y, parsed.r);
-    if (cells.some((c) => retroscopeCellKey(c.chartYear, c.retroverseRank) === k)) return parsed;
-    const c0 = cells[0];
-    if (c0 && Number.isFinite(c0.chartYear) && Number.isFinite(c0.retroverseRank)) {
-      return { y: c0.chartYear, r: c0.retroverseRank };
-    }
-    return parsed;
-  }, [cells, initialActiveKey]);
-
-  const corpusId = useMemo(() => retroscopeCorpusId(cells), [cells]);
-
   const visibleGridRows = useSyncExternalStore(
     subscribeRetroscopeViewportRows,
     snapshotRetroscopeGridRows,
     serverSnapshotRetroscopeGridRows,
   );
 
-  const [activeYear, setActiveYear] = useState(safeInit.y);
-  const [activeRank, setActiveRank] = useState(safeInit.r);
-  const [explored, setExplored] = useState<Set<string>>(() => new Set([retroscopeCellKey(safeInit.y, safeInit.r)]));
+  const ssrInit = useMemo(() => parseRetroscopeCoordKey(initialActiveKey), [initialActiveKey]);
+
+  const [activeYear, setActiveYear] = useState(ssrInit.y);
+  const [activeRank, setActiveRank] = useState(ssrInit.r);
+  const [explored, setExplored] = useState<Set<string>>(() =>
+    new Set([retroscopeCellKey(ssrInit.y, ssrInit.r)]),
+  );
   const [operatorFlash, setOperatorFlash] = useState(false);
   const [portalPulse, setPortalPulse] = useState(false);
   const [operatorPanelOpen, setOperatorPanelOpen] = useState(false);
   const router = useRouter();
   const [viewYear0, setViewYear0] = useState(() =>
-    clamp(safeInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
+    clamp(ssrInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
   );
   const [viewRank0, setViewRank0] = useState(() =>
-    clamp(safeInit.r, 1, RETROSCOPE_RANK_MAX - serverSnapshotRetroscopeGridRows() + 1),
+    clamp(ssrInit.r, 1, RETROSCOPE_RANK_MAX - serverSnapshotRetroscopeGridRows() + 1),
   );
 
   /** Keep viewport rank clamped when breakpoint row count shifts — avoids hydration mismatch vs SSR desktop rows. */
@@ -292,94 +260,77 @@ export default function AlbumRetroscopeClient({
     [viewRank0, visibleGridRows],
   );
 
-  const posRef = useRef({ y: safeInit.y, r: safeInit.r });
+  const posRef = useRef({ y: ssrInit.y, r: ssrInit.r });
+  const exploredRef = useRef(new Set<string>([retroscopeCellKey(ssrInit.y, ssrInit.r)]));
+  const [bootstrapped, setBootstrapped] = useState(false);
   const restoreDoneRef = useRef(false);
   const persistSnapRef = useRef({
     corpusId: "",
-    activeYear: RETROSCOPE_WORLD_YEAR_MIN,
-    activeRank: 1,
-    exploredKeys: [] as string[],
+    activeYear: ssrInit.y,
+    activeRank: ssrInit.r,
+    exploredKeys: [retroscopeCellKey(ssrInit.y, ssrInit.r)] as string[],
     viewYear0: RETROSCOPE_WORLD_YEAR_MIN,
     viewRank0: 1,
   });
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const portalPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* Persisted corpus session (localStorage) is external to React — hydrate before paint to avoid SSR/CSR mismatch flashes. */
+  /* Bootstrap before first paint: coordinate UI stays hidden until persisted state is applied. */
   /* eslint-disable react-hooks/set-state-in-effect -- hydrate from persisted session */
   useLayoutEffect(() => {
-    const saved = loadRetroscopePersistedSession(corpusId);
-    const gridRows = snapshotRetroscopeGridRows();
-
-    if (saved) {
-      const ay = saved.activeYear;
-      const ar = saved.activeRank;
-      const fitted = fitViewportToIncludeCoordinate({
-        activeYear: ay,
-        activeRank: ar,
-        viewYear0: saved.viewYear0,
-        viewRank0: saved.viewRank0,
-        visibleGridRows: gridRows,
-      });
-      posRef.current = { y: ay, r: ar };
-      setActiveYear(ay);
-      setActiveRank(ar);
-      setViewYear0(fitted.viewYear0);
-      setViewRank0(fitted.viewRank0);
-      setExplored(new Set(saved.exploredKeys));
-      persistSnapRef.current = {
-        corpusId,
-        activeYear: ay,
-        activeRank: ar,
-        exploredKeys: [...new Set(saved.exploredKeys)],
-        viewYear0: fitted.viewYear0,
-        viewRank0: fitted.viewRank0,
-      };
-    } else {
-      const { y: iy, r: ir } = randomFirstVisitBootstrap(cells);
-      const fitted = fitViewportToIncludeCoordinate({
-        activeYear: iy,
-        activeRank: ir,
-        viewYear0: clamp(iy, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
-        viewRank0: clamp(ir, 1, RETROSCOPE_RANK_MAX - gridRows + 1),
-        visibleGridRows: gridRows,
-      });
-      posRef.current = { y: iy, r: ir };
-      setActiveYear(iy);
-      setActiveRank(ir);
-      setExplored(new Set([retroscopeCellKey(iy, ir)]));
-      setViewYear0(fitted.viewYear0);
-      setViewRank0(fitted.viewRank0);
-      const exploredInit = [retroscopeCellKey(iy, ir)];
-      persistSnapRef.current = {
-        corpusId,
-        activeYear: iy,
-        activeRank: ir,
-        exploredKeys: exploredInit,
-        viewYear0: fitted.viewYear0,
-        viewRank0: fitted.viewRank0,
-      };
-      saveRetroscopePersistedSession({
-        version: 1,
-        corpusId,
-        activeYear: iy,
-        activeRank: ir,
-        exploredKeys: exploredInit,
-        viewYear0: fitted.viewYear0,
-        viewRank0: fitted.viewRank0,
-      });
+    if (restoreDoneRef.current) {
+      if (persistSnapRef.current.corpusId !== corpusId) {
+        persistSnapRef.current.corpusId = corpusId;
+        saveRetroscopePersistedSession(
+          { version: 1, ...persistSnapRef.current, corpusId },
+          persistScope,
+        );
+      }
+      if (!bootstrapped) setBootstrapped(true);
+      return;
     }
+
+    const boot = resolveRetroscopeBootstrap({
+      scope: persistScope,
+      corpusId,
+      cells,
+      initialActiveKey,
+      visibleGridRows: snapshotRetroscopeGridRows(),
+    });
+
+    const nextExplored = new Set(boot.exploredKeys);
+    exploredRef.current = nextExplored;
+    setExplored(nextExplored);
+    posRef.current = { y: boot.activeYear, r: boot.activeRank };
+    setActiveYear(boot.activeYear);
+    setActiveRank(boot.activeRank);
+    setViewYear0(boot.viewYear0);
+    setViewRank0(boot.viewRank0);
+    persistSnapRef.current = {
+      corpusId,
+      activeYear: boot.activeYear,
+      activeRank: boot.activeRank,
+      exploredKeys: boot.exploredKeys,
+      viewYear0: boot.viewYear0,
+      viewRank0: boot.viewRank0,
+    };
     restoreDoneRef.current = true;
-  }, [corpusId]); // eslint-disable-line react-hooks/exhaustive-deps -- corpus fingerprint already includes cell set; avoids URL bootstrap fighting storage
+    setBootstrapped(true);
+  }, [corpusId, persistScope, initialActiveKey, cells.length]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
+    exploredRef.current = explored;
+  }, [explored]);
+
+  useEffect(() => {
     if (!restoreDoneRef.current) return;
+    const exploredKeys = [...exploredRef.current];
     persistSnapRef.current = {
       corpusId,
       activeYear,
       activeRank,
-      exploredKeys: [...explored],
+      exploredKeys,
       viewYear0,
       viewRank0,
     };
@@ -389,15 +340,18 @@ export default function AlbumRetroscopeClient({
     const flushPersistFromRef = () => {
       const p = persistSnapRef.current;
       if (!restoreDoneRef.current || !p.corpusId) return;
-      saveRetroscopePersistedSession({
-        version: 1,
-        corpusId: p.corpusId,
-        activeYear: p.activeYear,
-        activeRank: p.activeRank,
-        exploredKeys: p.exploredKeys,
-        viewYear0: p.viewYear0,
-        viewRank0: p.viewRank0,
-      });
+      saveRetroscopePersistedSession(
+        {
+          version: 1,
+          corpusId: p.corpusId,
+          activeYear: p.activeYear,
+          activeRank: p.activeRank,
+          exploredKeys: p.exploredKeys,
+          viewYear0: p.viewYear0,
+          viewRank0: p.viewRank0,
+        },
+        persistScope,
+      );
     };
 
     const onHidden = () => {
@@ -418,15 +372,18 @@ export default function AlbumRetroscopeClient({
     const flushPersistFromRef = () => {
       const p = persistSnapRef.current;
       if (!restoreDoneRef.current || !p.corpusId) return;
-      saveRetroscopePersistedSession({
-        version: 1,
-        corpusId: p.corpusId,
-        activeYear: p.activeYear,
-        activeRank: p.activeRank,
-        exploredKeys: p.exploredKeys,
-        viewYear0: p.viewYear0,
-        viewRank0: p.viewRank0,
-      });
+      saveRetroscopePersistedSession(
+        {
+          version: 1,
+          corpusId: p.corpusId,
+          activeYear: p.activeYear,
+          activeRank: p.activeRank,
+          exploredKeys: p.exploredKeys,
+          viewYear0: p.viewYear0,
+          viewRank0: p.viewRank0,
+        },
+        persistScope,
+      );
     };
 
     const t = window.setTimeout(flushPersistFromRef, 120);
@@ -447,20 +404,25 @@ export default function AlbumRetroscopeClient({
 
   const flushRetroscopePersistNow = useCallback(() => {
     if (!restoreDoneRef.current) return;
+    const exploredKeys = [...exploredRef.current];
     const snap = {
       corpusId,
-      activeYear,
-      activeRank,
-      exploredKeys: [...explored],
+      activeYear: posRef.current.y,
+      activeRank: posRef.current.r,
+      exploredKeys,
       viewYear0,
       viewRank0,
     };
     persistSnapRef.current = snap;
-    saveRetroscopePersistedSession({
-      version: 1,
-      ...snap,
-    });
-  }, [corpusId, activeYear, activeRank, explored, viewYear0, viewRank0]);
+    saveRetroscopeExploredKeys(exploredKeys, persistScope);
+    saveRetroscopePersistedSession(
+      {
+        version: 1,
+        ...snap,
+      },
+      persistScope,
+    );
+  }, [corpusId, viewYear0, viewRank0, persistScope]);
   const bumpViewportToInclude = useCallback(
     (ny: number, nr: number) => {
       const ynn = Number.isFinite(ny) ? Math.round(ny) : RETROSCOPE_WORLD_YEAR_MIN;
@@ -504,6 +466,8 @@ export default function AlbumRetroscopeClient({
         const n = new Set(prev);
         if (markExploredFrom) n.add(markExploredFrom);
         n.add(nk);
+        exploredRef.current = n;
+        if (restoreDoneRef.current) saveRetroscopeExploredKeys(n, persistScope);
         return n;
       });
       posRef.current = { y: ny, r: nr };
@@ -511,7 +475,7 @@ export default function AlbumRetroscopeClient({
       setActiveRank(nr);
       bumpViewportToInclude(ny, nr);
     },
-    [bumpViewportToInclude],
+    [bumpViewportToInclude, persistScope],
   );
 
   const onPad = useCallback(
@@ -533,7 +497,7 @@ export default function AlbumRetroscopeClient({
       if (g === "tap") {
         const { y, r } = posRef.current;
         const cell = byKey.get(retroscopeCellKey(y, r)) ?? null;
-        const href = archiveHrefForCell(cell);
+        const href = entityHrefForCell(cell, mode);
         if (href) {
           flushRetroscopePersistNow();
           router.push(href);
@@ -543,7 +507,7 @@ export default function AlbumRetroscopeClient({
       flashPortal();
       onPad(g);
     },
-    [byKey, flashPortal, flushRetroscopePersistNow, onPad, router],
+    [byKey, flashPortal, flushRetroscopePersistNow, mode, onPad, router],
   );
 
   const onPortalTouchStart = (e: React.TouchEvent) => {
@@ -651,7 +615,7 @@ export default function AlbumRetroscopeClient({
       const cur = retroscopeCellKey(posRef.current.y, posRef.current.r);
       if (k === cur) {
         const cell = byKey.get(k) ?? null;
-        const href = archiveHrefForCell(cell);
+        const href = entityHrefForCell(cell, mode);
         if (href) {
           flushRetroscopePersistNow();
           router.push(href);
@@ -660,7 +624,7 @@ export default function AlbumRetroscopeClient({
       }
       moveTo(y, r, cur);
     },
-    [byKey, flushRetroscopePersistNow, moveTo, router],
+    [byKey, flushRetroscopePersistNow, mode, moveTo, router],
   );
 
   const searchHref =
@@ -670,19 +634,32 @@ export default function AlbumRetroscopeClient({
 
   const cellCount = visibleGridRows * RETROSCOPE_GRID_COLS;
 
+  const rankLabel = retroscopeRankDisplayLabel(activeRank, mode);
+
   return (
-    <div className={`arv-machine${operatorFlash ? " arv-machine--operator" : ""}`}>
-      <div className="arv-device-face" aria-hidden>
-        <span className="arv-screw arv-screw--tl" />
+    <div
+      className={`arv-machine${isArtistMode ? " arv-mode-artist" : ""}${isTrackMode ? " arv-mode-track" : ""}${operatorFlash ? " arv-machine--operator" : ""}${!bootstrapped ? " arv-machine--bootstrapping" : ""}`}
+      style={isArtistMode && activeCell ? (artistSignalVars(activeCell) as CSSProperties) : undefined}
+    >
+      <div className="arv-device-face">
+        <RetroscopeModeStrip active={mode} />
+        <span className="arv-screw arv-screw--tl" aria-hidden />
         <span className="arv-screw arv-screw--tr" />
         <span className="arv-device-led arv-device-led--pwr" />
         <span className="arv-device-led arv-device-led--sig" />
         <span className="arv-device-brand">
-          Retroscope<span className="arv-device-model"> 2000</span>
+          Retroscope
+          <span className="arv-device-model">
+            {isArtistMode ? "Artist" : isTrackMode ? "Track" : "2000"}
+          </span>
         </span>
         <span className="arv-device-sub">
-          <span className="arv-device-sub-line">Solid State</span>
-          <span className="arv-device-sub-line">Catalog Explorer</span>
+          <span className="arv-device-sub-line">
+            {isArtistMode ? "Signal Field" : isTrackMode ? "Hot 100 Band" : "Solid State"}
+          </span>
+          <span className="arv-device-sub-line">
+            {isArtistMode ? "Dominance Map" : isTrackMode ? "Scan Layer" : "Catalog Explorer"}
+          </span>
         </span>
         <span className="arv-device-vents" />
         <span className="arv-screw arv-screw--bl" />
@@ -693,7 +670,10 @@ export default function AlbumRetroscopeClient({
         Exit
       </Link>
 
-      <section className="arv-portal" aria-label="Album portal">
+      <section
+        className={`arv-portal${isArtistMode ? " arv-portal--field" : ""}${isTrackMode ? " arv-portal--track" : ""}`}
+        aria-label={isArtistMode ? "Artist signal field" : isTrackMode ? "Track scan field" : "Album portal"}
+      >
         <Link href="/toc" className="arv-portal-tag" aria-label="Retroverse index">
           Portal
         </Link>
@@ -709,7 +689,7 @@ export default function AlbumRetroscopeClient({
           </button>
           <span className="arv-portal-rim" aria-hidden />
           <div
-            className={`arv-hero arv-hero--surface${portalPulse ? " arv-hero--pulse" : ""}`}
+            className={`arv-hero arv-hero--surface${isArtistMode ? " arv-hero--field" : ""}${portalPulse ? " arv-hero--pulse" : ""}`}
             onTouchStart={onPortalTouchStart}
             onTouchMove={onPortalTouchMove}
             onTouchEnd={onPortalTouchEnd}
@@ -722,8 +702,14 @@ export default function AlbumRetroscopeClient({
               swipeRef.current = null;
             }}
           >
-            <HeroCover key={activeKey} cell={activeCell} />
-            <span className="arv-portal-glass" aria-hidden />
+            {isArtistMode ? (
+              <HeroArtistSignal key={activeKey} cell={activeCell} />
+            ) : isTrackMode ? (
+              <HeroTrackStub key={activeKey} cell={activeCell} />
+            ) : (
+              <HeroAlbumFocus key={activeKey} cell={activeCell} />
+            )}
+            {!isArtistMode ? <span className="arv-portal-glass" aria-hidden /> : null}
             <span className="arv-portal-scan" aria-hidden />
           </div>
         </div>
@@ -780,7 +766,7 @@ export default function AlbumRetroscopeClient({
                     <strong>Vertical drag</strong> — ±1 rank
                   </li>
                   <li>
-                    <strong>Tap</strong> — open album dossier
+                    <strong>Tap</strong> — {isArtistMode ? "open artist profile" : "open album dossier"}
                   </li>
                 </ul>
               </section>
@@ -826,10 +812,17 @@ export default function AlbumRetroscopeClient({
                 <span className="arv-help-action-title">Curator</span>
                 <span className="arv-help-action-sub">Operator tools</span>
               </button>
-              <button type="button" className="arv-help-action" disabled aria-disabled>
-                <span className="arv-help-action-title">Artist mode</span>
-                <span className="arv-help-action-sub">Coming soon</span>
-              </button>
+              {isArtistMode ? (
+                <Link href="/album-retroscope" className="arv-help-action">
+                  <span className="arv-help-action-title">Album mode</span>
+                  <span className="arv-help-action-sub">Chart albums</span>
+                </Link>
+              ) : (
+                <Link href="/artist-retroscope" className="arv-help-action">
+                  <span className="arv-help-action-title">Artist mode</span>
+                  <span className="arv-help-action-sub">Year dominance</span>
+                </Link>
+              )}
               <button type="button" className="arv-help-action" disabled aria-disabled>
                 <span className="arv-help-action-title">Track mode</span>
                 <span className="arv-help-action-sub">Coming soon</span>
@@ -851,21 +844,24 @@ export default function AlbumRetroscopeClient({
           {activeCell ? (
             <>
               <p className="arv-eyebrow">
-                {activeCell.chartYear} · #{activeCell.retroverseRank}
-                {searchHref ? (
+                {activeCell.chartYear} · {rankLabel}
+                {searchHref && !isArtistMode && !isTrackMode ? (
                   <Link href={searchHref} className="arv-meta-link">
                     · search
                   </Link>
                 ) : null}
               </p>
               <p className="arv-title-line">
-                {activeCell.artist} — {activeCell.title}
+                {isArtistMode ? activeCell.title : `${activeCell.artist} — ${activeCell.title}`}
               </p>
+              {isTrackMode ? (
+                <p className="arv-meta-artist-detail">Track layer placeholder · search or scan</p>
+              ) : null}
             </>
           ) : (
             <>
               <p className="arv-eyebrow">
-                {activeYear} · #{activeRank}
+                {activeYear} · {rankLabel}
               </p>
               <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
             </>
@@ -914,7 +910,7 @@ export default function AlbumRetroscopeClient({
           <span className="arv-readout-lamp" aria-hidden />
           <span className="arv-readout-dot" aria-hidden />
           <div className="arv-readout-label">Rank</div>
-          <div className="arv-readout-value">#{activeRank}</div>
+          <div className="arv-readout-value">{rankLabel}</div>
         </div>
       </section>
 
@@ -944,7 +940,11 @@ export default function AlbumRetroscopeClient({
             if (isActive) stateClass = "arv-cell--active";
             else if (isExplored) stateClass = "arv-cell--explored";
 
-            const thumb = cell ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
+            const thumb =
+              !isArtistMode && cell ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
+            const rankMeta = retroscopeRankDisplayLabel(r, mode);
+            const nearSuffix =
+              isArtistMode && !isVoid ? cellNeighborhoodSuffix(activeYear, activeRank, y, r) : "";
 
             return (
               <button
@@ -953,14 +953,27 @@ export default function AlbumRetroscopeClient({
                 role="gridcell"
                 aria-current={isActive ? "true" : undefined}
                 aria-label={
-                  cell ? `${cell.title}, ${y}, rank ${r}` : `Empty coordinate ${y} rank ${r}`
+                  cell
+                    ? `${cell.title}, ${y}, rank ${rankMeta}`
+                    : `Empty coordinate ${y} rank ${r}`
                 }
-                className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""}`}
+                className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""}${isArtistMode && cell ? " arv-cell--artist" : ""}${isTrackMode && cell ? " arv-cell--track" : ""}${nearSuffix}`}
                 onClick={() => onCellTap(y, r)}
+                style={isArtistMode && cell ? (artistSignalVars(cell) as CSSProperties) : undefined}
               >
                 <div className="arv-cell-inner">
                   {isExplored && !isVoid ? <span className="arv-cell-reveal" aria-hidden /> : null}
-                  {thumb ? (
+                  {isArtistMode && cell ? (
+                    <>
+                      <span className="arv-cell-glyph" aria-hidden />
+                      <span className="arv-cell-artist-name">{cell.title}</span>
+                    </>
+                  ) : isTrackMode && cell ? (
+                    <>
+                      <span className="arv-cell-track-bar" aria-hidden />
+                      <span className="arv-cell-artist-name">{cell.title}</span>
+                    </>
+                  ) : thumb ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={thumb} alt="" className="arv-cell-thumb" draggable={false} loading="lazy" />
                   ) : null}
@@ -969,7 +982,8 @@ export default function AlbumRetroscopeClient({
                   ) : null}
                   <span className="arv-cell-meta">
                     {y}
-                    <br />#{r}
+                    <br />
+                    {rankMeta}
                   </span>
                 </div>
               </button>

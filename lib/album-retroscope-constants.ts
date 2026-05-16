@@ -12,8 +12,13 @@ export const RETROSCOPE_RANK_MAX = 200;
 export type RetroscopeCellDTO = {
   chartYear: number;
   retroverseRank: number;
-  albumId: string;
+  /** Album, artist, or track entity payload. */
+  entityKind: "album" | "artist" | "track";
+  /** Stable entity id (RVAL… or slug:…). */
+  entityId: string;
+  /** Primary line (album title or artist name). */
   title: string;
+  /** Secondary line (album artist or rank coordinate). */
   artist: string;
   releaseYear: number | null;
   canonicalCoverPath: string | null;
@@ -22,6 +27,24 @@ export type RetroscopeCellDTO = {
   /** From materialized runtime (materialize_retroscope_runtime.py). */
   trustScore?: number;
   identityState?: string;
+  /** @deprecated Use entityId — album id for album cells. */
+  albumId: string;
+  /** Artist RetroScope (`1977:A1`). */
+  artistRetroscopeKey?: string;
+  artistSlug?: string;
+  signalHue?: number;
+  signalHueSecondary?: number;
+  signalAccent?: string;
+  signalAccentWarm?: string;
+  signalBloom?: string;
+  signalDescriptor?: string;
+  dominantYears?: number[];
+  peakMomentumScore?: number;
+  rankedYearCount?: number;
+  activeYearsFirst?: number | null;
+  activeYearsLast?: number | null;
+  primaryAlbumTitles?: string[];
+  primaryTrackTitles?: string[];
 };
 
 export function retroscopeCellKey(chartYear: number, retroverseRank: number): string {

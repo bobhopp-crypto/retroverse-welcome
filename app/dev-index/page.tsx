@@ -167,10 +167,24 @@ export default function DevIndexPage() {
         rows={[
           {
             href: "/album-retroscope",
-            label: "RetroScope (year × rank)",
+            label: "RetroScope · Album mode",
             file: "app/album-retroscope/page.tsx",
             statuses: ["Active", "Local-first"],
             note: "Coordinates JSON + optional R2 for covers.",
+          },
+          {
+            href: "/artist-retroscope",
+            label: "RetroScope · Artist mode",
+            file: "app/artist-retroscope/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "Year × artist rank (A1…) from rankings + universe JSON.",
+          },
+          {
+            href: "/track-retroscope",
+            label: "RetroScope · Track mode (stub)",
+            file: "app/track-retroscope/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "Same engine; Hot 100 layer pending materialization.",
           },
           {
             href: "/portal",

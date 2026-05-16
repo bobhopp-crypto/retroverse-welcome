@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
+import { CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG } from "@/lib/canonical-artwork-overrides";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { createClient } from "@/lib/supabase";
 
@@ -152,7 +153,11 @@ const hydrateCacheKey = (ids: string[]) => ids.join(",");
 export function hydrateDiscoverAlbumRows(albumIds: string[]): Promise<DiscoverStableAlbumRow[]> {
   if (albumIds.length === 0) return Promise.resolve([]);
   const key = hydrateCacheKey(albumIds);
-  const tags = ["discover-hydrate-albums", ...albumIds.map((id) => `artwork:${id}`)];
+  const tags = [
+    "discover-hydrate-albums",
+    CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG,
+    ...albumIds.map((id) => `artwork:${id}`),
+  ];
   return unstable_cache(
     async () => hydrateDiscoverAlbumRowsImpl(albumIds),
     ["discover-hydrate-albums", key],
