@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { hydrateDiscoverAlbumRowsFresh } from "@/lib/discover-hydrate-rows";
+import { discoverStableAlbumRowFromLocalDossier } from "@/lib/curator-album-local";
 import { validateAlbumRowForCurator } from "@/lib/curator-album-metadata";
 
 import PortalV2CurateClient from "./portal-v2-curate-client";
@@ -29,9 +29,8 @@ export default async function PortalV2CuratePage({ searchParams }: { searchParam
   const raw = firstString(sp.albumId)?.trim().toUpperCase() ?? "";
   if (!RVAL.test(raw)) redirect("/portal-v2");
 
-  /** Uncached — curator must reflect current Supabase joins (artist/title) */
-  const rows = await hydrateDiscoverAlbumRowsFresh([raw]);
-  const row = rows.find((r) => r.kind === "album" && r.albumId === raw);
+  /** Dossiers + canonical artwork overlays (no Supabase). */
+  const row = discoverStableAlbumRowFromLocalDossier(raw);
   if (!row || row.kind !== "album") redirect("/portal-v2");
 
   const meta = validateAlbumRowForCurator(row);

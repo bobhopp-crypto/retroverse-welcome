@@ -23,19 +23,56 @@ export type AlbumDossierChart = {
   nearby_snapshot_positions: Array<Record<string, unknown>>;
 };
 
+export type DossierTrackMusicBrainz = {
+  position?: number | null;
+  length_ms?: number | null;
+  recording_mbid?: string | null;
+  medium_mbid?: string | null;
+  release_mbid?: string | null;
+  work_mbid?: string | null;
+  disambiguation?: string | null;
+};
+
+export type AlbumDossierTrack = {
+  title: string;
+  acousticness?: number | null;
+  danceability?: number | null;
+  duration_ms?: number | null;
+  energy?: number | null;
+  instrumentalness?: number | null;
+  key?: number | null;
+  key_label?: string | null;
+  liveness?: number | null;
+  loudness?: number | null;
+  mode?: number | null;
+  speechiness?: number | null;
+  tempo?: number | null;
+  time_signature?: number | null;
+  valence?: number | null;
+  spotify_album_id?: string | null;
+  spotify_track_id?: string | null;
+  musicbrainz?: DossierTrackMusicBrainz;
+  retroverse_score?: number | null;
+};
+
 export type AlbumDossierAcoustic = {
   track_count: number;
+  /** Raw `acoustic_features` row count before per-title dedupe. */
+  raw_feature_row_count?: number;
   means: Record<string, number | null>;
   descriptors: string[];
   editorial_summary: string;
-  tracks: Array<{
-    title: string;
-    acousticness?: number | null;
-    danceability?: number | null;
-    energy?: number | null;
-    valence?: number | null;
-    tempo?: number | null;
-  }>;
+  tracks: AlbumDossierTrack[];
+};
+
+/** Optional Retroverse pathway / ranking scores from local sidecar (`dossier-retroverse-scores-by-rval.json`). */
+export type AlbumDossierScores = {
+  album_retroverse_score?: number | null;
+  tracks?: Array<{ title_norm?: string; retroverse_score?: number | null }>;
+};
+
+export type AlbumDossierMusicBrainz = {
+  release_mbid?: string;
 };
 
 export type AlbumDossierRelatedStub = {
@@ -60,6 +97,8 @@ export type AlbumDossier = {
   chart: AlbumDossierChart;
   acoustic: AlbumDossierAcoustic;
   related: AlbumDossierRelated;
+  scores?: AlbumDossierScores;
+  musicbrainz?: AlbumDossierMusicBrainz;
 };
 
 export type AlbumDossierBundleFile = {

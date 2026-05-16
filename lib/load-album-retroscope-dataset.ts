@@ -5,11 +5,10 @@ import seedBundled from "@/data/album-retroscope-seed.json";
 import type { AlbumRetroscopeSeedFile, AlbumRetroscopeSeedRow } from "@/lib/album-retroscope-seed";
 import type { RetroscopeCoordinateCell, RetroscopeCoordinatesFile } from "@/lib/retroscope-coordinates-schema";
 import {
-  RETROSCOPE_YEAR_MAX,
-  RETROSCOPE_YEAR_MIN,
   retroscopeCellKey,
   type RetroscopeCellDTO,
 } from "@/lib/album-retroscope-constants";
+import { mergeCanonicalArtworkOverridesIntoRetroscopeCells } from "@/lib/canonical-artwork-overrides";
 
 export type { RetroscopeCellDTO } from "@/lib/album-retroscope-constants";
 export {
@@ -69,13 +68,6 @@ function loadSeedFile(): AlbumRetroscopeSeedFile {
     }
   }
   return seedBundled as AlbumRetroscopeSeedFile;
-}
-
-function shuffleInPlace<T>(xs: T[], random: () => number): void {
-  for (let i = xs.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
-    [xs[i], xs[j]] = [xs[j]!, xs[i]!];
-  }
 }
 
 function normalizeTrustState(raw: string | undefined): RetroscopeCellDTO["trustState"] {
@@ -149,40 +141,32 @@ function cellsFromCoordinates(file: RetroscopeCoordinatesFile): RetroscopeCellDT
   return out;
 }
 
+/** Stable corpus order → stable `retroscopeCorpusId` and SSR `initialActiveKey` (never random — client picks random start on first-ever visit via localStorage). */
+function sortCellsStableForRetroscope(cells: RetroscopeCellDTO[]): RetroscopeCellDTO[] {
+  return [...cells].sort((a, b) => {
+    if (a.chartYear !== b.chartYear) return a.chartYear - b.chartYear;
+    return a.retroverseRank - b.retroverseRank;
+  });
+}
+
 /** Server-only: Billboard 200 corpus from materialized runtime JSON or small bundled seed (no Supabase). */
-export function loadAlbumRetroscopeDataset(seedRandom?: () => number): {
+export function loadAlbumRetroscopeDataset(): {
   cells: RetroscopeCellDTO[];
   initialActiveKey: string;
 } | null {
-  const rnd = seedRandom ?? Math.random;
   const log = "[album-retroscope:data]";
 
   const coords = loadCoordinatesFile();
   if (coords) {
-    const cells = cellsFromCoordinates(coords);
-    if (cells.length === 0) {
+    const rawCells = cellsFromCoordinates(coords);
+    if (rawCells.length === 0) {
       console.warn(log, "coordinates file produced zero cells");
       return null;
     }
 
-    const topBand = cells.filter(
-      (c) =>
-        c.chartYear >= RETROSCOPE_YEAR_MIN &&
-        c.chartYear <= RETROSCOPE_YEAR_MAX &&
-        c.retroverseRank >= 1 &&
-        c.retroverseRank <= 10,
-    );
+    const cells = sortCellsStableForRetroscope(mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
     const firstCell = cells[0]!;
-    let initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
-    if (topBand.length > 0) {
-      const shuffled = [...topBand];
-      shuffleInPlace(shuffled, rnd);
-      const chosen = shuffled[0]!;
-      initialActiveKey = retroscopeCellKey(chosen.chartYear, chosen.retroverseRank);
-    }
-    if (!cells.some((c) => retroscopeCellKey(c.chartYear, c.retroverseRank) === initialActiveKey)) {
-      initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
-    }
+    const initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
 
     console.info(log, {
       corpusSize: cells.length,
@@ -202,33 +186,15 @@ export function loadAlbumRetroscopeDataset(seedRandom?: () => number): {
     return null;
   }
 
-  const cells = seedToCells(seed);
-  if (cells.length === 0) {
+  const rawCells = seedToCells(seed);
+  if (rawCells.length === 0) {
     console.warn(log, "seed produced zero cells");
     return null;
   }
 
-  const topBand = cells.filter(
-    (c) =>
-      c.chartYear >= RETROSCOPE_YEAR_MIN &&
-      c.chartYear <= RETROSCOPE_YEAR_MAX &&
-      c.retroverseRank >= 1 &&
-      c.retroverseRank <= 10,
-  );
-
+  const cells = sortCellsStableForRetroscope(mergeCanonicalArtworkOverridesIntoRetroscopeCells(rawCells));
   const firstCell = cells[0]!;
-  let initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
-
-  if (topBand.length > 0) {
-    const shuffled = [...topBand];
-    shuffleInPlace(shuffled, rnd);
-    const chosen = shuffled[0]!;
-    initialActiveKey = retroscopeCellKey(chosen.chartYear, chosen.retroverseRank);
-  }
-
-  if (!cells.some((c) => retroscopeCellKey(c.chartYear, c.retroverseRank) === initialActiveKey)) {
-    initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
-  }
+  const initialActiveKey = retroscopeCellKey(firstCell.chartYear, firstCell.retroverseRank);
 
   console.info(log, {
     corpusSize: cells.length,

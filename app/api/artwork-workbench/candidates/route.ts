@@ -1,10 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { pickCanonicalCoverPathForAlbum } from "@/lib/canonical-artwork-overrides";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { fetchCuratorArtworkCandidatesDetailed } from "@/lib/curator-artwork-candidates";
-import { createClient } from "@/lib/supabase";
-import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 
 export const dynamic = "force-dynamic";
 
@@ -19,18 +18,11 @@ function parseYear(v: string | null): number | null {
   return Number.isFinite(y) ? y : null;
 }
 
-async function resolveApprovedRetroverseCoverUrl(albumId: string | null): Promise<string | null> {
+function resolveApprovedRetroverseCoverUrl(albumId: string | null): string | null {
   const id = albumId?.trim().toUpperCase();
   if (!id || !RVAL_ALBUM_ID.test(id)) return null;
-
-  try {
-    const supabase = createClient();
-    const rows = await loadAlbumArtworkRows(supabase, [id]);
-    const canon = selectCanonicalArtwork(rows, id);
-    return canonicalCoverPathToUrl(canon?.canonical_cover_path ?? null);
-  } catch {
-    return null;
-  }
+  const raw = pickCanonicalCoverPathForAlbum(id);
+  return canonicalCoverPathToUrl(raw ?? null);
 }
 
 /**
@@ -73,7 +65,7 @@ export async function GET(req: NextRequest) {
   });
 
   try {
-    const approvedCoverUrl = await resolveApprovedRetroverseCoverUrl(albumIdRaw || null);
+    const approvedCoverUrl = resolveApprovedRetroverseCoverUrl(albumIdRaw || null);
     console.log("[artwork-workbench/candidates] request_context", {
       albumId: albumNorm || null,
       artistPreview: artist.slice(0, 72),

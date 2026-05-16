@@ -4,10 +4,9 @@ import path from "node:path";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
-import { createClient } from "@supabase/supabase-js";
+import { revalidatePath, revalidateTag } from "next/cache";
 
-import type { RetroverseSupabase } from "@/lib/retroverse-supabase";
+import { writeCanonicalArtworkOverride, pickCanonicalCoverPathForAlbum } from "@/lib/canonical-artwork-overrides";
 import {
   loadArtworkStateRegistry,
   saveArtworkStateRegistry,
@@ -36,17 +35,6 @@ type Action =
   | "mark_verified"
   | "mark_needs_review";
 
-type ArtworkRow = {
-  retroverse_album_artwork_id: string;
-  retroverse_album_id: string;
-  canonical_cover_path: string | null;
-  is_primary?: boolean;
-  artwork_role?: string | null;
-  cover_source?: string | null;
-  artwork_status?: string | null;
-  notes?: string | null;
-};
-
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -62,33 +50,10 @@ function statusForState(state: LivingArtworkState): "missing" | "pending" | "ver
   return "pending";
 }
 
-async function ensureArtworkRowId(
-  supabase: RetroverseSupabase,
-): Promise<string> {
-  const { data, error } = await supabase.from("retroverse_album_artwork").select("retroverse_album_artwork_id");
-  if (error) throw error;
-  const next =
-    Math.max(
-      0,
-      ...(data ?? []).map((row) => {
-        const match = String(row.retroverse_album_artwork_id).match(/^RVAW(\d+)$/);
-        return match ? Number.parseInt(match[1], 10) : 0;
-      }),
-    ) + 1;
-  return `RVAW${String(next).padStart(6, "0")}`;
-}
-
-async function loadPrimaryRow(
-  supabase: RetroverseSupabase,
-  albumId: string,
-): Promise<ArtworkRow | null> {
-  const { data, error } = await supabase
-    .from("retroverse_album_artwork")
-    .select("retroverse_album_artwork_id, retroverse_album_id, canonical_cover_path, is_primary, artwork_role, cover_source, artwork_status, notes")
-    .eq("retroverse_album_id", albumId);
-  if (error) throw error;
-  const rows = (data ?? []) as ArtworkRow[];
-  return rows.find((row) => row.is_primary) ?? rows.find((row) => row.artwork_role === "primary") ?? rows[0] ?? null;
+function discoverTrustForLivingState(nextState: LivingArtworkState): "verified" | "provisional" | "unresolved" {
+  if (nextState === "canonical_verified" || nextState === "manually_corrected") return "verified";
+  if (nextState === "needs_review" || nextState === "provisional") return "provisional";
+  return "unresolved";
 }
 
 function allowedStagedPath(input: string | null | undefined): string | null {
@@ -296,35 +261,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "missing_action_or_album", traceId }, { status: 400 });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[living-action] step=reject_missing_supabase_env", { traceId });
-    return NextResponse.json({ ok: false, error: "missing_supabase_env", traceId }, { status: 500 });
-  }
-  console.log("[living-action] step=supabase_env_ok", { traceId, supabaseHost: new URL(supabaseUrl).host });
-
-  const supabase: RetroverseSupabase = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
   const registry = await loadArtworkStateRegistry();
-  const beforeRow = await loadPrimaryRow(supabase, body.albumId);
-  const beforeSnapshot = beforeRow ? { ...beforeRow } : null;
+  const beforePath = pickCanonicalCoverPathForAlbum(body.albumId);
+  const beforeSnapshot = {
+    retroverse_album_id: body.albumId,
+    canonical_cover_path: beforePath,
+    artwork_status: null as string | null,
+  };
 
-  console.log("[living-action] step=before_row_loaded", {
+  console.log("[living-action] step=before_local_cover", {
     traceId,
-    hasExistingRow: Boolean(beforeRow),
-    existingArtworkId: beforeRow?.retroverse_album_artwork_id ?? null,
-    existingCanonicalPath: beforeRow?.canonical_cover_path ?? null,
-    existingStatus: beforeRow?.artwork_status ?? null,
+    existingCanonicalPath: beforePath ?? null,
   });
 
   const sourceTag = body.runId ? `workbench:${body.runId}` : "workbench:manual";
   const notes = `living-archive action=${body.action}; confidence=${body.confidence ?? "n/a"}; source=${body.sourceArtist ?? ""}::${body.sourceCollection ?? ""}; replace_source=${body.replaceSource ?? "n/a"}`;
 
   let nextState: LivingArtworkState = "needs_review";
-  let canonicalPath: string | null = beforeRow?.canonical_cover_path ?? null;
+  let canonicalPath: string | null = beforePath;
 
   if (body.action === "approve") nextState = "canonical_verified";
   if (body.action === "replace_artwork") nextState = "manually_corrected";
@@ -387,51 +341,23 @@ export async function POST(request: Request) {
   if (body.action === "clear_artwork") canonicalPath = null;
 
   const status = statusForState(nextState);
-  const target = beforeRow;
-  if (target?.retroverse_album_artwork_id) {
-    console.log("[living-action] step=supabase_update_start", {
-      traceId,
-      artworkId: target.retroverse_album_artwork_id,
-      writingCanonicalPath: canonicalPath,
-      writingStatus: status,
-    });
-    const { error } = await supabase
-      .from("retroverse_album_artwork")
-      .update({
-        canonical_cover_path: canonicalPath,
-        cover_source: sourceTag,
-        artwork_status: status,
-        artwork_role: "primary",
-        is_primary: true,
-          notes: `${notes}; master=${masterRelative ?? "unchanged"}`,
-      })
-      .eq("retroverse_album_artwork_id", target.retroverse_album_artwork_id);
-    if (error) {
-      console.error("[living-action] step=supabase_update_failed", { traceId, error: error.message });
-      return NextResponse.json({ ok: false, error: `update_failed:${error.message}`, traceId }, { status: 500 });
-    }
-    console.log("[living-action] step=supabase_update_done", { traceId, mode: "update" });
-  } else if (body.action !== "reject") {
-    console.log("[living-action] step=supabase_insert_start", { traceId });
-    const newId = await ensureArtworkRowId(supabase);
-    const { error } = await supabase.from("retroverse_album_artwork").insert({
-      retroverse_album_artwork_id: newId,
-      retroverse_album_id: body.albumId,
-      retroverse_album_edition_id: null,
-      artwork_role: "primary",
-      is_primary: true,
+
+  try {
+    await writeCanonicalArtworkOverride(body.albumId, {
       canonical_cover_path: canonicalPath,
-      cover_source: sourceTag,
       artwork_status: status,
-      width_px: null,
-      height_px: null,
-      notes: `${notes}; master=${masterRelative ?? "n/a"}`,
+      trust_state: discoverTrustForLivingState(nextState),
+      cover_source: sourceTag,
     });
-    if (error) {
-      console.error("[living-action] step=supabase_insert_failed", { traceId, error: error.message });
-      return NextResponse.json({ ok: false, error: `insert_failed:${error.message}`, traceId }, { status: 500 });
-    }
-    console.log("[living-action] step=supabase_update_done", { traceId, mode: "insert", artworkId: newId });
+    console.log("[living-action] step=canonical_overrides_written", {
+      traceId,
+      canonicalPath,
+      artwork_status: status,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[living-action] step=override_write_failed", { traceId, error: msg });
+    return NextResponse.json({ ok: false, error: `persist_failed:${msg}`, traceId }, { status: 500 });
   }
 
   try {
@@ -442,13 +368,19 @@ export async function POST(request: Request) {
      * "old cover returns after refresh" bug we're stabilizing.
      */
     revalidateTag(`artwork:${body.albumId}`, { expire: 0 });
+    revalidatePath("/album-retroscope");
+    revalidatePath(`/albums/${encodeURIComponent(body.albumId)}`);
     console.log("[living-action] step=cache_invalidated", { traceId, tag: `artwork:${body.albumId}` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn("[living-action] step=cache_invalidate_failed", { traceId, error: msg });
   }
 
-  const afterRow = await loadPrimaryRow(supabase, body.albumId);
+  const afterSnapshot = {
+    retroverse_album_id: body.albumId,
+    canonical_cover_path: pickCanonicalCoverPathForAlbum(body.albumId),
+    artwork_status: statusForState(nextState),
+  };
   upsertArtworkState(registry, {
     albumId: body.albumId,
     nextState,
@@ -468,7 +400,7 @@ export async function POST(request: Request) {
     actor: "curator",
     notes: `${notes}; master=${masterRelative ?? "n/a"}`,
     dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
-    dbSnapshotAfter: (afterRow ?? null) as Record<string, unknown> | null,
+    dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
   });
   await saveArtworkStateRegistry(registry);
 
@@ -478,7 +410,7 @@ export async function POST(request: Request) {
     action: body.action,
     nextState,
     canonicalPath,
-    afterRowCanonicalPath: afterRow?.canonical_cover_path ?? null,
+    afterCanonicalPath: afterSnapshot.canonical_cover_path ?? null,
   });
 
   return NextResponse.json({
