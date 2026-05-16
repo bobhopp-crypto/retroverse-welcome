@@ -75,7 +75,7 @@ export default function RootLayout({
               <Link className={navLink} href="/search">
                 Search
               </Link>
-              <Link className={navLink} href="/index">
+              <Link className={navLink} href="/site-index">
                 Index
               </Link>
             </nav>

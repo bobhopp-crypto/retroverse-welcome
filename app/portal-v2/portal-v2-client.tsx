@@ -796,7 +796,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
                 Search
               </Link>
               <Link
-                href="/index"
+                href="/site-index"
                 onClick={() => setMenuOpen(false)}
                 className="rounded-xl border border-[rgba(205,164,90,0.18)] bg-[rgba(255,255,255,0.03)] px-4 py-3.5 text-[15px] text-[#ede4d6] no-underline"
               >

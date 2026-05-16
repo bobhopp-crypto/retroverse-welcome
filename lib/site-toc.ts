@@ -57,7 +57,7 @@ export const siteTocStaticPages: SiteTocEntry[] = [
   { href: "/tracks", label: "Tracks index" },
   { href: "/search", label: "Search" },
   { href: "/random", label: "Random explore" },
-  { href: "/index", label: "Index", note: "this page" },
+  { href: "/site-index", label: "Index", note: "this page" },
   { href: "/discover", label: "Discover", note: "→ /album-retroscope" },
   { href: "/viewer", label: "Viewer", note: "→ /album-retroscope" },
   { href: "/toc", label: "Table of contents" },

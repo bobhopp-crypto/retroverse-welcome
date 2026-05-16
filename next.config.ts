@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [mzHost("1"), mzHost("2"), mzHost("3"), mzHost("4"), mzHost("5")],
   },
+  async redirects() {
+    return [
+      { source: "/", destination: "/album-retroscope", permanent: true },
+      { source: "/index", destination: "/site-index", permanent: false },
+    ];
+  },
   /**
    * Without these excludes Next's NFT (Node File Tracing) follows the
    * `path.join(process.cwd(), ...)` and `fs.readFileSync(...)` calls in

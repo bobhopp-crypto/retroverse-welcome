@@ -237,7 +237,7 @@ export default function DevIndexPage() {
             statuses: ["Active", "Supabase-dependent"],
           },
           {
-            href: "/index",
+            href: "/site-index",
             label: "Internal index + coverage audit",
             file: "app/index/page.tsx",
             statuses: ["Active", "Supabase-dependent"],

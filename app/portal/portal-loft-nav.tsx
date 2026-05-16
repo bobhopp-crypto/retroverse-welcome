@@ -7,7 +7,7 @@ const LOFT_ITEMS: [string, string][] = [
   ["/eras", "Eras"],
   ["/artists", "Artists"],
   ["/search", "Search"],
-  ["/index", "Index"],
+  ["/site-index", "Index"],
 ];
 
 export default function PortalLoftNav() {
