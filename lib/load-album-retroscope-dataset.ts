@@ -238,6 +238,12 @@ const loadAlbumRetroscopeDatasetPerRequest = cache(loadAlbumRetroscopeDatasetUnc
 let moduleAlbumDataset: AlbumRetroscopeDataset | null | undefined;
 let moduleAlbumInFlight: Promise<AlbumRetroscopeDataset | null> | null = null;
 
+/** Clear warm server memo after curator override writes. */
+export function invalidateAlbumRetroscopeDatasetCache(): void {
+  moduleAlbumDataset = undefined;
+  moduleAlbumInFlight = null;
+}
+
 /** Dedupes within a request (`cache`) and across warm server instances (module memo). */
 export async function loadAlbumRetroscopeDataset(): Promise<AlbumRetroscopeDataset | null> {
   if (moduleAlbumDataset !== undefined) return moduleAlbumDataset;

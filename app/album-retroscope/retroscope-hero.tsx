@@ -31,7 +31,12 @@ export function cellNeighborhoodSuffix(
 
 export function HeroCover({ cell }: { cell: RetroscopeCellDTO | null }) {
   const [broken, setBroken] = useState(false);
-  const url = cell && !broken ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
+  const url =
+    cell && !broken
+      ? canonicalCoverPathToUrl(cell.canonicalCoverPath, {
+          cacheBust: cell.canonicalCoverCacheBust ?? null,
+        })
+      : null;
   if (!cell) {
     return <div className="arv-hero-void">No anchor · move or scan</div>;
   }
@@ -51,21 +56,9 @@ export function HeroCover({ cell }: { cell: RetroscopeCellDTO | null }) {
   );
 }
 
-/** Album portal — cover fills hero; title band uses the full width. */
+/** Album portal — cover only; readout lives in `.arv-meta` below the portal. */
 export function HeroAlbumFocus({ cell }: { cell: RetroscopeCellDTO | null }) {
-  if (!cell) {
-    return <div className="arv-hero-void">No anchor · move or scan</div>;
-  }
-  return (
-    <>
-      <HeroCover cell={cell} />
-      <div className="arv-hero-copy arv-hero-copy--album">
-        <p className="arv-hero-album-year">{cell.chartYear}</p>
-        <p className="arv-hero-album-title">{cell.title}</p>
-        <p className="arv-hero-album-artist">{cell.artist}</p>
-      </div>
-    </>
-  );
+  return <HeroCover cell={cell} />;
 }
 
 export function HeroArtistSignal({ cell }: { cell: RetroscopeCellDTO | null }) {

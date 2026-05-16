@@ -160,19 +160,31 @@ export async function loadCanonicalArtworkOverridesUncached(): Promise<Canonical
 export const getCanonicalArtworkOverrides = cache(loadCanonicalArtworkOverridesUncached);
 
 export async function pickCanonicalCoverPathForAlbum(albumId: string): Promise<string | null> {
+  const { path } = await pickCanonicalCoverForAlbum(albumId);
+  return path;
+}
+
+/** Path + cache-bust token for `<img>` / `canonicalCoverPathToUrl` after curator saves. */
+export async function pickCanonicalCoverForAlbum(
+  albumId: string,
+): Promise<{ path: string | null; cacheBust: string | null }> {
   const id = albumId.trim().toUpperCase();
   const file = await getCanonicalArtworkOverrides();
   const albums = file.albums ?? {};
 
   if (Object.prototype.hasOwnProperty.call(albums, id)) {
-    const v = albums[id]?.canonical_cover_path;
+    const o = albums[id];
+    const v = o?.canonical_cover_path;
     if (v !== undefined) {
-      return v == null ? null : String(v).trim() || null;
+      const path = v == null ? null : String(v).trim() || null;
+      const cacheBust =
+        typeof o?.updated_at === "string" && o.updated_at.trim() ? o.updated_at.trim() : file.updated_at;
+      return { path, cacheBust };
     }
   }
   const d = getAlbumDossier(id);
   const p = d?.identity.canonical_cover_path ?? null;
-  return p?.trim() || null;
+  return { path: p?.trim() || null, cacheBust: null };
 }
 
 function coerceCellTrust(raw: string | undefined): RetroscopeCellDTO["trustState"] {
@@ -202,9 +214,13 @@ export async function mergeCanonicalArtworkOverridesIntoRetroscopeCells(
 
     const nextTrust = o.trust_state != null ? coerceCellTrust(o.trust_state) : cell.trustState;
 
+    const bust =
+      typeof o.updated_at === "string" && o.updated_at.trim() ? o.updated_at.trim() : file.updated_at;
+
     return {
       ...cell,
       canonicalCoverPath: nextCover,
+      canonicalCoverCacheBust: bust,
       trustState: nextTrust,
     };
   });
@@ -239,4 +255,7 @@ export async function writeCanonicalArtworkOverride(
     await mkdir(path.dirname(p), { recursive: true });
     await writeFile(p, serialized, "utf8");
   }
+
+  const { invalidateAlbumRetroscopeDatasetCache } = await import("@/lib/load-album-retroscope-dataset");
+  invalidateAlbumRetroscopeDatasetCache();
 }

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 import { BodyClassName } from "@/app/components/body-class-name";
 import "../album-dossier.css";
-import { pickCanonicalCoverPathForAlbum } from "@/lib/canonical-artwork-overrides";
+import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
@@ -111,7 +111,8 @@ export default async function AlbumDossierPage({ params }: Props) {
   if (!dossier) notFound();
 
   const { identity, chart, acoustic, related, scores, musicbrainz } = dossier;
-  const coverUrl = canonicalCoverPathToUrl(await pickCanonicalCoverPathForAlbum(dossier.albumId));
+  const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
+  const coverUrl = canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
   const means = acoustic.means;
   const curateHref = `/portal-v2/curate?albumId=${encodeURIComponent(dossier.albumId)}`;
   const avgDurMs = meanDurationMs(acoustic.tracks);

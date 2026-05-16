@@ -709,7 +709,7 @@ export default function RetroscopeClient({
             ) : (
               <HeroAlbumFocus key={activeKey} cell={activeCell} />
             )}
-            {!isArtistMode ? <span className="arv-portal-glass" aria-hidden /> : null}
+            {isTrackMode ? <span className="arv-portal-glass" aria-hidden /> : null}
             <span className="arv-portal-scan" aria-hidden />
           </div>
         </div>
@@ -941,7 +941,11 @@ export default function RetroscopeClient({
             else if (isExplored) stateClass = "arv-cell--explored";
 
             const thumb =
-              !isArtistMode && cell ? canonicalCoverPathToUrl(cell.canonicalCoverPath) : null;
+              !isArtistMode && cell
+                ? canonicalCoverPathToUrl(cell.canonicalCoverPath, {
+                    cacheBust: cell.canonicalCoverCacheBust ?? null,
+                  })
+                : null;
             const rankMeta = retroscopeRankDisplayLabel(r, mode);
             const nearSuffix =
               isArtistMode && !isVoid ? cellNeighborhoodSuffix(activeYear, activeRank, y, r) : "";

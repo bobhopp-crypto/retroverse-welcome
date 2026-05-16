@@ -22,6 +22,8 @@ export type RetroscopeCellDTO = {
   artist: string;
   releaseYear: number | null;
   canonicalCoverPath: string | null;
+  /** Override `updated_at` — busts browser/CDN cache after curator save. */
+  canonicalCoverCacheBust?: string | null;
   trustState: "verified" | "provisional" | "unresolved";
   sourceNote: string | null;
   /** From materialized runtime (materialize_retroscope_runtime.py). */
