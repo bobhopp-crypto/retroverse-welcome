@@ -3,8 +3,6 @@ import path from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 import { GetObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
-import { cache } from "react";
-
 import type { RetroscopeCellDTO } from "@/lib/album-retroscope-constants";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { getR2Client, r2Bucket } from "@/lib/r2-client";
@@ -32,6 +30,9 @@ export const CANONICAL_ARTWORK_OVERRIDES_R2_KEY = "retroverse/config/canonical-a
  * tag to invalidate dependents without risking cache serialization crashes.
  */
 export const CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG = "canonical-artwork-overrides";
+
+/** Warm-instance snapshot — updated synchronously on curator write so reads never lag R2/disk. */
+let processOverridesSnapshot: CanonicalArtworkOverridesFile | null = null;
 
 function defaultPath(): string {
   const env = process.env.CANONICAL_ARTWORK_OVERRIDES_PATH?.trim();
@@ -139,25 +140,158 @@ async function putCanonicalArtworkOverridesToR2(file: CanonicalArtworkOverridesF
  * Resolve merged override JSON without Next cache — use for curator writes so concurrent reads aren't stale mid-merge.
  */
 export async function loadCanonicalArtworkOverridesUncached(): Promise<CanonicalArtworkOverridesFile> {
+  if (processOverridesSnapshot) return processOverridesSnapshot;
+
   const use = useR2ForOverridePersistence();
 
+  let loaded: CanonicalArtworkOverridesFile;
   if (use) {
     const fromR2 = await fetchCanonicalArtworkOverridesFromR2();
-    if (fromR2) return fromR2;
-
-    /** First deploy before any save: hydrate from bundled repo file, then curator writes promote to R2. */
-    try {
-      return await readCanonicalArtworkOverridesFromDisk();
-    } catch {
-      return readCanonicalArtworkOverridesSync();
+    if (fromR2) {
+      loaded = fromR2;
+    } else {
+      /** First deploy before any save: hydrate from bundled repo file, then curator writes promote to R2. */
+      try {
+        loaded = await readCanonicalArtworkOverridesFromDisk();
+      } catch {
+        loaded = readCanonicalArtworkOverridesSync();
+      }
     }
+  } else {
+    loaded = await readCanonicalArtworkOverridesFromDisk();
   }
 
-  return readCanonicalArtworkOverridesFromDisk();
+  processOverridesSnapshot = loaded;
+  return loaded;
 }
 
-/** Per-request memo + one R2/read per SSR tree; avoids `unstable_cache` size limits on large override maps. */
-export const getCanonicalArtworkOverrides = cache(loadCanonicalArtworkOverridesUncached);
+/** One read per call site; backed by process snapshot after curator saves. */
+export async function getCanonicalArtworkOverrides(): Promise<CanonicalArtworkOverridesFile> {
+  return loadCanonicalArtworkOverridesUncached();
+}
+
+export type ResolvedCanonicalCover = {
+  path: string | null;
+  cacheBust: string | null;
+  trustState: "verified" | "provisional" | "unresolved" | null;
+};
+
+/** Merge override JSON atop a fallback path (Supabase, dossier, coordinates file). */
+export function resolveCanonicalCoverForAlbum(
+  albumId: string,
+  fallback: {
+    path?: string | null;
+    trustState?: "verified" | "provisional" | "unresolved" | null;
+  },
+  file: CanonicalArtworkOverridesFile,
+): ResolvedCanonicalCover {
+  const id = albumId.trim().toUpperCase();
+  const albums = file.albums ?? {};
+  let path = fallback.path?.trim() || null;
+  let trustState = fallback.trustState ?? null;
+  let cacheBust: string | null = null;
+
+  if (Object.prototype.hasOwnProperty.call(albums, id)) {
+    const o = albums[id];
+    if (o && "canonical_cover_path" in o) {
+      path = o.canonical_cover_path == null ? null : String(o.canonical_cover_path).trim() || null;
+    }
+    if (o?.trust_state === "verified" || o?.trust_state === "provisional" || o?.trust_state === "unresolved") {
+      trustState = o.trust_state;
+    }
+    cacheBust =
+      typeof o?.updated_at === "string" && o.updated_at.trim() ? o.updated_at.trim() : file.updated_at;
+  }
+
+  return { path, cacheBust, trustState };
+}
+
+export function hasCanonicalArtworkOverride(
+  albumId: string,
+  file: CanonicalArtworkOverridesFile,
+): boolean {
+  const id = albumId.trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(file.albums ?? {}, id);
+}
+
+function dossierTrustForAlbum(albumId: string): "verified" | "provisional" | "unresolved" {
+  const d = getAlbumDossier(albumId.trim().toUpperCase());
+  const s = (d?.identity.trust_state ?? "").toLowerCase();
+  if (s === "verified") return "verified";
+  if (s === "provisional") return "provisional";
+  return "unresolved";
+}
+
+export type SupabaseArtworkFallback = {
+  canonical_cover_path: string | null;
+  artwork_status?: string | null;
+};
+
+/** Trust from Supabase `retroverse_album_artwork.artwork_status` (fallback tier only). */
+export function trustStateFromArtworkStatus(
+  artworkStatus: string | null | undefined,
+  canonicalCoverPath: string | null,
+): "verified" | "provisional" | "unresolved" {
+  const status = (artworkStatus ?? "").toLowerCase();
+  if (
+    !canonicalCoverPath ||
+    status === "missing" ||
+    status === "rejected" ||
+    status === "low_confidence" ||
+    status === "unresolved"
+  ) {
+    return "unresolved";
+  }
+  if (
+    status === "pending" ||
+    status === "needs_review" ||
+    status === "provisional" ||
+    status === "review_needed" ||
+    status === "candidate"
+  ) {
+    return "provisional";
+  }
+  return "verified";
+}
+
+/**
+ * Cover authority: overrides → dossier → optional Supabase artwork row.
+ * Supabase is never consulted when an override exists or dossier supplies a path.
+ */
+export function resolveLocalFirstCanonicalCover(
+  albumId: string,
+  overridesFile: CanonicalArtworkOverridesFile,
+  supabaseFallback?: SupabaseArtworkFallback | null,
+): ResolvedCanonicalCover {
+  const id = albumId.trim().toUpperCase();
+  const d = getAlbumDossier(id);
+  const dossierPath = d?.identity.canonical_cover_path?.trim() || null;
+  const dossierTrust = dossierTrustForAlbum(id);
+
+  if (hasCanonicalArtworkOverride(id, overridesFile)) {
+    return resolveCanonicalCoverForAlbum(id, { path: dossierPath, trustState: dossierTrust }, overridesFile);
+  }
+
+  const fromDossier = resolveCanonicalCoverForAlbum(
+    id,
+    { path: dossierPath, trustState: dossierTrust },
+    overridesFile,
+  );
+  if (fromDossier.path?.trim()) {
+    return fromDossier;
+  }
+
+  if (supabaseFallback) {
+    const path = supabaseFallback.canonical_cover_path?.trim() || null;
+    return {
+      path,
+      cacheBust: null,
+      trustState: trustStateFromArtworkStatus(supabaseFallback.artwork_status, path),
+    };
+  }
+
+  return { path: null, cacheBust: null, trustState: fromDossier.trustState ?? dossierTrust };
+}
 
 export async function pickCanonicalCoverPathForAlbum(albumId: string): Promise<string | null> {
   const { path } = await pickCanonicalCoverForAlbum(albumId);
@@ -168,23 +302,9 @@ export async function pickCanonicalCoverPathForAlbum(albumId: string): Promise<s
 export async function pickCanonicalCoverForAlbum(
   albumId: string,
 ): Promise<{ path: string | null; cacheBust: string | null }> {
-  const id = albumId.trim().toUpperCase();
   const file = await getCanonicalArtworkOverrides();
-  const albums = file.albums ?? {};
-
-  if (Object.prototype.hasOwnProperty.call(albums, id)) {
-    const o = albums[id];
-    const v = o?.canonical_cover_path;
-    if (v !== undefined) {
-      const path = v == null ? null : String(v).trim() || null;
-      const cacheBust =
-        typeof o?.updated_at === "string" && o.updated_at.trim() ? o.updated_at.trim() : file.updated_at;
-      return { path, cacheBust };
-    }
-  }
-  const d = getAlbumDossier(id);
-  const p = d?.identity.canonical_cover_path ?? null;
-  return { path: p?.trim() || null, cacheBust: null };
+  const resolved = resolveLocalFirstCanonicalCover(albumId, file, null);
+  return { path: resolved.path, cacheBust: resolved.cacheBust };
 }
 
 function coerceCellTrust(raw: string | undefined): RetroscopeCellDTO["trustState"] {
@@ -196,32 +316,24 @@ function coerceCellTrust(raw: string | undefined): RetroscopeCellDTO["trustState
 export async function mergeCanonicalArtworkOverridesIntoRetroscopeCells(
   cells: RetroscopeCellDTO[],
 ): Promise<RetroscopeCellDTO[]> {
-  const file = await getCanonicalArtworkOverrides();
+  const file = await loadCanonicalArtworkOverridesUncached();
   const albums = file.albums ?? {};
   if (Object.keys(albums).length === 0) return cells;
 
   return cells.map((cell) => {
     const id = cell.albumId.trim().toUpperCase();
-    if (!(id in albums)) return cell;
-    const o = albums[id];
-    if (!o) return cell;
-
-    let nextCover = cell.canonicalCoverPath;
-    if ("canonical_cover_path" in o) {
-      nextCover =
-        o.canonical_cover_path == null ? null : String(o.canonical_cover_path).trim() || null;
-    }
-
-    const nextTrust = o.trust_state != null ? coerceCellTrust(o.trust_state) : cell.trustState;
-
-    const bust =
-      typeof o.updated_at === "string" && o.updated_at.trim() ? o.updated_at.trim() : file.updated_at;
+    const resolved = resolveCanonicalCoverForAlbum(
+      id,
+      { path: cell.canonicalCoverPath, trustState: cell.trustState },
+      file,
+    );
+    if (!Object.prototype.hasOwnProperty.call(albums, id)) return cell;
 
     return {
       ...cell,
-      canonicalCoverPath: nextCover,
-      canonicalCoverCacheBust: bust,
-      trustState: nextTrust,
+      canonicalCoverPath: resolved.path,
+      canonicalCoverCacheBust: resolved.cacheBust,
+      trustState: resolved.trustState != null ? coerceCellTrust(resolved.trustState) : cell.trustState,
     };
   });
 }
@@ -247,6 +359,8 @@ export async function writeCanonicalArtworkOverride(
   base.updated_at = updated_at;
 
   const serialized = `${JSON.stringify(base, null, 2)}\n`;
+
+  processOverridesSnapshot = base;
 
   if (useR2ForOverridePersistence()) {
     await putCanonicalArtworkOverridesToR2(base);

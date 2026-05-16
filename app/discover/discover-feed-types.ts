@@ -7,6 +7,8 @@ export type DiscoverStableAlbumRow = {
   artist: string;
   year: number | null;
   canonicalCoverPath: string | null;
+  /** ISO timestamp or epoch token for `?v=` after curator override. */
+  canonicalCoverCacheBust?: string | null;
   trustState: DiscoverTrustState;
 };
 

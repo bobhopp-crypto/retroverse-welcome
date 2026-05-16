@@ -4,6 +4,7 @@ import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types"
 import { retroverseAlbumChartAppearances } from "@/lib/billboard-album-chart-appearance";
 import { albumIdFromChartAppearanceRow } from "@/lib/chart-appearance-album-id";
 import { comparePortalYearAlbumRank } from "@/lib/portal-year-rank-sort";
+import { CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG } from "@/lib/canonical-artwork-overrides";
 import { hydrateDiscoverAlbumRows } from "@/lib/discover-hydrate-rows";
 import { createClient } from "@/lib/supabase";
 
@@ -316,6 +317,7 @@ async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap | null> {
     const windowIds = [0, 1, 2, 3, 4]
       .map((i) => (i < albumIds.length ? albumIds[i]! : null))
       .filter((id): id is string => typeof id === "string");
+    /** Covers: overrides → dossier → Supabase artwork (see `hydrateDiscoverAlbumRows`). */
     const hydrated = await hydrateDiscoverAlbumRows(windowIds);
 
     return { years, year: chosenYear, entries, albumIds, startIndex, hydrated };
@@ -337,6 +339,9 @@ export async function loadViewerBootstrap(): Promise<ViewerBootstrap | null> {
   return unstable_cache(
     loadViewerBootstrapImpl,
     ["viewer-bootstrap"],
-    { revalidate: 60 * 60, tags: ["viewer-bootstrap"] },
+    {
+      revalidate: 60 * 60,
+      tags: ["viewer-bootstrap", CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG],
+    },
   )();
 }

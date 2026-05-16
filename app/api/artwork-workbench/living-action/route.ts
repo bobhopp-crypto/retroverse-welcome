@@ -373,10 +373,14 @@ export async function POST(request: Request) {
      */
     revalidateTag(`artwork:${body.albumId}`, { expire: 0 });
     revalidateTag(CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG, { expire: 0 });
+    revalidateTag("viewer-bootstrap", { expire: 0 });
     revalidatePath("/album-retroscope");
     revalidatePath("/artist-retroscope");
     revalidatePath("/track-retroscope");
     revalidatePath(`/albums/${encodeURIComponent(body.albumId)}`);
+    revalidatePath("/portal-v2");
+    revalidatePath("/discover");
+    revalidatePath("/");
     console.log("[living-action] step=cache_invalidated", { traceId, tag: `artwork:${body.albumId}` });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

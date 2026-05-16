@@ -36,6 +36,7 @@ import {
   HeroAlbumFocus,
   HeroTrackStub,
 } from "./retroscope-hero";
+import { RetroscopeMapOverlay } from "./retroscope-map-overlay";
 import { RetroscopeModeStrip } from "./retroscope-mode-strip";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
@@ -246,6 +247,7 @@ export default function RetroscopeClient({
   const [operatorFlash, setOperatorFlash] = useState(false);
   const [portalPulse, setPortalPulse] = useState(false);
   const [operatorPanelOpen, setOperatorPanelOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const router = useRouter();
   const [viewYear0, setViewYear0] = useState(() =>
     clamp(ssrInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
@@ -609,6 +611,15 @@ export default function RetroscopeClient({
     return () => window.removeEventListener("keydown", onKey);
   }, [onPad, operatorPanelOpen]);
 
+  const onMapSelectCoordinate = useCallback(
+    (ny: number, nr: number) => {
+      const cur = retroscopeCellKey(posRef.current.y, posRef.current.r);
+      setMapOpen(false);
+      moveTo(ny, nr, cur);
+    },
+    [moveTo],
+  );
+
   const onCellTap = useCallback(
     (y: number, r: number) => {
       const k = retroscopeCellKey(y, r);
@@ -642,7 +653,6 @@ export default function RetroscopeClient({
       style={isArtistMode && activeCell ? (artistSignalVars(activeCell) as CSSProperties) : undefined}
     >
       <div className="arv-device-face">
-        <RetroscopeModeStrip active={mode} />
         <span className="arv-screw arv-screw--tl" aria-hidden />
         <span className="arv-screw arv-screw--tr" />
         <span className="arv-device-led arv-device-led--pwr" />
@@ -843,28 +853,23 @@ export default function RetroscopeClient({
         <div className="arv-meta-inner">
           {activeCell ? (
             <>
-              <p className="arv-eyebrow">
-                {activeCell.chartYear} · {rankLabel}
-                {searchHref && !isArtistMode && !isTrackMode ? (
-                  <Link href={searchHref} className="arv-meta-link">
-                    · search
-                  </Link>
-                ) : null}
-              </p>
               <p className="arv-title-line">
                 {isArtistMode ? activeCell.title : `${activeCell.artist} — ${activeCell.title}`}
+                {searchHref && !isArtistMode && !isTrackMode ? (
+                  <>
+                    {" "}
+                    <Link href={searchHref} className="arv-meta-link arv-meta-link--inline">
+                      search
+                    </Link>
+                  </>
+                ) : null}
               </p>
               {isTrackMode ? (
                 <p className="arv-meta-artist-detail">Track layer placeholder · search or scan</p>
               ) : null}
             </>
           ) : (
-            <>
-              <p className="arv-eyebrow">
-                {activeYear} · {rankLabel}
-              </p>
-              <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
-            </>
+            <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
           )}
         </div>
       </section>
@@ -877,34 +882,14 @@ export default function RetroscopeClient({
         </div>
 
         <span className="arv-strip-plate-label" aria-hidden>
-          Nav
+          Layer
         </span>
-        <div className="arv-controls" aria-label="Directional fallback">
-          <button
-            type="button"
-            className="arv-pad-btn arv-pad-btn--lr"
-            aria-label="Previous year"
-            onClick={() => onPad("l")}
-          >
-            ←
-          </button>
-          <div className="arv-pad-col">
-            <button type="button" className="arv-pad-btn" aria-label="Up toward number one" onClick={() => onPad("u")}>
-              ↑
-            </button>
-            <button type="button" className="arv-pad-btn" aria-label="Deeper rank" onClick={() => onPad("d")}>
-              ↓
-            </button>
-          </div>
-          <button
-            type="button"
-            className="arv-pad-btn arv-pad-btn--lr"
-            aria-label="Next year"
-            onClick={() => onPad("r")}
-          >
-            →
-          </button>
-        </div>
+        <RetroscopeModeStrip
+          active={mode}
+          mapOpen={mapOpen}
+          variant="deck"
+          onMapOpen={() => setMapOpen((v) => !v)}
+        />
 
         <div className="arv-readout arv-readout--rank">
           <span className="arv-readout-lamp" aria-hidden />
@@ -995,6 +980,19 @@ export default function RetroscopeClient({
           })}
         </div>
       </section>
+
+      {mapOpen && bootstrapped ? (
+        <RetroscopeMapOverlay
+          mode={mode}
+          activeYear={activeYear}
+          activeRank={activeRank}
+          activeKey={activeKey}
+          explored={explored}
+          byKey={byKey}
+          onClose={() => setMapOpen(false)}
+          onSelectCoordinate={onMapSelectCoordinate}
+        />
+      ) : null}
     </div>
   );
 }

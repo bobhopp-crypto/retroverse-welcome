@@ -74,7 +74,7 @@ body.arv-body-lock main {
   --arv-safe-top: env(safe-area-inset-top, 0px);
   --arv-safe-bottom: env(safe-area-inset-bottom, 0px);
   --arv-safe-x: max(env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
-  --arv-meta-h: 2.3rem;
+  --arv-meta-h: 2.05rem;
   --arv-strip-h: 3rem;
   --arv-chrome-h: 1.65rem;
   flex: 1 1 0;
@@ -613,10 +613,11 @@ body.arv-body-lock main {
 }
 
 .arv-title-line {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.64rem;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: clamp(0.78rem, 3.4vw, 0.95rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
   color: var(--arv-cream);
   white-space: nowrap;
   overflow: hidden;
@@ -625,6 +626,18 @@ body.arv-body-lock main {
 
 .arv-meta-link {
   display: none;
+}
+
+.arv-meta-link--inline {
+  display: inline;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--arv-amber-hot);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ========== CONTROL DECK ========== */
@@ -1552,6 +1565,32 @@ body.arv-body-lock main {
   opacity: 0.72;
 }
 
+/* Layer toggles in control deck (center lane) */
+.arv-mode-strip--deck {
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  z-index: 2;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  min-width: 0;
+  gap: 0.18rem;
+  padding: 0.12rem 0.16rem;
+}
+
+.arv-mode-strip--deck .arv-mode-btn {
+  font-size: 0.44rem;
+  padding: 0.24rem 0.4rem;
+  letter-spacing: 0.1em;
+}
+
+.arv-strip .arv-mode-strip--deck {
+  grid-column: 2;
+  justify-self: center;
+}
+
 /* Continuous signal field — no boxed hero */
 .arv-mode-artist .arv-portal--field {
   padding-bottom: 0;
@@ -1976,6 +2015,205 @@ body.arv-body-lock main {
   }
 }
 
+/* ========== MAP NAVIGATION CONSOLE ========== */
+.arv-map-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.35rem;
+  padding: 0.45rem 0.5rem max(0.45rem, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 20%, rgba(32, 48, 72, 0.35), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 80% 80%, rgba(120, 40, 140, 0.18), transparent 50%),
+    linear-gradient(165deg, #040308 0%, #0a1018 42%, #06040a 100%);
+  color: rgba(220, 236, 248, 0.92);
+  touch-action: none;
+}
+
+.arv-map-scan {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.35) 0,
+    rgba(0, 0, 0, 0.35) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.arv-map-bloom {
+  pointer-events: none;
+  position: absolute;
+  inset: -10%;
+  opacity: 0.45;
+  background:
+    radial-gradient(ellipse 55% 40% at 30% 40%, rgba(80, 220, 255, 0.12), transparent 60%),
+    radial-gradient(ellipse 50% 45% at 70% 60%, rgba(255, 120, 200, 0.1), transparent 58%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(255, 200, 80, 0.08), transparent 55%);
+  animation: arv-map-bloom-drift 22s ease-in-out infinite alternate;
+}
+
+@keyframes arv-map-bloom-drift {
+  0% {
+    transform: translate(-1%, -1%) scale(1);
+  }
+  100% {
+    transform: translate(1.5%, 1%) scale(1.04);
+  }
+}
+
+.arv-map-header,
+.arv-map-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.arv-map-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.arv-map-readout-label {
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.arv-map-readout-value {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--arv-amber-hot, #ffb84a);
+  text-shadow: 0 0 12px rgba(255, 180, 60, 0.45);
+}
+
+.arv-mode-artist .arv-map-readout-value {
+  color: hsl(var(--arv-signal-hue, 190) 85% 68%);
+  text-shadow: 0 0 12px hsl(var(--arv-signal-hue, 190) 80% 55% / 0.5);
+}
+
+.arv-map-readout-mode {
+  font-size: 0.55rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.arv-map-close {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 236, 210, 0.95);
+  border-radius: 3px;
+  border: 1px solid rgba(196, 104, 20, 0.55);
+  background: linear-gradient(180deg, #4a3420 0%, #221810 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 220, 160, 0.15),
+    0 0 14px -4px rgba(232, 136, 24, 0.5);
+}
+
+.arv-map-viewport {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  justify-self: center;
+  width: min(100%, calc(100dvh * 1.55));
+  height: min(calc(100dvh - 5.5rem), 62vw, 100%);
+  max-height: calc(100dvh - 5.5rem);
+  border-radius: 6px;
+  border: 2px solid rgba(80, 120, 140, 0.45);
+  box-shadow:
+    inset 0 0 40px rgba(0, 0, 0, 0.65),
+    0 0 36px -8px rgba(80, 200, 255, 0.25),
+    0 0 48px -12px rgba(200, 80, 255, 0.15);
+  overflow: hidden;
+  background: #05080c;
+}
+
+@media (orientation: portrait) and (max-height: 720px) {
+  .arv-map-viewport {
+    width: min(100dvh - 1rem, 100vw);
+    height: min(100vw - 1rem, calc(100dvh - 5.5rem));
+    max-width: calc(100dvh - 1rem);
+    max-height: calc(100vw - 1rem);
+  }
+}
+
+.arv-map-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.arv-map-canvas:active {
+  cursor: grabbing;
+}
+
+.arv-map-axis {
+  pointer-events: none;
+  position: absolute;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.45rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  color: rgba(160, 200, 220, 0.85);
+}
+
+.arv-map-axis--years {
+  left: 0.35rem;
+  right: 0.35rem;
+  bottom: 0.25rem;
+}
+
+.arv-map-axis--ranks {
+  top: 0.35rem;
+  bottom: 0.35rem;
+  left: 0.25rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.arv-map-footer {
+  flex-wrap: wrap;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  gap: 0.25rem 0.75rem;
+}
+
+.arv-mode-btn--map {
+  cursor: pointer;
+  font: inherit;
+}
+
+.arv-mode-artist .arv-mode-btn--map.arv-mode-btn--on .arv-mode-btn-led {
+  background: hsl(var(--arv-signal-hue, 200) 80% 58%);
+  box-shadow: 0 0 6px hsl(var(--arv-signal-hue, 200) 75% 50% / 0.8);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .arv-hero-glyph,
   .arv-hero-signal-bloom,
@@ -1983,7 +2221,8 @@ body.arv-body-lock main {
   .arv-hero-atmo--fog,
   .arv-hero-track-wave,
   .arv-cell--artist.arv-cell--active .arv-cell-glyph,
-  .arv-cell--artist.arv-cell--near .arv-cell-glyph {
+  .arv-cell--artist.arv-cell--near .arv-cell-glyph,
+  .arv-map-bloom {
     animation: none !important;
   }
 }

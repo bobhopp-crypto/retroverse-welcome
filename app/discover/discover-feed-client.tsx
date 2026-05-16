@@ -34,9 +34,9 @@ function memoryContextLine(row: DiscoverStableAlbumRow): string {
   return "Billboard 200 · cover open";
 }
 
-function FeedCover({ src, alt }: { src: string | null; alt: string }) {
+function FeedCover({ src, alt, cacheBust }: { src: string | null; alt: string; cacheBust?: string | null }) {
   const [broken, setBroken] = useState(false);
-  const url = !broken ? canonicalCoverPathToUrl(src) : null;
+  const url = !broken ? canonicalCoverPathToUrl(src, cacheBust ? { cacheBust } : undefined) : null;
   if (!url) {
     return (
       <div
@@ -106,7 +106,7 @@ function AlbumCard({
         className="block w-full"
       >
         <div className="aspect-square w-full overflow-hidden bg-[var(--surface)]">
-          <FeedCover src={row.canonicalCoverPath} alt={`${row.title} cover`} />
+          <FeedCover src={row.canonicalCoverPath} alt={`${row.title} cover`} cacheBust={row.canonicalCoverCacheBust} />
         </div>
       </AlbumCuratorRepair>
       <div className="space-y-2 px-4 pb-5 pt-4">

@@ -1,7 +1,13 @@
 import { unstable_cache } from "next/cache";
 
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
-import { CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG } from "@/lib/canonical-artwork-overrides";
+import {
+  CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG,
+  getCanonicalArtworkOverrides,
+  hasCanonicalArtworkOverride,
+  resolveLocalFirstCanonicalCover,
+} from "@/lib/canonical-artwork-overrides";
+import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { createClient } from "@/lib/supabase";
 
@@ -33,35 +39,20 @@ type EditionRow = {
   retroverse_album_id: string;
 };
 
-function classifyTrustState(
-  artworkStatus: string | null | undefined,
-  canonicalCoverPath: string | null,
-): DiscoverStableAlbumRow["trustState"] {
-  const status = (artworkStatus ?? "").toLowerCase();
-  if (
-    !canonicalCoverPath ||
-    status === "missing" ||
-    status === "rejected" ||
-    status === "low_confidence" ||
-    status === "unresolved"
-  ) {
-    return "unresolved";
-  }
-  if (
-    status === "pending" ||
-    status === "needs_review" ||
-    status === "provisional" ||
-    status === "review_needed" ||
-    status === "candidate"
-  ) {
-    return "provisional";
-  }
-  return "verified";
+/** True when cover must fall through to Supabase artwork (no override, no dossier path). */
+function needsSupabaseArtworkFallback(
+  albumId: string,
+  overridesFile: Awaited<ReturnType<typeof getCanonicalArtworkOverrides>>,
+): boolean {
+  const id = albumId.trim().toUpperCase();
+  if (hasCanonicalArtworkOverride(id, overridesFile)) return false;
+  const dossierPath = getAlbumDossier(id)?.identity.canonical_cover_path?.trim();
+  return !dossierPath;
 }
 
 async function hydrateDiscoverAlbumRowsImpl(albumIds: string[]): Promise<DiscoverStableAlbumRow[]> {
   if (albumIds.length === 0) return [];
-  const unique = [...new Set(albumIds)];
+  const unique = [...new Set(albumIds.map((id) => id.trim().toUpperCase()).filter(Boolean))];
   const supabase = createClient();
 
   const { data: albumsResult, error: albumsError } = await supabase
@@ -73,7 +64,8 @@ async function hydrateDiscoverAlbumRowsImpl(albumIds: string[]): Promise<Discove
 
   const orderedAlbums: AlbumCoreRow[] = [];
   for (const id of albumIds) {
-    const row = albumById.get(id);
+    const key = id.trim().toUpperCase();
+    const row = albumById.get(key);
     if (row) orderedAlbums.push(row);
   }
 
@@ -90,27 +82,48 @@ async function hydrateDiscoverAlbumRowsImpl(albumIds: string[]): Promise<Discove
     }
   }
 
+  const overridesFile = await getCanonicalArtworkOverrides();
+
+  const fallbackIds = orderedAlbums
+    .map((a) => a.retroverse_album_id)
+    .filter((id) => needsSupabaseArtworkFallback(id, overridesFile));
+  const fallbackIdSet = new Set(fallbackIds);
+
   const editionByAlbum = new Map<string, string>();
-  for (const idChunk of chunk(unique, ID_CHUNK)) {
-    const part = await supabase
-      .from("retroverse_album_editions")
-      .select("retroverse_album_edition_id, retroverse_album_id")
-      .in("retroverse_album_id", idChunk)
-      .eq("is_primary", true);
-    if (part.error) throw part.error;
-    for (const row of (part.data ?? []) as EditionRow[]) {
-      editionByAlbum.set(row.retroverse_album_id, row.retroverse_album_edition_id);
+  const artworkAcc: Awaited<ReturnType<typeof loadAlbumArtworkRows>> = [];
+  if (fallbackIds.length > 0) {
+    for (const idChunk of chunk(fallbackIds, ID_CHUNK)) {
+      const part = await supabase
+        .from("retroverse_album_editions")
+        .select("retroverse_album_edition_id, retroverse_album_id")
+        .in("retroverse_album_id", idChunk)
+        .eq("is_primary", true);
+      if (part.error) throw part.error;
+      for (const row of (part.data ?? []) as EditionRow[]) {
+        editionByAlbum.set(row.retroverse_album_id, row.retroverse_album_edition_id);
+      }
+    }
+    for (const idChunk of chunk(fallbackIds, ID_CHUNK)) {
+      artworkAcc.push(...(await loadAlbumArtworkRows(supabase, idChunk)));
     }
   }
 
-  const artworkAcc: Awaited<ReturnType<typeof loadAlbumArtworkRows>> = [];
-  for (const idChunk of chunk(unique, ID_CHUNK)) {
-    artworkAcc.push(...(await loadAlbumArtworkRows(supabase, idChunk)));
-  }
-
   return orderedAlbums.map((album) => {
-    const selected = selectCanonicalArtwork(artworkAcc, album.retroverse_album_id, editionByAlbum.get(album.retroverse_album_id) ?? null);
-    const path = selected?.canonical_cover_path ?? null;
+    const id = album.retroverse_album_id.trim().toUpperCase();
+    let cover = resolveLocalFirstCanonicalCover(id, overridesFile, null);
+
+    if (fallbackIdSet.has(id)) {
+      const selected = selectCanonicalArtwork(
+        artworkAcc,
+        id,
+        editionByAlbum.get(id) ?? null,
+      );
+      cover = resolveLocalFirstCanonicalCover(id, overridesFile, {
+        canonical_cover_path: selected?.canonical_cover_path ?? null,
+        artwork_status: selected?.artwork_status ?? null,
+      });
+    }
+
     const rawTitle =
       typeof album.canonical_album_title === "string" ? album.canonical_album_title : String(album.canonical_album_title ?? "");
     const title = rawTitle.trim();
@@ -122,12 +135,13 @@ async function hydrateDiscoverAlbumRowsImpl(albumIds: string[]): Promise<Discove
 
     return {
       kind: "album",
-      albumId: album.retroverse_album_id,
+      albumId: id,
       title,
       artist,
       year: album.release_year,
-      canonicalCoverPath: path,
-      trustState: classifyTrustState(selected?.artwork_status ?? null, path),
+      canonicalCoverPath: cover.path,
+      trustState: cover.trustState ?? "unresolved",
+      canonicalCoverCacheBust: cover.cacheBust,
     };
   });
 }
@@ -145,7 +159,7 @@ export function hydrateDiscoverAlbumRowsFresh(albumIds: string[]): Promise<Disco
 const hydrateCacheKey = (ids: string[]) => ids.join(",");
 
 /**
- * Batched artwork + canonical cover resolution; cached briefly to avoid repeat resolver work.
+ * Batched album row hydration: identity from Supabase; cover from overrides → dossier → Supabase artwork.
  *
  * Tagged per-album so `revalidateTag("artwork:<albumId>")` from the save route
  * forces this batch to refetch on the next request that touches that album.
@@ -156,7 +170,7 @@ export function hydrateDiscoverAlbumRows(albumIds: string[]): Promise<DiscoverSt
   const tags = [
     "discover-hydrate-albums",
     CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG,
-    ...albumIds.map((id) => `artwork:${id}`),
+    ...albumIds.map((id) => `artwork:${id.trim().toUpperCase()}`),
   ];
   return unstable_cache(
     async () => hydrateDiscoverAlbumRowsImpl(albumIds),

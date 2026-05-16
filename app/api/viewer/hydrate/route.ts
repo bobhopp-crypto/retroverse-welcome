@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
 import { hydrateDiscoverAlbumRows, hydrateDiscoverAlbumRowsFresh } from "@/lib/discover-hydrate-rows";
 
+/** Portal/Discover cover rows: overrides → dossier → Supabase artwork fallback. */
+export const dynamic = "force-dynamic";
+
 const RVAL = /^RVAL[0-9]{6}$/;
 const HYDRATE_MAX = 72;
 

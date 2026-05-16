@@ -35,7 +35,7 @@ function CoverImg({
   canonicalCoverPath: string | null;
   alt: string;
   fetchPriority?: "high" | "low" | "auto";
-  cacheBust?: number | null;
+  cacheBust?: number | string | null;
 }) {
   const [broken, setBroken] = useState(false);
   /**
@@ -211,7 +211,11 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
         const existing = prev.get(albumId);
         if (!existing || existing.kind !== "album") return prev;
         const next = new Map(prev);
-        next.set(albumId, { ...existing, canonicalCoverPath });
+        next.set(albumId, {
+          ...existing,
+          canonicalCoverPath,
+          canonicalCoverCacheBust: String(savedAt),
+        });
         cacheRef.current = next;
         return next;
       });
@@ -892,7 +896,12 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
                         canonicalCoverPath={coverPath}
                         alt={title ? `${title} cover` : "Album cover"}
                         fetchPriority="high"
-                        cacheBust={centeredAlbumId ? coverBustByAlbumId.get(centeredAlbumId) ?? null : null}
+                        cacheBust={
+                          heroRow?.kind === "album"
+                            ? heroRow.canonicalCoverCacheBust ??
+                              (centeredAlbumId ? coverBustByAlbumId.get(centeredAlbumId) ?? null : null)
+                            : null
+                        }
                       />
                     </div>
                   </Link>
