@@ -23,7 +23,7 @@ import {
   ARTWORK_MASTER_ROOT,
   masterCoverPath,
 } from "@/lib/artwork-storage-model";
-import { canonicalCoverKey, getR2Client, r2Bucket } from "@/lib/r2-client";
+import { canonicalCoverKey, getR2Client, headR2Object, logCuratorR2EnvPresence, r2Bucket } from "@/lib/r2-client";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -99,7 +99,7 @@ async function uploadCoverBytesToR2(args: {
   const bucket = r2Bucket();
   const canonicalKey = canonicalCoverKey(args.albumId);
 
-  console.log("[living-action] step=r2_upload_start", {
+  console.log("[CURATOR/R2] cover_put_start", {
     traceId: args.traceId,
     bucket,
     canonicalKey,
@@ -107,7 +107,7 @@ async function uploadCoverBytesToR2(args: {
     contentType: args.contentType,
   });
 
-  await client.send(
+  const putRes = await client.send(
     new PutObjectCommand({
       Bucket: bucket,
       Key: canonicalKey,
@@ -117,11 +117,25 @@ async function uploadCoverBytesToR2(args: {
     }),
   );
 
-  console.log("[living-action] step=r2_upload_done", {
+  console.log("[CURATOR/R2] cover_put_done", {
     traceId: args.traceId,
     canonicalKey,
     byteSize: args.bytes.length,
+    etag: putRes.ETag ?? null,
   });
+
+  const head = await headR2Object({ key: canonicalKey, traceId: args.traceId });
+  console.log("[CURATOR/R2] cover_head_verify", {
+    traceId: args.traceId,
+    canonicalKey,
+    headOk: head.ok,
+    etag: head.ok ? head.etag : null,
+    contentLength: head.ok ? head.contentLength : null,
+    error: head.ok ? null : head.error,
+  });
+  if (!head.ok) {
+    throw new Error(`cover_r2_head_failed:${head.error}`);
+  }
 
   return { canonicalKey, byteSize: args.bytes.length, contentType: args.contentType };
 }
@@ -183,15 +197,32 @@ async function deployRemoteCover(
    * User-Agent. ASCII only, identifies us, and is consistent with the rest of
    * the curator pipeline's outbound calls.
    */
+  console.log("[CURATOR/API] image_download_start", {
+    traceId,
+    host: remote.host,
+    pathnamePreview: remote.pathname.slice(0, 120),
+  });
   const res = await fetch(remote, {
     headers: {
-      "User-Agent": "RetroverseCurator/1.0 (+https://retroverse.local)",
+      "User-Agent": "RetroverseCurator/1.0 (+https://retroverse.live)",
       /** i.discogs.com (imgproxy) returns 403 without a Discogs.com referer. */
       Referer: "https://www.discogs.com/",
       Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
     },
   });
-  if (!res.ok) throw new Error(`remote_fetch_failed_${res.status}`);
+  if (!res.ok) {
+    console.error("[CURATOR/API] image_download_failed", {
+      traceId,
+      httpStatus: res.status,
+      host: remote.host,
+    });
+    throw new Error(`remote_fetch_failed_${res.status}`);
+  }
+  console.log("[CURATOR/API] image_download_done", {
+    traceId,
+    httpStatus: res.status,
+    contentType: res.headers.get("content-type"),
+  });
   const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length < 8_000) throw new Error("remote_image_too_small");
   const ext = path.extname(remote.pathname).toLowerCase();
@@ -226,11 +257,56 @@ async function deployRemoteCover(
   return { canonicalPath: r2.canonicalKey, masterPath: path.relative(ARTWORK_MASTER_ROOT, masterAbsPath) };
 }
 
+function runRevalidate(traceId: string, albumId: string): void {
+  const tags = [
+    `artwork:${albumId}`,
+    CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG,
+    "viewer-bootstrap",
+  ] as const;
+  for (const tag of tags) {
+    try {
+      revalidateTag(tag, { expire: 0 });
+      console.log("[CURATOR/REVALIDATE] tag_ok", { traceId, tag });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error("[CURATOR/REVALIDATE] tag_failed", { traceId, tag, error: msg });
+    }
+  }
+  const paths = [
+    "/album-retroscope",
+    "/artist-retroscope",
+    "/track-retroscope",
+    `/albums/${encodeURIComponent(albumId)}`,
+    "/portal-v2",
+    "/discover",
+    "/",
+  ] as const;
+  for (const p of paths) {
+    try {
+      revalidatePath(p);
+      console.log("[CURATOR/REVALIDATE] path_ok", { traceId, path: p });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error("[CURATOR/REVALIDATE] path_failed", { traceId, path: p, error: msg });
+    }
+  }
+}
+
 export async function POST(request: Request) {
   const traceId = randomUUID().slice(0, 8);
   const ts = () => new Date().toISOString();
 
-  const body = (await request.json()) as {
+  logCuratorR2EnvPresence(traceId);
+
+  console.log("[CURATOR/API] request_received", {
+    traceId,
+    ts: ts(),
+    method: request.method,
+    url: request.url,
+    opsCookiePresent: request.headers.get("cookie")?.includes("retroverse_ops_gate=ok") ?? false,
+  });
+
+  let body: {
     action?: Action;
     albumId?: string;
     artist?: string;
@@ -248,7 +324,15 @@ export async function POST(request: Request) {
     replaceSource?: "discogs" | "staged" | null;
   };
 
-  console.log("[living-action] step=entered_route", {
+  try {
+    body = (await request.json()) as typeof body;
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[CURATOR/API] request_json_parse_failed", { traceId, error: msg });
+    return NextResponse.json({ ok: false, error: `invalid_json:${msg}`, traceId }, { status: 400 });
+  }
+
+  console.log("[CURATOR/API] request_body", {
     traceId,
     ts: ts(),
     action: body.action ?? null,
@@ -261,9 +345,11 @@ export async function POST(request: Request) {
   });
 
   if (!body.action || !body.albumId) {
-    console.warn("[living-action] step=reject_missing_action_or_album", { traceId });
+    console.warn("[CURATOR/API] reject_missing_action_or_album", { traceId });
     return NextResponse.json({ ok: false, error: "missing_action_or_album", traceId }, { status: 400 });
   }
+
+  try {
 
   const registry = await loadArtworkStateRegistry();
   const beforePath = await pickCanonicalCoverPathForAlbum(body.albumId);
@@ -273,7 +359,7 @@ export async function POST(request: Request) {
     artwork_status: null as string | null,
   };
 
-  console.log("[living-action] step=before_local_cover", {
+  console.log("[CURATOR/API] before_local_cover", {
     traceId,
     existingCanonicalPath: beforePath ?? null,
   });
@@ -296,7 +382,7 @@ export async function POST(request: Request) {
   if (body.action === "approve" || body.action === "replace_artwork") {
     const stagedPath = allowedStagedPath(body.stagedFilePath);
     const remote = allowedRemoteImage(body.candidateImageUrl ?? null);
-    console.log("[living-action] step=deploy_source_resolved", {
+    console.log("[CURATOR/API] deploy_source_resolved", {
       traceId,
       hasStagedPath: Boolean(stagedPath),
       hasRemote: Boolean(remote),
@@ -304,10 +390,10 @@ export async function POST(request: Request) {
       remotePathPreview: remote ? remote.pathname.slice(0, 120) : null,
     });
     if (!stagedPath && !remote) {
-      console.warn("[living-action] step=reject_missing_valid_replace_source", { traceId });
+      console.warn("[CURATOR/API] reject_missing_valid_replace_source", { traceId });
       return NextResponse.json({ ok: false, error: "missing_valid_replace_source", traceId }, { status: 400 });
     }
-    console.log("[living-action] step=deploy_start", {
+    console.log("[CURATOR/API] deploy_start", {
       traceId,
       mode: stagedPath ? "staged" : "remote",
     });
@@ -330,12 +416,12 @@ export async function POST(request: Request) {
           );
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      console.error("[living-action] step=deploy_failed", { traceId, error: msg });
+      console.error("[CURATOR/R2] deploy_failed", { traceId, error: msg });
       return NextResponse.json({ ok: false, error: `deploy_failed:${msg}`, traceId }, { status: 500 });
     }
     canonicalPath = deployed.canonicalPath;
     masterRelative = deployed.masterPath;
-    console.log("[living-action] step=deploy_done", {
+    console.log("[CURATOR/R2] deploy_done", {
       traceId,
       canonicalPath,
       masterPath: deployed.masterPath,
@@ -347,45 +433,28 @@ export async function POST(request: Request) {
   const status = statusForState(nextState);
 
   try {
-    await writeCanonicalArtworkOverride(body.albumId, {
-      canonical_cover_path: canonicalPath,
-      artwork_status: status,
-      trust_state: discoverTrustForLivingState(nextState),
-      cover_source: sourceTag,
-    });
-    console.log("[living-action] step=canonical_overrides_written", {
+    await writeCanonicalArtworkOverride(
+      body.albumId,
+      {
+        canonical_cover_path: canonicalPath,
+        artwork_status: status,
+        trust_state: discoverTrustForLivingState(nextState),
+        cover_source: sourceTag,
+      },
+      traceId,
+    );
+    console.log("[CURATOR/API] canonical_overrides_written", {
       traceId,
       canonicalPath,
       artwork_status: status,
     });
   } catch (e) {
     const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.error("[living-action] step=override_write_failed", { traceId, error: msg });
+    console.error("[CURATOR/API] override_write_failed", { traceId, error: msg });
     return NextResponse.json({ ok: false, error: `persist_failed:${msg}`, traceId }, { status: 500 });
   }
 
-  try {
-    /**
-     * Next 16: `revalidateTag(tag)` (1-arg) is deprecated. `{ expire: 0 }` forces
-     * an immediate blocking revalidate so the very next read of this album sees
-     * the new canonical path — the only behaviour that prevents the
-     * "old cover returns after refresh" bug we're stabilizing.
-     */
-    revalidateTag(`artwork:${body.albumId}`, { expire: 0 });
-    revalidateTag(CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG, { expire: 0 });
-    revalidateTag("viewer-bootstrap", { expire: 0 });
-    revalidatePath("/album-retroscope");
-    revalidatePath("/artist-retroscope");
-    revalidatePath("/track-retroscope");
-    revalidatePath(`/albums/${encodeURIComponent(body.albumId)}`);
-    revalidatePath("/portal-v2");
-    revalidatePath("/discover");
-    revalidatePath("/");
-    console.log("[living-action] step=cache_invalidated", { traceId, tag: `artwork:${body.albumId}` });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn("[living-action] step=cache_invalidate_failed", { traceId, error: msg });
-  }
+  runRevalidate(traceId, body.albumId);
 
   const afterSnapshot = {
     retroverse_album_id: body.albumId,
@@ -414,24 +483,43 @@ export async function POST(request: Request) {
     dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
     dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
   });
-  await saveArtworkStateRegistry(registry);
+  try {
+    await saveArtworkStateRegistry(registry);
+    console.log("[CURATOR/API] artwork_state_registry_saved", {
+      traceId,
+      skippedInProduction: process.env.NODE_ENV === "production",
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[CURATOR/API] artwork_state_registry_failed", { traceId, error: msg });
+    return NextResponse.json({ ok: false, error: `registry_failed:${msg}`, traceId }, { status: 500 });
+  }
 
-  console.log("[living-action] step=response_ok", {
-    traceId,
-    albumId: body.albumId,
-    action: body.action,
-    nextState,
-    canonicalPath,
-    afterCanonicalPath: afterSnapshot.canonical_cover_path ?? null,
-  });
-
-  return NextResponse.json({
-    ok: true,
+  const payload = {
+    ok: true as const,
     albumId: body.albumId,
     action: body.action,
     nextState,
     canonicalPath,
     savedAt: Date.now(),
     traceId,
+  };
+
+  console.log("[CURATOR/API] response_ok", {
+    traceId,
+    albumId: body.albumId,
+    action: body.action,
+    nextState,
+    canonicalPath,
+    afterCanonicalPath: afterSnapshot.canonical_cover_path ?? null,
+    payload,
   });
+
+  return NextResponse.json(payload);
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    const stack = e instanceof Error ? e.stack : undefined;
+    console.error("[CURATOR/API] unhandled_error", { traceId, error: msg, stack });
+    return NextResponse.json({ ok: false, error: `unhandled:${msg}`, traceId }, { status: 500 });
+  }
 }

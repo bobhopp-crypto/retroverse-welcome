@@ -123,17 +123,48 @@ async function fetchCanonicalArtworkOverridesFromR2(): Promise<CanonicalArtworkO
   }
 }
 
-async function putCanonicalArtworkOverridesToR2(file: CanonicalArtworkOverridesFile): Promise<void> {
+async function putCanonicalArtworkOverridesToR2(
+  file: CanonicalArtworkOverridesFile,
+  traceId?: string,
+): Promise<void> {
   const client = getR2Client();
-  await client.send(
+  const bucket = r2Bucket();
+  const key = CANONICAL_ARTWORK_OVERRIDES_R2_KEY;
+  const body = `${JSON.stringify(file, null, 2)}\n`;
+  console.log("[CURATOR/R2] overrides_put_start", {
+    traceId: traceId ?? null,
+    bucket,
+    key,
+    byteSize: body.length,
+    albumCount: Object.keys(file.albums ?? {}).length,
+  });
+  const putRes = await client.send(
     new PutObjectCommand({
-      Bucket: r2Bucket(),
-      Key: CANONICAL_ARTWORK_OVERRIDES_R2_KEY,
-      Body: `${JSON.stringify(file, null, 2)}\n`,
+      Bucket: bucket,
+      Key: key,
+      Body: body,
       ContentType: "application/json",
       CacheControl: "max-age=0, must-revalidate",
     }),
   );
+  console.log("[CURATOR/R2] overrides_put_done", {
+    traceId: traceId ?? null,
+    key,
+    etag: putRes.ETag ?? null,
+  });
+  const { headR2Object } = await import("@/lib/r2-client");
+  const head = await headR2Object({ key, traceId: traceId ?? "overrides" });
+  console.log("[CURATOR/R2] overrides_head_verify", {
+    traceId: traceId ?? null,
+    key,
+    headOk: head.ok,
+    etag: head.ok ? head.etag : null,
+    contentLength: head.ok ? head.contentLength : null,
+    error: head.ok ? null : head.error,
+  });
+  if (!head.ok) {
+    throw new Error(`overrides_r2_head_failed:${head.error}`);
+  }
 }
 
 /**
@@ -341,6 +372,7 @@ export async function mergeCanonicalArtworkOverridesIntoRetroscopeCells(
 export async function writeCanonicalArtworkOverride(
   albumId: string,
   record: Omit<CanonicalArtworkOverrideRecord, "updated_at"> & { updated_at?: string },
+  traceId?: string,
 ): Promise<void> {
   const id = albumId.trim().toUpperCase();
   if (!/^RVAL\d{6}$/i.test(id)) throw new Error("invalid_rval_album_id");
@@ -362,14 +394,32 @@ export async function writeCanonicalArtworkOverride(
 
   processOverridesSnapshot = base;
 
-  if (useR2ForOverridePersistence()) {
-    await putCanonicalArtworkOverridesToR2(base);
+  const useR2 = useR2ForOverridePersistence();
+  console.log("[CURATOR/API] overrides_write_target", {
+    traceId: traceId ?? null,
+    albumId: id,
+    useR2,
+    canonical_cover_path: record.canonical_cover_path ?? null,
+  });
+
+  if (useR2) {
+    await putCanonicalArtworkOverridesToR2(base, traceId);
   } else {
     const p = defaultPath();
+    console.log("[CURATOR/API] overrides_write_disk", { traceId: traceId ?? null, path: p });
     await mkdir(path.dirname(p), { recursive: true });
     await writeFile(p, serialized, "utf8");
+    console.log("[CURATOR/API] overrides_write_disk_done", { traceId: traceId ?? null, path: p });
   }
+
+  console.log("[CURATOR/SUPABASE] artwork_row_update", {
+    traceId: traceId ?? null,
+    albumId: id,
+    skipped: true,
+    reason: "canonical authority is overrides JSON + R2; no Supabase artwork write in this path",
+  });
 
   const { invalidateAlbumRetroscopeDatasetCache } = await import("@/lib/load-album-retroscope-dataset");
   invalidateAlbumRetroscopeDatasetCache();
+  console.log("[CURATOR/API] retroscope_dataset_cache_invalidated", { traceId: traceId ?? null, albumId: id });
 }

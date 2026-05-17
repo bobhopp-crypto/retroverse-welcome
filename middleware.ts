@@ -12,18 +12,13 @@ function authed(request: NextRequest): boolean {
 }
 
 /**
- * Read-only endpoints used by public Portal curator (PIN not required).
- *
- * `living-action` is the side-effecting save endpoint and stays PIN-gated in
- * production. In local dev we whitelist it so the curator workflow works
- * without entering the ops PIN every time the browser profile is reset.
+ * Portal curator endpoints (read + save). Save must be reachable on production
+ * Portal without the ops PIN — same as candidates/resolve.
  */
 const PUBLIC_ARTWORK_WORKBENCH = new Set<string>([
   "/api/artwork-workbench/candidates",
   "/api/artwork-workbench/resolve-discogs-url",
-  ...(process.env.NODE_ENV !== "production"
-    ? ["/api/artwork-workbench/living-action"]
-    : []),
+  "/api/artwork-workbench/living-action",
 ]);
 
 export function middleware(request: NextRequest) {
@@ -35,7 +30,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
   if (pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "ops_gate_required" }, { status: 401 });
+    console.error("[CURATOR/API] ops_gate_blocked", {
+      pathname,
+      method: request.method,
+      error: "ops_gate_required",
+    });
+    return NextResponse.json({ ok: false, error: "ops_gate_required" }, { status: 401 });
   }
 
   const url = request.nextUrl.clone();

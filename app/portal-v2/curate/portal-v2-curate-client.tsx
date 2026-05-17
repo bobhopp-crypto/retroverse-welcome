@@ -169,7 +169,7 @@ export default function PortalV2CurateClient({
    */
   const [pasteUrl, setPasteUrl] = useState("");
   const [pastePending, setPastePending] = useState(false);
-  const [pasteError, setPasteError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   /**
    * Set after a successful save in page mode so the hero re-fetches the new
@@ -303,6 +303,19 @@ export default function PortalV2CurateClient({
 
   const hasSelection = Boolean(selected);
 
+  function formatSaveFailure(httpStatus: number, payload: { error?: string; traceId?: string } | null, rawBody: string): string {
+    const err = payload?.error ?? "";
+    const trace = payload?.traceId ? ` (trace ${payload.traceId})` : "";
+    if (httpStatus === 401 && err === "ops_gate_required") {
+      return `Save blocked: ops PIN required${trace}. Open /internal/ops-pin then retry.`;
+    }
+    if (err) return `Save failed: ${err}${trace}`;
+    if (rawBody.trim()) {
+      return `Save failed (HTTP ${httpStatus}): ${rawBody.slice(0, 240)}${rawBody.length > 240 ? "…" : ""}${trace}`;
+    }
+    return `Save failed (HTTP ${httpStatus})${trace}`;
+  }
+
   useEffect(() => {
     if (loading || candidateFetchError) return;
     for (const c of grid) {
@@ -333,38 +346,74 @@ export default function PortalV2CurateClient({
     if (!hasStaged && !hasRemote) return;
 
     const replaceSource: "discogs" | "staged" = hasStaged ? "staged" : "discogs";
+    const requestUrl = "/api/artwork-workbench/living-action";
+    const requestBody = {
+      action: "replace_artwork" as const,
+      albumId: row.albumId,
+      artist: row.artist,
+      title: row.title,
+      confidence: null,
+      candidateSource: selected.image ?? remoteHttps,
+      candidateImageUrl: hasRemote ? remoteHttps : null,
+      stagedFilePath: hasStaged ? stagedAbs : null,
+      sourceArtist: selected.artist,
+      sourceCollection: selected.title,
+      sourceReleaseDate: selected.year ? `${selected.year}-01-01` : null,
+      replaceSource,
+    };
+
     setApplyPending(true);
+    setSaveError(null);
+    console.log("[CURATOR/CLIENT] save_started", {
+      albumId: row.albumId,
+      replaceSource,
+      hasStaged,
+      hasRemote,
+      candidateImagePreview: remoteHttps?.slice(0, 120) ?? selected.image?.slice(0, 120) ?? null,
+      requestUrl,
+    });
     try {
-      const res = await fetch("/api/artwork-workbench/living-action", {
+      const res = await fetch(requestUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "replace_artwork",
-          albumId: row.albumId,
-          artist: row.artist,
-          title: row.title,
-          confidence: null,
-          candidateSource: selected.image ?? remoteHttps,
-          candidateImageUrl: hasRemote ? remoteHttps : null,
-          stagedFilePath: hasStaged ? stagedAbs : null,
-          sourceArtist: selected.artist,
-          sourceCollection: selected.title,
-          sourceReleaseDate: selected.year ? `${selected.year}-01-01` : null,
-          replaceSource,
-        }),
+        body: JSON.stringify(requestBody),
       });
-      if (!res.ok) throw new Error(`save_http_${res.status}`);
-      const payload = (await res.json()) as {
+      const rawBody = await res.text();
+      let payload: {
         ok?: boolean;
+        error?: string;
+        traceId?: string;
         canonicalPath?: string | null;
         savedAt?: number;
-      };
-      if (!payload.ok) throw new Error("save_response_not_ok");
+      } = {};
+      try {
+        payload = JSON.parse(rawBody || "{}") as typeof payload;
+      } catch (parseErr) {
+        console.error("[CURATOR/CLIENT] save_response_json_parse_failed", {
+          albumId: row.albumId,
+          httpStatus: res.status,
+          bodyPreview: rawBody.slice(0, 500),
+          parseErr,
+        });
+        setSaveError(formatSaveFailure(res.status, null, rawBody));
+        return;
+      }
 
-      /**
-       * Hand the parent the fresh canonical path + savedAt so it can patch its
-       * in-memory row cache and cache-bust the hero before any reload.
-       */
+      console.log("[CURATOR/CLIENT] save_response", {
+        albumId: row.albumId,
+        httpStatus: res.status,
+        ok: payload.ok ?? null,
+        error: payload.error ?? null,
+        traceId: payload.traceId ?? null,
+        canonicalPath: payload.canonicalPath ?? null,
+        bodyPreview: rawBody.slice(0, 500),
+      });
+
+      if (!res.ok || !payload.ok) {
+        setSaveError(formatSaveFailure(res.status, payload, rawBody));
+        return;
+      }
+
       const savedAt = typeof payload.savedAt === "number" ? payload.savedAt : Date.now();
 
       onSaved?.({
@@ -374,18 +423,16 @@ export default function PortalV2CurateClient({
       });
 
       if (onDismiss) {
-        /* Overlay: parent closes us and patches the hero. */
         onDismiss();
       } else {
-        /* Page mode: stay where we are. Cache-bust the hero so the new cover
-           shows immediately; user uses ← / Done to return to wherever they came
-           from. */
         setSavedCacheBust(savedAt);
         setSelectedUrl(null);
       }
       router.refresh();
     } catch (e) {
-      console.error("[PortalV2CurateClient] save_failed", e);
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error("[CURATOR/CLIENT] save_failed", { albumId: row.albumId, error: detail });
+      setSaveError(`Save failed: ${detail}`);
     } finally {
       setApplyPending(false);
     }
@@ -442,15 +489,17 @@ export default function PortalV2CurateClient({
     const raw = pasteUrl.trim();
     if (!raw) return;
 
-    setPasteError(null);
+    setSaveError(null);
 
     const kind = classifyDiscogsPasteUrl(raw);
     if (kind === "invalid") {
-      setPasteError("Paste an i.discogs.com image URL or a discogs.com release/master page URL.");
+      setSaveError("Paste an i.discogs.com image URL or a discogs.com release/master page URL.");
       return;
     }
 
     setPastePending(true);
+    setSaveError(null);
+    console.log("[CURATOR/CLIENT] paste_save_started", { albumId: row.albumId, urlKind: kind });
     try {
       let imageUrl: string | null = null;
       let sourceArtist = row.artist;
@@ -466,7 +515,7 @@ export default function PortalV2CurateClient({
           body: JSON.stringify({ url: raw }),
         });
         if (!res.ok) {
-          setPasteError(`Couldn't read that Discogs page (HTTP ${res.status}).`);
+          setSaveError(`Couldn't read that Discogs page (HTTP ${res.status}).`);
           return;
         }
         const payload = (await res.json()) as {
@@ -478,7 +527,7 @@ export default function PortalV2CurateClient({
           error?: string;
         };
         if (!payload.ok || !payload.imageUrl) {
-          setPasteError(payload.error ?? "Couldn't find a cover image on that Discogs page.");
+          setSaveError(payload.error ?? "Couldn't find a cover image on that Discogs page.");
           return;
         }
         imageUrl = payload.imageUrl;
@@ -487,7 +536,8 @@ export default function PortalV2CurateClient({
         if (typeof payload.year === "number") sourceYear = payload.year;
       }
 
-      const saveRes = await fetch("/api/artwork-workbench/living-action", {
+      const saveUrl = "/api/artwork-workbench/living-action";
+      const saveRes = await fetch(saveUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -505,17 +555,30 @@ export default function PortalV2CurateClient({
           replaceSource: "discogs",
         }),
       });
-      if (!saveRes.ok) {
-        setPasteError(`Save failed (HTTP ${saveRes.status}).`);
-        return;
-      }
-      const savePayload = (await saveRes.json()) as {
+      const saveRaw = await saveRes.text();
+      let savePayload: {
         ok?: boolean;
+        error?: string;
+        traceId?: string;
         canonicalPath?: string | null;
         savedAt?: number;
-      };
-      if (!savePayload.ok) {
-        setPasteError("Save failed.");
+      } = {};
+      try {
+        savePayload = JSON.parse(saveRaw || "{}") as typeof savePayload;
+      } catch {
+        setSaveError(formatSaveFailure(saveRes.status, null, saveRaw));
+        return;
+      }
+      console.log("[CURATOR/CLIENT] paste_save_response", {
+        albumId: row.albumId,
+        httpStatus: saveRes.status,
+        ok: savePayload.ok ?? null,
+        error: savePayload.error ?? null,
+        traceId: savePayload.traceId ?? null,
+        bodyPreview: saveRaw.slice(0, 500),
+      });
+      if (!saveRes.ok || !savePayload.ok) {
+        setSaveError(formatSaveFailure(saveRes.status, savePayload, saveRaw));
         return;
       }
 
@@ -534,8 +597,9 @@ export default function PortalV2CurateClient({
       }
       router.refresh();
     } catch (err) {
-      console.error("[PortalV2CurateClient] paste_url_save_failed", err);
-      setPasteError("Unexpected error. Check the URL and try again.");
+      const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error("[CURATOR/CLIENT] paste_save_failed", { albumId: row.albumId, error: detail });
+      setSaveError(`Unexpected error: ${detail}`);
     } finally {
       setPastePending(false);
     }
@@ -720,7 +784,7 @@ export default function PortalV2CurateClient({
               value={pasteUrl}
               onChange={(e) => {
                 setPasteUrl(e.target.value);
-                if (pasteError) setPasteError(null);
+                if (saveError) setSaveError(null);
               }}
               placeholder="Paste Discogs URL"
               className="min-w-0 flex-1 rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-3 py-3 text-[14px] text-[#f3eadb] shadow-[inset_0_2px_10px_rgba(0,0,0,0.35)] placeholder:text-[#6d6358] focus:border-[#c8a96b] focus:outline-none focus:ring-1 focus:ring-[#c8a96b]/35"
@@ -738,9 +802,9 @@ export default function PortalV2CurateClient({
               {pastePending || applyPending ? "Saving…" : "Save"}
             </button>
           </div>
-          {pasteError ? (
+          {saveError ? (
             <p role="alert" className="mt-2 text-center text-[12px] leading-snug text-[#f0dcd8]">
-              {pasteError}
+              {saveError}
             </p>
           ) : null}
         </form>
