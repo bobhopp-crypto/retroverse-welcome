@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { getRetroverseCoverBaseUrl } from "@/lib/canonical-cover-url";
 import { discoverStableAlbumRowFromLocalDossier } from "@/lib/curator-album-local";
 import { validateAlbumRowForCurator } from "@/lib/curator-album-metadata";
 
@@ -50,7 +51,7 @@ export default async function PortalV2CuratePage({ searchParams }: { searchParam
     );
   }
 
-  return <PortalV2CurateClient key={raw} row={row} />;
+  return <PortalV2CurateClient key={raw} row={row} coverBaseUrl={getRetroverseCoverBaseUrl()} />;
 }
 
 function collapseForLog(s: string): string {

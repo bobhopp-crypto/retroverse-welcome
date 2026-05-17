@@ -11,6 +11,23 @@
  */
 const COVERS_SEGMENT = "retroverse/covers/";
 
+/**
+ * Runtime cover origin (R2 pub URL). Prefer server `RETROVERSE_COVER_BASE_URL` so
+ * production does not depend on NEXT_PUBLIC being present at build time.
+ */
+export function getRetroverseCoverBaseUrl(): string | null {
+  const candidates = [
+    process.env.RETROVERSE_COVER_BASE_URL,
+    process.env.NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL,
+  ];
+  for (const raw of candidates) {
+    if (typeof raw === "string" && raw.trim()) {
+      return stripTrailingRetroverseCoversFromBase(raw.trim());
+    }
+  }
+  return null;
+}
+
 function stripTrailingRetroverseCoversFromBase(base: string): string {
   let b = base.trim().replace(/\/+$/, "");
   const suffix = /\/retroverse\/covers$/i;
@@ -40,7 +57,7 @@ function normalizeRelativeCoverPath(raw: string): string | null {
  */
 export function canonicalCoverPathToUrl(
   canonicalCoverPath: string | null | undefined,
-  options?: { cacheBust?: number | string | null },
+  options?: { cacheBust?: number | string | null; coverBaseUrl?: string | null },
 ): string | null {
   if (!canonicalCoverPath?.trim()) return null;
   const raw = canonicalCoverPath.trim();
@@ -56,14 +73,9 @@ export function canonicalCoverPathToUrl(
   const rel = normalizeRelativeCoverPath(raw);
   if (!rel) return null;
 
-  const rawBase =
-    typeof process.env.NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL === "string"
-      ? process.env.NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL.trim()
-      : "";
-  if (rawBase) {
-    const origin = stripTrailingRetroverseCoversFromBase(rawBase);
-    if (!origin) return appendBust(`/${rel}`);
-    return appendBust(`${origin.replace(/\/+$/, "")}/${rel}`);
+  const explicitBase = options?.coverBaseUrl?.trim() || getRetroverseCoverBaseUrl();
+  if (explicitBase) {
+    return appendBust(`${explicitBase.replace(/\/+$/, "")}/${rel}`);
   }
   return appendBust(`/${rel}`);
 }

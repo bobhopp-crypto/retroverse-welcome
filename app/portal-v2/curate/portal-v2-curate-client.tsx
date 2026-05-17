@@ -134,16 +134,19 @@ export type PortalV2CuratorSavedDetail = {
   albumId: string;
   canonicalCoverPath: string | null;
   savedAt: number;
+  publicCoverUrl?: string | null;
 };
 
 export default function PortalV2CurateClient({
   row,
   presentation = "page",
+  coverBaseUrl = null,
   onDismiss,
   onSaved,
 }: {
   row: DiscoverStableAlbumRow;
   presentation?: PortalV2CuratePresentation;
+  coverBaseUrl?: string | null;
   onDismiss?: () => void;
   onSaved?: (detail: PortalV2CuratorSavedDetail) => void;
 }) {
@@ -185,10 +188,14 @@ export default function PortalV2CurateClient({
    * would be stripped and the browser would keep showing the stale image.
    */
   const currentCoverUrl = useMemo(() => {
-    const normalized = normalizeCandidateArtworkUrl(canonicalCoverPathToUrl(row.canonicalCoverPath));
-    if (!normalized || savedCacheBust == null) return normalized;
-    return `${normalized}${normalized.includes("?") ? "&" : "?"}v=${savedCacheBust}`;
-  }, [row.canonicalCoverPath, savedCacheBust]);
+    const normalized = normalizeCandidateArtworkUrl(
+      canonicalCoverPathToUrl(row.canonicalCoverPath, {
+        cacheBust: savedCacheBust ?? undefined,
+        coverBaseUrl,
+      }),
+    );
+    return normalized;
+  }, [row.canonicalCoverPath, savedCacheBust, coverBaseUrl]);
 
   const grid = useMemo(() => {
     const out: WorkbenchCandidate[] = [];
@@ -384,6 +391,7 @@ export default function PortalV2CurateClient({
         error?: string;
         traceId?: string;
         canonicalPath?: string | null;
+        publicCoverUrl?: string | null;
         savedAt?: number;
       } = {};
       try {
@@ -406,6 +414,7 @@ export default function PortalV2CurateClient({
         error: payload.error ?? null,
         traceId: payload.traceId ?? null,
         canonicalPath: payload.canonicalPath ?? null,
+        publicCoverUrl: payload.publicCoverUrl ?? null,
         bodyPreview: rawBody.slice(0, 500),
       });
 
@@ -420,6 +429,7 @@ export default function PortalV2CurateClient({
         albumId: row.albumId,
         canonicalCoverPath: payload.canonicalPath ?? null,
         savedAt,
+        publicCoverUrl: payload.publicCoverUrl ?? null,
       });
 
       if (onDismiss) {
@@ -560,6 +570,7 @@ export default function PortalV2CurateClient({
         error?: string;
         traceId?: string;
         canonicalPath?: string | null;
+        publicCoverUrl?: string | null;
         savedAt?: number;
       } = {};
       try {
@@ -586,6 +597,7 @@ export default function PortalV2CurateClient({
         albumId: row.albumId,
         canonicalCoverPath: savePayload.canonicalPath ?? null,
         savedAt,
+        publicCoverUrl: savePayload.publicCoverUrl ?? null,
       });
       if (onDismiss) {
         onDismiss();

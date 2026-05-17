@@ -35,11 +35,13 @@ function CoverImg({
   alt,
   fetchPriority,
   cacheBust,
+  coverBaseUrl,
 }: {
   canonicalCoverPath: string | null;
   alt: string;
   fetchPriority?: "high" | "low" | "auto";
   cacheBust?: number | string | null;
+  coverBaseUrl?: string | null;
 }) {
   const [broken, setBroken] = useState(false);
   /**
@@ -48,7 +50,10 @@ function CoverImg({
    * though the storage key is unchanged.
    */
   const url = !broken
-    ? canonicalCoverPathToUrl(canonicalCoverPath, cacheBust ? { cacheBust } : undefined)
+    ? canonicalCoverPathToUrl(canonicalCoverPath, {
+        cacheBust: cacheBust || undefined,
+        coverBaseUrl,
+      })
     : null;
 
   useEffect(() => {
@@ -83,16 +88,25 @@ function CoverImg({
 function mergeRows(
   prev: Map<string, DiscoverStableAlbumRow>,
   rows: DiscoverStableAlbumRow[],
-  protectAlbumIds?: ReadonlySet<string>,
+  sessionSaveAtByAlbum?: ReadonlyMap<string, number>,
 ) {
   if (rows.length === 0) return prev;
   const next = new Map(prev);
   for (const row of rows) {
     if (row.kind !== "album") continue;
     const id = row.albumId.trim().toUpperCase();
-    if (protectAlbumIds?.has(id)) {
+    const sessionSavedAt = sessionSaveAtByAlbum?.get(id);
+    if (sessionSavedAt != null) {
       const existing = next.get(id);
-      if (existing?.kind === "album") continue;
+      if (existing?.kind === "album") {
+        const incomingBust = row.canonicalCoverCacheBust;
+        let incomingTs = 0;
+        if (incomingBust != null && incomingBust !== "") {
+          const n = Number(incomingBust);
+          incomingTs = Number.isFinite(n) && n > 0 ? n : Date.parse(incomingBust) || 0;
+        }
+        if (incomingTs < sessionSavedAt) continue;
+      }
     }
     next.set(id, { ...row, albumId: id });
   }
@@ -137,7 +151,14 @@ function axisVelocity(samples: MotionSample[], axis: "h" | "v"): number {
   return axis === "v" ? (b.y - a.y) / dt : (b.x - a.x) / dt;
 }
 
-export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstrap }) {
+export default function PortalV2Client({
+  bootstrap,
+  coverBaseUrl = null,
+}: {
+  bootstrap: ViewerBootstrap;
+  /** R2 public origin from server env — avoids stale NEXT_PUBLIC at client build time. */
+  coverBaseUrl?: string | null;
+}) {
   const { years } = bootstrap;
   const bootstrapYearIdxRaw = years.indexOf(bootstrap.year);
   const bootstrapYearIdx = bootstrapYearIdxRaw >= 0 ? bootstrapYearIdxRaw : 0;
@@ -216,7 +237,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
 
   const mergeRowsCached = useCallback((rows: DiscoverStableAlbumRow[]) => {
     setCache((prev) => {
-      const next = mergeRows(prev, rows, new Set(coverBustByAlbumIdRef.current.keys()));
+      const next = mergeRows(prev, rows, coverBustByAlbumIdRef.current);
       cacheRef.current = next;
       return next;
     });
@@ -229,12 +250,34 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
    * tree (revalidateTag has already invalidated `artwork:<id>`).
    */
   const applyCuratorSave = useCallback(
-    ({ albumId, canonicalCoverPath, savedAt }: { albumId: string; canonicalCoverPath: string | null; savedAt: number }) => {
+    ({
+      albumId,
+      canonicalCoverPath,
+      savedAt,
+      publicCoverUrl,
+    }: {
+      albumId: string;
+      canonicalCoverPath: string | null;
+      savedAt: number;
+      publicCoverUrl?: string | null;
+    }) => {
       const id = normalizeRvalAlbumId(albumId);
-      console.log("[CURATOR/CLIENT] apply_curator_save", { albumId: id, canonicalCoverPath, savedAt });
-      setCache((prev) => {
-        const existing = prev.get(id);
-        if (!existing || existing.kind !== "album") return prev;
+      const resolvedUrl =
+        publicCoverUrl ??
+        canonicalCoverPathToUrl(canonicalCoverPath, { cacheBust: savedAt, coverBaseUrl });
+      console.log("[CURATOR/CLIENT] apply_curator_save", {
+        albumId: id,
+        canonicalCoverPath,
+        savedAt,
+        coverBaseUrl: coverBaseUrl ?? null,
+        resolvedUrl,
+      });
+
+      coverBustByAlbumIdRef.current = new Map(coverBustByAlbumIdRef.current).set(id, savedAt);
+
+      const prev = cacheRef.current;
+      const existing = prev.get(id);
+      if (existing?.kind === "album") {
         const next = new Map(prev);
         next.set(id, {
           ...existing,
@@ -242,10 +285,10 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
           canonicalCoverCacheBust: String(savedAt),
         });
         cacheRef.current = next;
-        return next;
-      });
-      coverBustByAlbumIdRef.current = new Map(coverBustByAlbumIdRef.current).set(id, savedAt);
+        setCache(next);
+      }
       setCoverBustByAlbumId(new Map(coverBustByAlbumIdRef.current));
+
       void hydrateRemote([id], { fresh: true })
         .then((rows) => {
           mergeRowsCached(rows);
@@ -257,7 +300,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
           });
         });
     },
-    [mergeRowsCached],
+    [coverBaseUrl, mergeRowsCached],
   );
 
   const ensureHydrated = useCallback(
@@ -864,6 +907,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
               key={curatorRow.albumId}
               presentation="overlay"
               row={curatorRow}
+              coverBaseUrl={coverBaseUrl}
               onDismiss={() => setCuratorRow(null)}
               onSaved={applyCuratorSave}
             />
@@ -930,6 +974,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
                     >
                       <CoverImg
                         canonicalCoverPath={coverPath}
+                        coverBaseUrl={coverBaseUrl}
                         alt={title ? `${title} cover` : "Album cover"}
                         fetchPriority="high"
                         cacheBust={

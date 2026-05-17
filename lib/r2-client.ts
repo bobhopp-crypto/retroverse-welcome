@@ -42,7 +42,7 @@ export function r2Bucket(): string {
 
 /** Canonical object key for an album cover. One file per album, overwrites in place. */
 export function canonicalCoverKey(albumId: string): string {
-  return `retroverse/covers/${albumId}/canonical.jpg`;
+  return `retroverse/covers/${albumId.trim().toUpperCase()}/canonical.jpg`;
 }
 
 function envPresent(name: string): boolean {
@@ -61,6 +61,7 @@ export function logCuratorR2EnvPresence(traceId: string): void {
     R2_SECRET_ACCESS_KEY_present: envPresent("R2_SECRET_ACCESS_KEY"),
     R2_BUCKET_NAME_present: envPresent("R2_BUCKET_NAME"),
     R2_ENDPOINT_preview: accountId ? `https://${accountId}.r2.cloudflarestorage.com` : null,
+    RETROVERSE_COVER_BASE_URL_present: envPresent("RETROVERSE_COVER_BASE_URL"),
     NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL_present: envPresent("NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL"),
     SUPABASE_URL_present: envPresent("SUPABASE_URL") || envPresent("NEXT_PUBLIC_SUPABASE_URL"),
     SUPABASE_SERVICE_ROLE_KEY_present: envPresent("SUPABASE_SERVICE_ROLE_KEY"),

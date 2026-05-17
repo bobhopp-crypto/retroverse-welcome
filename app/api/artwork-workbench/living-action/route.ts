@@ -23,6 +23,7 @@ import {
   ARTWORK_MASTER_ROOT,
   masterCoverPath,
 } from "@/lib/artwork-storage-model";
+import { canonicalCoverPathToUrl, getRetroverseCoverBaseUrl } from "@/lib/canonical-cover-url";
 import { canonicalCoverKey, getR2Client, headR2Object, logCuratorR2EnvPresence, r2Bucket } from "@/lib/r2-client";
 
 export const dynamic = "force-dynamic";
@@ -349,10 +350,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "missing_action_or_album", traceId }, { status: 400 });
   }
 
+  const albumId = body.albumId.trim().toUpperCase();
+  body.albumId = albumId;
+
   try {
 
   const registry = await loadArtworkStateRegistry();
-  const beforePath = await pickCanonicalCoverPathForAlbum(body.albumId);
+  const beforePath = await pickCanonicalCoverPathForAlbum(albumId);
   const beforeSnapshot = {
     retroverse_album_id: body.albumId,
     canonical_cover_path: beforePath,
@@ -495,13 +499,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: `registry_failed:${msg}`, traceId }, { status: 500 });
   }
 
+  const savedAt = Date.now();
+  const coverBaseUrl = getRetroverseCoverBaseUrl();
+  const publicCoverUrl = canonicalCoverPathToUrl(canonicalPath, { cacheBust: savedAt, coverBaseUrl });
+
+  if (
+    process.env.NODE_ENV === "production" &&
+    canonicalPath &&
+    !canonicalPath.startsWith("http") &&
+    !coverBaseUrl
+  ) {
+    console.error("[CURATOR/API] missing_cover_base_url", { traceId, albumId, canonicalPath });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "missing_RETROVERSE_COVER_BASE_URL",
+        detail: "Set RETROVERSE_COVER_BASE_URL (R2 pub origin) on Vercel and redeploy.",
+        traceId,
+      },
+      { status: 503 },
+    );
+  }
+
   const payload = {
     ok: true as const,
-    albumId: body.albumId,
+    albumId,
     action: body.action,
     nextState,
     canonicalPath,
-    savedAt: Date.now(),
+    publicCoverUrl,
+    coverBaseConfigured: Boolean(coverBaseUrl),
+    savedAt,
     traceId,
   };
 
