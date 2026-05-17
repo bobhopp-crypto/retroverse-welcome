@@ -841,6 +841,29 @@ body.arv-body-lock main {
   pointer-events: none;
 }
 
+/** Fixed temporal lock — coordinate field scrolls beneath; matches active cell notch. */
+.arv-viewport-reticle {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.arv-viewport-reticle::before {
+  content: "";
+  position: absolute;
+  left: calc((var(--arv-focus-col, 3) + 0.5) / 7 * 100%);
+  top: calc((var(--arv-focus-row, 4) + 0.5) / var(--arv-grid-rows, 10) * 100%);
+  width: 42%;
+  max-width: 3.2rem;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--arv-amber-hot);
+  box-shadow: 0 0 5px 1px rgba(255, 174, 56, 0.85);
+  opacity: 0.92;
+}
+
 .arv-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));

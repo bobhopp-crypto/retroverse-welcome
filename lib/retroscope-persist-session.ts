@@ -147,12 +147,34 @@ export function saveRetroscopeExploredKeys(
   }
 }
 
-export function fitViewportToIncludeCoordinate(opts: {
+/** Grid indices where the tuned selection sits (fixed reticle / playhead lock). */
+export function retroscopeViewportFocusIndices(visibleGridRows: number): {
+  yearCol: number;
+  rankRow: number;
+} {
+  const rows = clamp(
+    Number.isFinite(visibleGridRows) && visibleGridRows > 0
+      ? Math.round(visibleGridRows)
+      : RETROSCOPE_GRID_ROWS,
+    1,
+    RETROSCOPE_RANK_MAX,
+  );
+  return {
+    yearCol: Math.floor((RETROSCOPE_GRID_COLS - 1) / 2),
+    rankRow: Math.floor((rows - 1) / 2),
+  };
+}
+
+/**
+ * Keep the active coordinate under the center reticle — the world scrolls, not the lock point.
+ * Legacy viewYear0/viewRank0 args are ignored (included only for call-site compatibility).
+ */
+export function centerViewportOnSelection(opts: {
   activeYear: number;
   activeRank: number;
-  viewYear0: number;
-  viewRank0: number;
   visibleGridRows: number;
+  viewYear0?: number;
+  viewRank0?: number;
 }): { viewYear0: number; viewRank0: number } {
   const visibleGridRows = clamp(
     Number.isFinite(opts.visibleGridRows) && opts.visibleGridRows > 0
@@ -161,26 +183,29 @@ export function fitViewportToIncludeCoordinate(opts: {
     1,
     RETROSCOPE_RANK_MAX,
   );
+  const { yearCol, rankRow } = retroscopeViewportFocusIndices(visibleGridRows);
+  const ynn = clamp(Math.round(opts.activeYear), RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
+  const rnn = clamp(Math.round(opts.activeRank), 1, RETROSCOPE_RANK_MAX);
 
-  let v0 = clamp(
-    opts.viewYear0,
+  const viewYear0 = clamp(
+    ynn - yearCol,
     RETROSCOPE_WORLD_YEAR_MIN,
     RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1,
   );
-  const ynn = clamp(Math.round(opts.activeYear), RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
-  const yMax = v0 + RETROSCOPE_GRID_COLS - 1;
-  if (ynn < v0) v0 = ynn;
-  else if (ynn > yMax) v0 = ynn - (RETROSCOPE_GRID_COLS - 1);
-  v0 = clamp(v0, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
+  const viewRank0 = clamp(rnn - rankRow, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
 
-  let r0 = clamp(opts.viewRank0, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
-  const rnn = clamp(Math.round(opts.activeRank), 1, RETROSCOPE_RANK_MAX);
-  const rMaxPanel = r0 + visibleGridRows - 1;
-  if (rnn < r0) r0 = rnn;
-  else if (rnn > rMaxPanel) r0 = rnn - (visibleGridRows - 1);
-  r0 = clamp(r0, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
+  return { viewYear0, viewRank0 };
+}
 
-  return { viewYear0: v0, viewRank0: r0 };
+/** @deprecated Prefer `centerViewportOnSelection` — same center-lock behavior. */
+export function fitViewportToIncludeCoordinate(opts: {
+  activeYear: number;
+  activeRank: number;
+  viewYear0: number;
+  viewRank0: number;
+  visibleGridRows: number;
+}): { viewYear0: number; viewRank0: number } {
+  return centerViewportOnSelection(opts);
 }
 
 export function loadRetroscopePersistedSession(

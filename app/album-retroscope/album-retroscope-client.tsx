@@ -40,7 +40,8 @@ import { RetroscopeMapOverlay } from "./retroscope-map-overlay";
 import { RetroscopeModeStrip } from "./retroscope-mode-strip";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
-  fitViewportToIncludeCoordinate,
+  centerViewportOnSelection,
+  retroscopeViewportFocusIndices,
   saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
 } from "@/lib/retroscope-persist-session";
@@ -249,12 +250,22 @@ export default function RetroscopeClient({
   const [operatorPanelOpen, setOperatorPanelOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const router = useRouter();
-  const [viewYear0, setViewYear0] = useState(() =>
-    clamp(ssrInit.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
-  );
-  const [viewRank0, setViewRank0] = useState(() =>
-    clamp(ssrInit.r, 1, RETROSCOPE_RANK_MAX - serverSnapshotRetroscopeGridRows() + 1),
-  );
+  const [viewYear0, setViewYear0] = useState(() => {
+    const rows = serverSnapshotRetroscopeGridRows();
+    return centerViewportOnSelection({
+      activeYear: ssrInit.y,
+      activeRank: ssrInit.r,
+      visibleGridRows: rows,
+    }).viewYear0;
+  });
+  const [viewRank0, setViewRank0] = useState(() => {
+    const rows = serverSnapshotRetroscopeGridRows();
+    return centerViewportOnSelection({
+      activeYear: ssrInit.y,
+      activeRank: ssrInit.r,
+      visibleGridRows: rows,
+    }).viewRank0;
+  });
 
   /** Keep viewport rank clamped when breakpoint row count shifts — avoids hydration mismatch vs SSR desktop rows. */
   const effectiveViewRank0 = useMemo(
@@ -399,8 +410,19 @@ export default function RetroscopeClient({
     posRef.current = { y: activeYear, r: activeRank };
   }, [activeYear, activeRank]);
 
+  /** Re-lock center when mobile/desktop grid row count changes. */
+  useEffect(() => {
+    if (!bootstrapped) return;
+    centerViewportOnActive(activeYear, activeRank);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reflow on row-band change
+  }, [visibleGridRows]);
+
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
+  const viewportFocus = useMemo(
+    () => retroscopeViewportFocusIndices(visibleGridRows),
+    [visibleGridRows],
+  );
 
   const curatorHref = useMemo(() => curatorHrefForCell(activeCell), [activeCell]);
 
@@ -425,28 +447,15 @@ export default function RetroscopeClient({
       persistScope,
     );
   }, [corpusId, viewYear0, viewRank0, persistScope]);
-  const bumpViewportToInclude = useCallback(
+  const centerViewportOnActive = useCallback(
     (ny: number, nr: number) => {
-      const ynn = Number.isFinite(ny) ? Math.round(ny) : RETROSCOPE_WORLD_YEAR_MIN;
-      const rnn = Number.isFinite(nr) ? Math.round(nr) : 1;
-
-      setViewYear0((prev) => {
-        const v0 = Number.isFinite(prev) ? prev : RETROSCOPE_WORLD_YEAR_MIN;
-        const yMax = v0 + RETROSCOPE_GRID_COLS - 1;
-        let next = v0;
-        if (ynn < v0) next = ynn;
-        else if (ynn > yMax) next = ynn - (RETROSCOPE_GRID_COLS - 1);
-        return clamp(next, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
+      const origin = centerViewportOnSelection({
+        activeYear: ny,
+        activeRank: nr,
+        visibleGridRows,
       });
-
-      setViewRank0((prev) => {
-        const r0 = Number.isFinite(prev) ? prev : 1;
-        const rMax = r0 + visibleGridRows - 1;
-        let next = r0;
-        if (rnn < r0) next = rnn;
-        else if (rnn > rMax) next = rnn - (visibleGridRows - 1);
-        return clamp(next, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
-      });
+      setViewYear0(origin.viewYear0);
+      setViewRank0(origin.viewRank0);
     },
     [visibleGridRows],
   );
@@ -475,9 +484,9 @@ export default function RetroscopeClient({
       posRef.current = { y: ny, r: nr };
       setActiveYear(ny);
       setActiveRank(nr);
-      bumpViewportToInclude(ny, nr);
+      centerViewportOnActive(ny, nr);
     },
-    [bumpViewportToInclude, persistScope],
+    [centerViewportOnActive, persistScope],
   );
 
   const onPad = useCallback(
@@ -899,10 +908,21 @@ export default function RetroscopeClient({
         </div>
       </section>
 
-      <section className="arv-viewport" aria-label="Exploration viewport">
+      <section
+        className="arv-viewport"
+        aria-label="Exploration viewport"
+        style={
+          {
+            "--arv-focus-col": viewportFocus.yearCol,
+            "--arv-focus-row": viewportFocus.rankRow,
+            "--arv-grid-rows": visibleGridRows,
+          } as CSSProperties
+        }
+      >
         <span className="arv-viewport-label" aria-hidden>
           Coordinate Bay
         </span>
+        <span className="arv-viewport-reticle" aria-hidden />
         <div
           className="arv-grid"
           role="grid"
@@ -913,11 +933,16 @@ export default function RetroscopeClient({
             const row = Math.floor(i / RETROSCOPE_GRID_COLS);
             const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
             const vr0 = Number.isFinite(effectiveViewRank0) ? effectiveViewRank0 : 1;
-            const y = vy0 + col;
-            const r = vr0 + row;
+            const slotY = vy0 + col;
+            const slotR = vr0 + row;
+            const isFocusSlot =
+              col === viewportFocus.yearCol && row === viewportFocus.rankRow;
+            /** Center lock: playhead stays on focus slot; world coords scroll underneath. */
+            const y = isFocusSlot ? activeYear : slotY;
+            const r = isFocusSlot ? activeRank : slotR;
             const k = retroscopeCellKey(y, r);
             const cell = byKey.get(k) ?? null;
-            const isActive = k === activeKey;
+            const isActive = isFocusSlot;
             const isExplored = explored.has(k);
             const isVoid = !cell;
 
@@ -937,7 +962,7 @@ export default function RetroscopeClient({
 
             return (
               <button
-                key={k}
+                key={`${col}:${row}`}
                 type="button"
                 role="gridcell"
                 aria-current={isActive ? "true" : undefined}
