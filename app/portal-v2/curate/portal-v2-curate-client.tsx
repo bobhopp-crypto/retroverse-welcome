@@ -428,7 +428,6 @@ export default function PortalV2CurateClient({
         setSavedCacheBust(savedAt);
         setSelectedUrl(null);
       }
-      router.refresh();
     } catch (e) {
       const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/CLIENT] save_failed", { albumId: row.albumId, error: detail });
@@ -595,7 +594,6 @@ export default function PortalV2CurateClient({
         setSavedCacheBust(savedAt);
         setPasteUrl("");
       }
-      router.refresh();
     } catch (err) {
       const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
       console.error("[CURATOR/CLIENT] paste_save_failed", { albumId: row.albumId, error: detail });

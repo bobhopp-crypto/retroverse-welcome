@@ -118,8 +118,9 @@ async function fetchCanonicalArtworkOverridesFromR2(): Promise<CanonicalArtworkO
     return normalizedOverridesFromParsed(JSON.parse(raw) as Partial<CanonicalArtworkOverridesFile>);
   } catch (e: unknown) {
     if (isR2NotFound(e)) return null;
-    console.error("[canonical-artwork-overrides] R2 GET failed:", e instanceof Error ? e.message : String(e));
-    return null;
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.error("[CURATOR/R2] overrides_get_failed", { error: msg });
+    throw new Error(`overrides_r2_get_failed:${msg}`);
   }
 }
 

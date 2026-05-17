@@ -26,6 +26,10 @@ const EDGE_RUBBER = 0.24;
 /** Max samples retained for flick velocity estimates */
 const VMAX_SAMPLES = 10;
 
+function normalizeRvalAlbumId(albumId: string): string {
+  return albumId.trim().toUpperCase();
+}
+
 function CoverImg({
   canonicalCoverPath,
   alt,
@@ -46,6 +50,10 @@ function CoverImg({
   const url = !broken
     ? canonicalCoverPathToUrl(canonicalCoverPath, cacheBust ? { cacheBust } : undefined)
     : null;
+
+  useEffect(() => {
+    setBroken(false);
+  }, [url]);
   if (!url) {
     return (
       <div
@@ -57,6 +65,7 @@ function CoverImg({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      key={url}
       src={url}
       alt={alt}
       className="pointer-events-none h-full w-full object-cover object-center select-none [-webkit-touch-callout:none]"
@@ -71,11 +80,21 @@ function CoverImg({
   );
 }
 
-function mergeRows(prev: Map<string, DiscoverStableAlbumRow>, rows: DiscoverStableAlbumRow[]) {
+function mergeRows(
+  prev: Map<string, DiscoverStableAlbumRow>,
+  rows: DiscoverStableAlbumRow[],
+  protectAlbumIds?: ReadonlySet<string>,
+) {
   if (rows.length === 0) return prev;
   const next = new Map(prev);
   for (const row of rows) {
-    if (row.kind === "album") next.set(row.albumId, row);
+    if (row.kind !== "album") continue;
+    const id = row.albumId.trim().toUpperCase();
+    if (protectAlbumIds?.has(id)) {
+      const existing = next.get(id);
+      if (existing?.kind === "album") continue;
+    }
+    next.set(id, { ...row, albumId: id });
   }
   return next;
 }
@@ -178,7 +197,10 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
   const [cache, setCache] = useState<Map<string, DiscoverStableAlbumRow>>(() => {
     const m = new Map<string, DiscoverStableAlbumRow>();
     for (const row of bootstrap.hydrated) {
-      if (row.kind === "album") m.set(row.albumId, row);
+      if (row.kind === "album") {
+        const id = normalizeRvalAlbumId(row.albumId);
+        m.set(id, { ...row, albumId: id });
+      }
     }
     cacheRef.current = m;
     return m;
@@ -190,10 +212,11 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
    * the object key is stable. Never persisted — purely in-memory for this tab.
    */
   const [coverBustByAlbumId, setCoverBustByAlbumId] = useState<Map<string, number>>(() => new Map());
+  const coverBustByAlbumIdRef = useRef<Map<string, number>>(new Map());
 
   const mergeRowsCached = useCallback((rows: DiscoverStableAlbumRow[]) => {
     setCache((prev) => {
-      const next = mergeRows(prev, rows);
+      const next = mergeRows(prev, rows, new Set(coverBustByAlbumIdRef.current.keys()));
       cacheRef.current = next;
       return next;
     });
@@ -207,11 +230,13 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
    */
   const applyCuratorSave = useCallback(
     ({ albumId, canonicalCoverPath, savedAt }: { albumId: string; canonicalCoverPath: string | null; savedAt: number }) => {
+      const id = normalizeRvalAlbumId(albumId);
+      console.log("[CURATOR/CLIENT] apply_curator_save", { albumId: id, canonicalCoverPath, savedAt });
       setCache((prev) => {
-        const existing = prev.get(albumId);
+        const existing = prev.get(id);
         if (!existing || existing.kind !== "album") return prev;
         const next = new Map(prev);
-        next.set(albumId, {
+        next.set(id, {
           ...existing,
           canonicalCoverPath,
           canonicalCoverCacheBust: String(savedAt),
@@ -219,13 +244,20 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
         cacheRef.current = next;
         return next;
       });
-      setCoverBustByAlbumId((prev) => {
-        const next = new Map(prev);
-        next.set(albumId, savedAt);
-        return next;
-      });
+      coverBustByAlbumIdRef.current = new Map(coverBustByAlbumIdRef.current).set(id, savedAt);
+      setCoverBustByAlbumId(new Map(coverBustByAlbumIdRef.current));
+      void hydrateRemote([id], { fresh: true })
+        .then((rows) => {
+          mergeRowsCached(rows);
+        })
+        .catch((e) => {
+          console.error("[CURATOR/CLIENT] post_save_hydrate_failed", {
+            albumId: id,
+            error: e instanceof Error ? e.message : String(e),
+          });
+        });
     },
-    [],
+    [mergeRowsCached],
   );
 
   const ensureHydrated = useCallback(
@@ -399,9 +431,10 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
   const centeredSlot = rankTier[albumIdx];
   const centeredAlbumId = centeredSlot?.albumId ?? null;
 
+  const centeredCacheId = centeredAlbumId ? normalizeRvalAlbumId(centeredAlbumId) : null;
   const heroRow =
-    centeredAlbumId && cache.has(centeredAlbumId)
-      ? (cache.get(centeredAlbumId) as DiscoverStableAlbumRow | undefined) ?? null
+    centeredCacheId && cache.has(centeredCacheId)
+      ? (cache.get(centeredCacheId) as DiscoverStableAlbumRow | undefined) ?? null
       : null;
 
   const heroRowLiveRef = useRef(heroRow);
@@ -891,7 +924,10 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
                       }
                     }}
                   >
-                    <div key={centeredAlbumId} className="pv2-proto-cover-slot pv2-cover-swap select-none">
+                    <div
+                      key={`${centeredCacheId}-${heroRow?.kind === "album" ? heroRow.canonicalCoverCacheBust ?? (centeredCacheId ? coverBustByAlbumId.get(centeredCacheId) ?? 0 : 0) : 0}`}
+                      className="pv2-proto-cover-slot pv2-cover-swap select-none"
+                    >
                       <CoverImg
                         canonicalCoverPath={coverPath}
                         alt={title ? `${title} cover` : "Album cover"}
@@ -899,7 +935,7 @@ export default function PortalV2Client({ bootstrap }: { bootstrap: ViewerBootstr
                         cacheBust={
                           heroRow?.kind === "album"
                             ? heroRow.canonicalCoverCacheBust ??
-                              (centeredAlbumId ? coverBustByAlbumId.get(centeredAlbumId) ?? null : null)
+                              (centeredCacheId ? coverBustByAlbumId.get(centeredCacheId) ?? null : null)
                             : null
                         }
                       />
