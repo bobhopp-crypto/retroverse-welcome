@@ -25,6 +25,7 @@ import {
   readCoverBytesFromStaged,
 } from "@/lib/curator-cover-persist";
 import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
+import { getCuratorRuntimeStrategy, shouldUseLocalCanonicalDb } from "@/lib/curator-runtime-strategy";
 import {
   insertCuratorActionLocal,
   preflightCanonicalArtworkLocalWrite,
@@ -234,11 +235,24 @@ export async function POST(request: Request) {
     return saveFail(traceId, "validate", "invalid_rval_album_id", `Expected RVAL######, got ${albumId}`, 400);
   }
 
-  try {
-    preflightCanonicalArtworkLocalWrite(albumId, traceId);
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    return saveFail(traceId, "local_db_preflight", msg, msg);
+  const runtimeStrategy = getCuratorRuntimeStrategy();
+  const localCanonicalDbEnabled = shouldUseLocalCanonicalDb();
+
+  if (localCanonicalDbEnabled) {
+    try {
+      preflightCanonicalArtworkLocalWrite(albumId, traceId);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      return saveFail(traceId, "local_db_preflight", msg, msg);
+    }
+  } else {
+    curatorPipelineLog("local_db_preflight", {
+      traceId,
+      ok: true,
+      skipped: true,
+      runtimeStrategy,
+      reason: "sqlite_disabled_for_serverless_public_runtime",
+    });
   }
 
   try {
@@ -331,40 +345,53 @@ export async function POST(request: Request) {
       ? new Date().toISOString()
       : null;
 
-  try {
-    insertCuratorActionLocal({
-      albumId,
-      actionType: body.action,
-      previousValue: beforeSnapshot,
-      newValue: {
-        canonical_cover_path: canonicalPath,
-        artwork_status: status,
-        next_state: nextState,
-      },
-      clientInfo: JSON.stringify({
+  let localDbVerified = false;
+  if (localCanonicalDbEnabled) {
+    try {
+      insertCuratorActionLocal({
+        albumId,
+        actionType: body.action,
+        previousValue: beforeSnapshot,
+        newValue: {
+          canonical_cover_path: canonicalPath,
+          artwork_status: status,
+          next_state: nextState,
+        },
+        clientInfo: JSON.stringify({
+          traceId,
+          replaceSource: body.replaceSource ?? null,
+          userAgent: request.headers.get("user-agent"),
+        }),
         traceId,
-        replaceSource: body.replaceSource ?? null,
-        userAgent: request.headers.get("user-agent"),
-      }),
-      traceId,
-    });
-    upsertCanonicalArtworkLocal({
-      albumId,
-      canonicalCoverPath: canonicalPath,
-      sourceUrl,
-      sourceType: body.replaceSource ?? sourceTag,
-      curatorNotes: notes,
-      approvedAt,
-      traceId,
-    });
-    const localVerify = verifyCanonicalArtworkLocal(albumId, canonicalPath, traceId);
-    if (!localVerify.ok) {
-      return saveFail(traceId, "local_db_verify", localVerify.error, localVerify.error);
+      });
+      upsertCanonicalArtworkLocal({
+        albumId,
+        canonicalCoverPath: canonicalPath,
+        sourceUrl,
+        sourceType: body.replaceSource ?? sourceTag,
+        curatorNotes: notes,
+        approvedAt,
+        traceId,
+      });
+      const localVerify = verifyCanonicalArtworkLocal(albumId, canonicalPath, traceId);
+      if (!localVerify.ok) {
+        return saveFail(traceId, "local_db_verify", localVerify.error, localVerify.error);
+      }
+      localDbVerified = true;
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error("[CURATOR/API] local_db_write_failed", { traceId, error: msg });
+      return saveFail(traceId, "local_db_write", msg, msg);
     }
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.error("[CURATOR/API] local_db_write_failed", { traceId, error: msg });
-    return saveFail(traceId, "local_db_write", msg, msg);
+  } else {
+    curatorPipelineLog("local_db_write", {
+      traceId,
+      ok: true,
+      skipped: true,
+      runtimeStrategy,
+      reason: "sqlite_disabled_for_serverless_public_runtime",
+      canonicalCoverPath: canonicalPath,
+    });
   }
 
   const savedAt = Date.now();
@@ -479,7 +506,9 @@ export async function POST(request: Request) {
     displayUrl,
     publicCoverUrl: displayUrl,
     storage: coverStorage,
-    localDbVerified: true,
+    localDbVerified,
+    localCanonicalDbEnabled,
+    runtimeStrategy,
     savedAt,
     traceId,
   };

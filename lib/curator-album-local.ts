@@ -4,6 +4,7 @@ import {
   hasCanonicalArtworkOverride,
   resolveLocalFirstCanonicalCover,
 } from "@/lib/canonical-artwork-overrides";
+import { shouldUseLocalCanonicalDb } from "@/lib/curator-runtime-strategy";
 import { readCanonicalArtworkLocal } from "@/lib/local-canonical-curation";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 
@@ -20,7 +21,7 @@ export async function discoverStableAlbumRowFromLocalDossier(albumId: string): P
   const cover = resolveLocalFirstCanonicalCover(id, file, null);
   let canonicalCoverPath = cover.path?.trim() || null;
   let canonicalCoverCacheBust = cover.cacheBust;
-  if (process.env.NODE_ENV !== "production") {
+  if (shouldUseLocalCanonicalDb()) {
     try {
       const local = readCanonicalArtworkLocal(id);
       const localPath = local?.canonical_cover_path?.trim();

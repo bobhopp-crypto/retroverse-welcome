@@ -5,6 +5,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 import { canonicalCoverPathToUrl, getRetroverseCoverBaseUrl } from "@/lib/canonical-cover-url";
 import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
+import { isServerlessPublicRuntime } from "@/lib/curator-runtime-strategy";
 import { canonicalCoverKey, getR2Client, headR2Object, r2Bucket } from "@/lib/r2-client";
 
 export type CoverStorage = "local" | "r2";
@@ -71,8 +72,8 @@ async function uploadCoverBytesToR2(args: {
 }
 
 /**
- * Persist cover bytes: try R2 when configured; on failure use local public/ fallback in dev.
- * Production requires R2 when configured (no silent local fallback).
+ * Persist cover bytes: try R2 when configured; on failure use local public/ fallback only
+ * in persistent/local runtimes. Serverless public deployments must use R2.
  */
 export async function persistCoverBytes(opts: {
   albumId: string;
@@ -84,6 +85,11 @@ export async function persistCoverBytes(opts: {
   const minBytes = 8_000;
   if (opts.bytes.length < minBytes) {
     throw new Error(`image_too_small:${opts.bytes.length}`);
+  }
+
+  const serverlessPublic = isServerlessPublicRuntime();
+  if (serverlessPublic && !isR2Configured()) {
+    throw new Error("r2_not_configured_for_serverless_public_runtime");
   }
 
   if (isR2Configured()) {
@@ -105,7 +111,7 @@ export async function persistCoverBytes(opts: {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       curatorPipelineLog("r2_upload", { traceId: opts.traceId, ok: false, error: msg });
-      if (process.env.NODE_ENV === "production") {
+      if (serverlessPublic || process.env.NODE_ENV === "production") {
         throw new Error(`r2_upload_failed:${msg}`);
       }
     }

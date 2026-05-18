@@ -93,6 +93,9 @@ async function testApi(baseUrl, label, expectStorage) {
 }
 
 async function testRouteDirectNoR2() {
+  process.env.VERCEL = "";
+  process.env.CURATOR_SQLITE_DISABLED = "";
+  process.env.LOCAL_RETROVERSE_DB_PATH = "";
   process.env.R2_ACCOUNT_ID = "";
   process.env.R2_ACCESS_KEY_ID = "";
   process.env.R2_SECRET_ACCESS_KEY = "";
@@ -130,6 +133,45 @@ async function testRouteDirectNoR2() {
   });
 }
 
+async function testRouteDirectServerlessSkipsSqlite() {
+  process.env.VERCEL = "1";
+  process.env.LOCAL_RETROVERSE_DB_PATH = "/dev/null/local-retroverse.db";
+  process.env.R2_ACCOUNT_ID = "";
+  process.env.R2_ACCESS_KEY_ID = "";
+  process.env.R2_SECRET_ACCESS_KEY = "";
+  process.env.R2_BUCKET_NAME = "";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "";
+
+  const { POST } = await import("../app/api/artwork-workbench/living-action/route.ts");
+  const req = new Request("http://local.test/api/artwork-workbench/living-action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "replace_artwork",
+      albumId,
+      artist: "Fleetwood Mac",
+      title: "Rumours",
+      stagedFilePath: stagedPath,
+      replaceSource: "staged",
+    }),
+  });
+  const res = await POST(req);
+  const json = await res.json();
+  if (res.status === 500 && json.stage === "local_db_preflight") {
+    throw new Error("serverless route attempted SQLite preflight");
+  }
+  if (res.status === 500 && json.stage === "local_db_write") {
+    throw new Error("serverless route attempted SQLite write");
+  }
+  if (res.status !== 500 || json.stage !== "image_persist") {
+    throw new Error(`expected missing R2 to fail at image_persist, got ${res.status} ${JSON.stringify(json)}`);
+  }
+  console.log("[e2e] direct route serverless skips SQLite OK", {
+    stage: json.stage,
+    message: json.message,
+  });
+}
+
 async function main() {
   const baseFromCli = process.argv[2]?.trim();
   await testLocalPersistModule();
@@ -140,6 +182,7 @@ async function main() {
   }
 
   await testRouteDirectNoR2();
+  await testRouteDirectServerlessSkipsSqlite();
 }
 
 main().catch((e) => {
