@@ -48,6 +48,8 @@ next-env.d.ts
 /data/generated/
 /data/diagnostics/
 /data/imports/
+/data/local-retroverse.db
+/data/local-retroverse.db-*
 /reports/
 
 # cloudflare wrangler local dev state

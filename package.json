@@ -59,7 +59,8 @@
     "archive:capture-screenshots": "tsx scripts/capture_retroverse_archive_screenshots.ts",
     "sites:capture-html": "tsx scripts/capture_retroverse_sites_html.ts",
     "sites:index": "tsx scripts/index_retroverse_sites_drive.ts",
-    "sites:index-drive": "tsx scripts/index_retroverse_sites_drive.ts"
+    "sites:index-drive": "tsx scripts/index_retroverse_sites_drive.ts",
+    "local-db:init": "tsx scripts/init-local-retroverse-db.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
