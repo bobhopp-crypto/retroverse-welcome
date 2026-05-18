@@ -76,7 +76,10 @@ export default function AskRetroverseClient() {
 
   const active = query.trim().length >= 2;
   const hasResults =
-    results.tracks.length > 0 || results.albums.length > 0 || results.artists.length > 0;
+    results.tracks.length > 0 ||
+    results.albums.length > 0 ||
+    results.artists.length > 0 ||
+    results.charts.length > 0;
 
   const fetchResults = useCallback(async (q: string, reqId: number) => {
     abortRef.current?.abort();
@@ -209,8 +212,7 @@ export default function AskRetroverseClient() {
           </div>
         ) : null}
 
-        {!active || !hasResults ? (
-          <div className={magazineClass} aria-label="Explore Retroverse">
+        <div className={magazineClass} aria-label="Explore Retroverse">
             {EDITORIAL.map((story) => (
               <article
                 key={story.num}
@@ -224,8 +226,7 @@ export default function AskRetroverseClient() {
                 </Link>
               </article>
             ))}
-          </div>
-        ) : null}
+        </div>
 
         <footer className="rv-door-footer">
           <Link href="/album-retroscope">Retroscope</Link>

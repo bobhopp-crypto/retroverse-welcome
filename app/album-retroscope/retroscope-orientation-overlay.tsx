@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, type RefObject } from "react";
 
 import type { RetroscopePersistScope } from "@/lib/retroscope-mode";
 import { dismissRetroscopeOrientation } from "@/lib/retroscope-orientation";
@@ -53,6 +53,10 @@ export function RetroscopeOrientationOverlay({ open, scope, targets, searchHref,
 
   const step = STEPS[stepIndex]!;
   const isLast = stepIndex >= STEPS.length - 1;
+
+  useEffect(() => {
+    if (open) setStepIndex(0);
+  }, [open]);
 
   const measure = useCallback(() => {
     if (!open) {
@@ -113,6 +117,7 @@ export function RetroscopeOrientationOverlay({ open, scope, targets, searchHref,
 
   return (
     <div className="arv-orient" role="presentation">
+      <div className="arv-orient-blocker" aria-hidden />
       {hole ? (
         <div
           className="arv-orient-spotlight"

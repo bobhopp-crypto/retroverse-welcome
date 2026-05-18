@@ -1,6 +1,8 @@
 /* Retroverse front door — psychedelic magazine / FM guide */
 
 .rv-door {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
   --rv-magenta: #e91e8c;
   --rv-orange: #ff6b2c;
   --rv-gold: #ffc233;
@@ -119,7 +121,7 @@
   background: rgba(26, 10, 46, 0.92);
   color: var(--rv-cream);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: clamp(1.2rem, 4.5vw, 1.65rem);
+  font-size: max(1.2rem, 16px);
   line-height: 1.25;
   padding: 1rem 1.1rem;
   min-height: 3.5rem;
@@ -180,9 +182,11 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  padding: 0.55rem 0.25rem;
+  padding: 0.65rem 0.35rem;
+  min-height: 2.75rem;
   cursor: pointer;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .rv-door-row:hover {
@@ -190,7 +194,7 @@
 }
 
 .rv-door-row-main {
-  font-size: 0.95rem;
+  font-size: max(0.95rem, 15px);
   font-weight: 500;
 }
 
@@ -260,17 +264,20 @@
 }
 
 .rv-door-story-cta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.72rem;
+  font-size: max(0.72rem, 12px);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   text-decoration: none;
   color: var(--rv-ink);
   background: var(--rv-gold);
-  padding: 0.45rem 0.75rem;
+  padding: 0.5rem 0.85rem;
   border: 2px solid var(--rv-ink);
+  -webkit-tap-highlight-color: transparent;
 }
 
 .rv-door-story-cta:hover {
@@ -346,9 +353,12 @@
 }
 
 .rv-door-footer a {
+  display: inline-block;
   color: var(--rv-gold);
   text-decoration: none;
   margin: 0 0.35rem;
+  padding: 0.35rem 0.25rem;
+  min-height: 2.25rem;
 }
 
 .rv-door-footer a:hover {

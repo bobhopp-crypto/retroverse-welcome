@@ -2316,7 +2316,15 @@ body.arv-body-lock main {
   position: fixed;
   inset: 0;
   z-index: 120;
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.arv-orient-blocker {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  pointer-events: auto;
+  background: rgba(2, 2, 1, 0.01);
 }
 
 .arv-orient-spotlight {
@@ -2333,6 +2341,7 @@ body.arv-body-lock main {
   inset: 0;
   background: rgba(2, 2, 1, 0.82);
   z-index: 121;
+  pointer-events: auto;
 }
 
 .arv-orient-card {
@@ -2388,14 +2397,16 @@ body.arv-body-lock main {
 
 .arv-orient-btn {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.65rem;
+  font-size: max(0.65rem, 12px);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 0.45rem 0.65rem;
+  padding: 0.55rem 0.75rem;
+  min-height: 2.75rem;
   border: 1px solid rgba(168, 94, 16, 0.45);
   background: transparent;
   color: rgba(241, 227, 195, 0.9);
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .arv-orient-btn--primary {
@@ -2412,6 +2423,7 @@ body.arv-body-lock main {
   display: block;
   width: 100%;
   margin-top: 0.75rem;
+  min-height: 2.75rem;
   padding: 0.55rem 0.65rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: 0.62rem;
