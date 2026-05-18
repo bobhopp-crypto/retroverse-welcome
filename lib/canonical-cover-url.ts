@@ -70,10 +70,12 @@ export function canonicalCoverPathToUrl(
   };
 
   if (raw.startsWith("http://") || raw.startsWith("https://")) return appendBust(raw);
+  /** Served from `public/retroverse/covers/` — never prefix the R2/CDN origin. */
+  if (raw.startsWith("/retroverse/covers/")) return appendBust(raw);
   const rel = normalizeRelativeCoverPath(raw);
   if (!rel) return null;
 
-  const explicitBase = options?.coverBaseUrl?.trim() || getRetroverseCoverBaseUrl();
+  const explicitBase = options?.coverBaseUrl?.trim() ?? getRetroverseCoverBaseUrl();
   if (explicitBase) {
     return appendBust(`${explicitBase.replace(/\/+$/, "")}/${rel}`);
   }

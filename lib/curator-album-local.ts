@@ -1,5 +1,10 @@
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
-import { getCanonicalArtworkOverrides, resolveLocalFirstCanonicalCover } from "@/lib/canonical-artwork-overrides";
+import {
+  getCanonicalArtworkOverrides,
+  hasCanonicalArtworkOverride,
+  resolveLocalFirstCanonicalCover,
+} from "@/lib/canonical-artwork-overrides";
+import { readCanonicalArtworkLocal } from "@/lib/local-canonical-curation";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 
 /**
@@ -13,6 +18,23 @@ export async function discoverStableAlbumRowFromLocalDossier(albumId: string): P
 
   const file = await getCanonicalArtworkOverrides();
   const cover = resolveLocalFirstCanonicalCover(id, file, null);
+  let canonicalCoverPath = cover.path?.trim() || null;
+  let canonicalCoverCacheBust = cover.cacheBust;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      const local = readCanonicalArtworkLocal(id);
+      const localPath = local?.canonical_cover_path?.trim();
+      const preferLocal =
+        localPath &&
+        (!hasCanonicalArtworkOverride(id, file) || localPath.startsWith("/retroverse/covers/"));
+      if (preferLocal && localPath) {
+        canonicalCoverPath = localPath;
+        canonicalCoverCacheBust = local?.updated_at ?? canonicalCoverCacheBust;
+      }
+    } catch {
+      /* local SQLite optional */
+    }
+  }
 
   return {
     kind: "album",
@@ -20,8 +42,8 @@ export async function discoverStableAlbumRowFromLocalDossier(albumId: string): P
     title: (d.identity.album ?? "").trim() || "—",
     artist: (d.identity.artist ?? "").trim() || "—",
     year: typeof d.identity.chart_year === "number" ? d.identity.chart_year : null,
-    canonicalCoverPath: cover.path?.trim() || null,
-    canonicalCoverCacheBust: cover.cacheBust,
+    canonicalCoverPath,
+    canonicalCoverCacheBust,
     trustState: cover.trustState ?? "unresolved",
   };
 }

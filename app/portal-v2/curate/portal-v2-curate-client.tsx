@@ -181,6 +181,8 @@ export default function PortalV2CurateClient({
    * stays null.
    */
   const [savedCacheBust, setSavedCacheBust] = useState<number | null>(null);
+  const [savedDisplayUrl, setSavedDisplayUrl] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   /**
    * `normalizeCandidateArtworkUrl` strips query params (used for dedupe), so
@@ -188,6 +190,7 @@ export default function PortalV2CurateClient({
    * would be stripped and the browser would keep showing the stale image.
    */
   const currentCoverUrl = useMemo(() => {
+    if (savedDisplayUrl) return savedDisplayUrl;
     const normalized = normalizeCandidateArtworkUrl(
       canonicalCoverPathToUrl(row.canonicalCoverPath, {
         cacheBust: savedCacheBust ?? undefined,
@@ -195,7 +198,7 @@ export default function PortalV2CurateClient({
       }),
     );
     return normalized;
-  }, [row.canonicalCoverPath, savedCacheBust, coverBaseUrl]);
+  }, [row.canonicalCoverPath, savedCacheBust, coverBaseUrl, savedDisplayUrl]);
 
   const grid = useMemo(() => {
     const out: WorkbenchCandidate[] = [];
@@ -314,35 +317,21 @@ export default function PortalV2CurateClient({
     httpStatus: number,
     payload: {
       error?: string;
-      traceId?: string;
+      message?: string;
       stage?: string;
-      verification?: {
-        localDb?: { ok?: boolean; error?: string };
-        r2?: { ok?: boolean; error?: string };
-        overrides?: { ok?: boolean; error?: string };
-        supabaseMirror?: { ok?: boolean; error?: string; skipped?: boolean };
-      };
+      detail?: string;
+      traceId?: string;
     } | null,
     rawBody: string,
   ): string {
-    const err = payload?.error ?? "";
+    const err = payload?.message ?? payload?.error ?? "";
     const stage = payload?.stage ? ` [${payload.stage}]` : "";
+    const detail = payload?.detail && payload.detail !== err ? ` — ${payload.detail}` : "";
     const trace = payload?.traceId ? ` (trace ${payload.traceId})` : "";
-    const v = payload?.verification;
-    const verifyHint =
-      v && !v.localDb?.ok
-        ? " Local DB write failed."
-        : v && v.r2 && !v.r2.ok
-          ? " R2 verification failed."
-          : v && !v.overrides?.ok
-            ? " Overrides file write failed."
-            : v && v.supabaseMirror && !v.supabaseMirror.ok && !v.supabaseMirror.skipped
-              ? " Supabase mirror failed (local save may still be canonical)."
-              : "";
     if (httpStatus === 401 && err === "ops_gate_required") {
       return `Save blocked: ops PIN required${trace}. Open /internal/ops-pin then retry.`;
     }
-    if (err) return `Save failed: ${err}${stage}${verifyHint}${trace}`;
+    if (err) return `Save failed${stage}: ${err}${detail}${trace}`;
     if (rawBody.trim()) {
       return `Save failed (HTTP ${httpStatus}): ${rawBody.slice(0, 240)}${rawBody.length > 240 ? "…" : ""}${trace}`;
     }
@@ -397,6 +386,7 @@ export default function PortalV2CurateClient({
 
     setApplyPending(true);
     setSaveError(null);
+    setSaveSuccess(null);
     console.log("[CURATOR/CLIENT] save_started", {
       albumId: row.albumId,
       replaceSource,
@@ -415,10 +405,17 @@ export default function PortalV2CurateClient({
       let payload: {
         ok?: boolean;
         error?: string;
+        message?: string;
+        stage?: string;
+        detail?: string;
         traceId?: string;
         canonicalPath?: string | null;
+        canonicalCoverPath?: string | null;
+        displayUrl?: string | null;
         publicCoverUrl?: string | null;
         savedAt?: number;
+        storage?: string;
+        localDbVerified?: boolean;
       } = {};
       try {
         payload = JSON.parse(rawBody || "{}") as typeof payload;
@@ -450,18 +447,31 @@ export default function PortalV2CurateClient({
       }
 
       const savedAt = typeof payload.savedAt === "number" ? payload.savedAt : Date.now();
+      const displayUrl =
+        payload.displayUrl ?? payload.publicCoverUrl ?? null;
+      const canonicalCoverPath =
+        payload.canonicalCoverPath ?? payload.canonicalPath ?? null;
+
+      if (displayUrl) {
+        setSavedDisplayUrl(displayUrl);
+      }
+      setSavedCacheBust(savedAt);
+      setSaveSuccess(
+        payload.storage === "local"
+          ? "Cover saved locally."
+          : "Cover saved.",
+      );
 
       onSaved?.({
         albumId: row.albumId,
-        canonicalCoverPath: payload.canonicalPath ?? null,
+        canonicalCoverPath,
         savedAt,
-        publicCoverUrl: payload.publicCoverUrl ?? null,
+        publicCoverUrl: displayUrl,
       });
 
       if (onDismiss) {
         onDismiss();
       } else {
-        setSavedCacheBust(savedAt);
         setSelectedUrl(null);
       }
     } catch (e) {
@@ -594,10 +604,16 @@ export default function PortalV2CurateClient({
       let savePayload: {
         ok?: boolean;
         error?: string;
+        message?: string;
+        stage?: string;
+        detail?: string;
         traceId?: string;
         canonicalPath?: string | null;
+        canonicalCoverPath?: string | null;
+        displayUrl?: string | null;
         publicCoverUrl?: string | null;
         savedAt?: number;
+        storage?: string;
       } = {};
       try {
         savePayload = JSON.parse(saveRaw || "{}") as typeof savePayload;
@@ -619,17 +635,22 @@ export default function PortalV2CurateClient({
       }
 
       const savedAt = typeof savePayload.savedAt === "number" ? savePayload.savedAt : Date.now();
+      const displayUrl =
+        savePayload.displayUrl ?? savePayload.publicCoverUrl ?? null;
+      const canonicalCoverPath =
+        savePayload.canonicalCoverPath ?? savePayload.canonicalPath ?? null;
+      if (displayUrl) setSavedDisplayUrl(displayUrl);
+      setSavedCacheBust(savedAt);
+      setSaveSuccess("Cover saved.");
       onSaved?.({
         albumId: row.albumId,
-        canonicalCoverPath: savePayload.canonicalPath ?? null,
+        canonicalCoverPath,
         savedAt,
-        publicCoverUrl: savePayload.publicCoverUrl ?? null,
+        publicCoverUrl: displayUrl,
       });
       if (onDismiss) {
         onDismiss();
       } else {
-        /* Page mode: stay put; clear the pasted URL and bust the hero cache. */
-        setSavedCacheBust(savedAt);
         setPasteUrl("");
       }
     } catch (err) {
@@ -841,6 +862,11 @@ export default function PortalV2CurateClient({
           {saveError ? (
             <p role="alert" className="mt-2 text-center text-[12px] leading-snug text-[#f0dcd8]">
               {saveError}
+            </p>
+          ) : null}
+          {saveSuccess ? (
+            <p role="status" className="mt-2 text-center text-[12px] leading-snug text-emerald-300/90">
+              {saveSuccess}
             </p>
           ) : null}
         </form>
