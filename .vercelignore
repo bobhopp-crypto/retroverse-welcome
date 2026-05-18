@@ -1,7 +1,24 @@
 # Build output & deps (rebuilt on Vercel)
 node_modules
 .next
+out
+build
+
+# Local-only data and diagnostics.
+data/raw
+data/generated
+data/diagnostics
+data/imports
+data/local-retroverse.db
+data/local-retroverse.db-*
+reports
+
+.env*
+*.tsbuildinfo
 
 # Pre-reset bulk tree only. `covers/` must ship with the app (or set
 # NEXT_PUBLIC_RETROVERSE_COVER_BASE_URL to a host that mirrors `/retroverse/covers/...`).
 public/retroverse/covers_archive_pre_reset
+
+# Local curator fallback covers; production serves canonical covers from R2.
+public/retroverse/covers
