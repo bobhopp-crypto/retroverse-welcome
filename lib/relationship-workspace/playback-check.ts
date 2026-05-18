@@ -1,7 +1,10 @@
 import path from "node:path";
 
+import { trackPlaybackKey } from "@/lib/legacy-playback/playback-key";
 import { resolveLegacyPlayback } from "@/lib/legacy-playback/resolve";
 import { loadLegacyVideoCache } from "@/lib/legacy-playback/video-cache";
+
+import { artistMatchesChart, fuzzyScoreParts, tokenize } from "./fuzzy";
 import {
   isDjVideoFolder,
   isVideoExtension,
@@ -16,20 +19,6 @@ export type PlaybackCheck = {
   playUrl: string | null;
 };
 
-function norm(s: string): string {
-  return String(s ?? "")
-    .toLowerCase()
-    .replace(/[''`´]/g, "")
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/\[[^\]]*\]/g, " ")
-    .replace(/\bpt\.?\s*(i|1|one)\b/gi, " ")
-    .replace(/\bfeat\.?\b.*$/gi, " ")
-    .replace(/\bfeaturing\b.*$/gi, " ")
-    .replace(/[^a-z0-9 ]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function titleVariants(title: string): string[] {
   const out = new Set<string>();
   const t = title.trim();
@@ -41,60 +30,23 @@ function titleVariants(title: string): string[] {
   return [...out].filter(Boolean);
 }
 
-function artistTitlePairs(input: {
-  chartArtist: string;
-  chartTitle: string;
-  vdjArtist?: string;
-  vdjTitle?: string;
-  vdjFilePath?: string;
-}): Array<{ artist: string; title: string }> {
-  const pairs: Array<{ artist: string; title: string }> = [];
-  const seen = new Set<string>();
-
-  const add = (artist: string, title: string) => {
-    const a = artist.trim();
-    const t = title.trim();
-    if (!a || !t) return;
-    const key = `${norm(a)}::${norm(t)}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    pairs.push({ artist: a, title: t });
-  };
-
-  for (const title of titleVariants(input.chartTitle)) {
-    add(input.chartArtist, title);
-  }
-  if (input.vdjArtist && input.vdjTitle) {
-    for (const title of titleVariants(input.vdjTitle)) {
-      add(input.vdjArtist, title);
-    }
-  }
-  if (input.vdjFilePath) {
-    const base = path.basename(input.vdjFilePath).replace(/\.[^.]+$/, "");
-    const dash = base.indexOf(" - ");
-    if (dash > 0) {
-      const a = base.slice(0, dash).trim();
-      const t = base.slice(dash + 3).trim();
-      for (const title of titleVariants(t)) {
-        add(a, title);
-      }
-    }
-  }
-
-  return pairs;
-}
-
-async function resolvePair(artist: string, title: string): Promise<{ local: string | null; other: string | null }> {
+async function resolveExactChartPair(
+  artist: string,
+  title: string,
+): Promise<{ local: string | null; stream: string | null }> {
   try {
     const resolved = await resolveLegacyPlayback({ artist, title });
     const url = resolved.target.url?.trim() || resolved.merged.video_url?.trim() || null;
-    if (!url) return { local: null, other: null };
+    if (!url) return { local: null, stream: null };
     if (resolved.sourceType === "local") {
-      return { local: url, other: isVideoStreamUrl(url) ? url : null };
+      return {
+        local: url,
+        stream: isVideoStreamUrl(url) ? url : null,
+      };
     }
-    return { local: null, other: isVideoStreamUrl(url) ? url : null };
+    return { local: null, stream: isVideoStreamUrl(url) ? url : null };
   } catch {
-    return { local: null, other: null };
+    return { local: null, stream: null };
   }
 }
 
@@ -109,27 +61,33 @@ function urlFromCacheRow(row: unknown): string | null {
   return url?.trim() || null;
 }
 
-async function fuzzyCacheLookup(chartArtist: string, chartTitle: string): Promise<string | null> {
+/** R2 cache lookup scoped to chart artist — never cross-match unrelated artists. */
+async function scopedCacheLookup(chartArtist: string, chartTitle: string): Promise<string | null> {
   const { cache } = await loadLegacyVideoCache();
-  const artistTokens = norm(chartArtist).split(" ").filter((t) => t.length > 2);
-  const titleCore = norm(chartTitle.replace(/\([^)]*\)/g, ""));
-  const titleTokens = titleCore.split(" ").filter((t) => t.length > 2);
+  const artistTokens = tokenize(chartArtist).filter((t) => t.length > 2);
+  const titleTokens = tokenize(chartTitle.replace(/\([^)]*\)/g, ""));
 
   let bestUrl: string | null = null;
   let bestScore = 0;
 
   for (const [key, row] of Object.entries(cache)) {
     const nk = key.replace(/[^a-z0-9]+/g, " ");
+    if (artistTokens.length > 0 && !artistTokens.every((t) => nk.includes(t))) continue;
+
     let score = 0;
-    if (artistTokens.length > 0 && artistTokens.every((t) => nk.includes(t))) score += 12;
     const titleHits = titleTokens.filter((t) => nk.includes(t)).length;
-    score += titleHits * 10;
-    if (titleTokens.length >= 2 && titleHits >= Math.min(2, titleTokens.length)) score += 20;
+    score += titleHits * 12;
+    if (titleTokens.length >= 2 && titleHits >= Math.min(2, titleTokens.length)) score += 24;
+
+    const exactKey = trackPlaybackKey(chartArtist, chartTitle);
+    if (exactKey && (key === exactKey || nk.includes(exactKey.replace(/__/g, " ")))) {
+      score += 80;
+    }
+
     if (score < 22) continue;
     const url = urlFromCacheRow(row);
     if (!url) continue;
-    const videoBonus = isVideoStreamUrl(url) ? 8 : 0;
-    const total = score + videoBonus;
+    const total = score + (isVideoStreamUrl(url) ? 8 : 0);
     if (total > bestScore) {
       bestScore = total;
       bestUrl = preferVideoUrl(bestUrl, url);
@@ -139,7 +97,19 @@ async function fuzzyCacheLookup(chartArtist: string, chartTitle: string): Promis
   return bestUrl;
 }
 
-/** Fuzzy R2 / playback check — missing is not authoritative. */
+function fileTitleOverlapScore(
+  chartArtist: string,
+  chartTitle: string,
+  vdjFilePath: string,
+): number {
+  const hay = path.basename(vdjFilePath).replace(/\.[^.]+$/, "");
+  return fuzzyScoreParts(hay, chartArtist, chartTitle).score;
+}
+
+/**
+ * Playback for a user-selected VDJ file — chart artist is authoritative.
+ * PLAYABLE only on exact chart artist+title R2/local resolve; never global fuzzy drift.
+ */
 export async function checkPlaybackForFile(input: {
   chartArtist: string;
   chartTitle: string;
@@ -147,52 +117,44 @@ export async function checkPlaybackForFile(input: {
   vdjTitle?: string;
   vdjFilePath: string;
 }): Promise<PlaybackCheck> {
-  const pairs = artistTitlePairs(input);
-
-  let localUrl: string | null = null;
-  let possibleUrl: string | null = null;
-
-  for (const pair of pairs) {
-    const hit = await resolvePair(pair.artist, pair.title);
-    if (hit.local) {
-      localUrl = preferVideoUrl(localUrl, hit.local) ?? hit.local;
-      if (isVideoStreamUrl(hit.local)) break;
-    }
-    if (hit.other) possibleUrl = preferVideoUrl(possibleUrl, hit.other);
+  if (
+    input.vdjArtist &&
+    !artistMatchesChart(input.chartArtist, {
+      artist: input.vdjArtist,
+      filePath: input.vdjFilePath,
+    })
+  ) {
+    return { status: "not_found", playUrl: null };
   }
 
-  if (!localUrl) {
-    const fuzzy = await fuzzyCacheLookup(input.chartArtist, input.chartTitle);
-    if (fuzzy) {
-      if (fuzzy.startsWith("http")) {
-        localUrl = fuzzy;
-      } else if (!possibleUrl) {
-        possibleUrl = fuzzy;
-      }
+  let exactUrl: string | null = null;
+  for (const title of titleVariants(input.chartTitle)) {
+    const hit = await resolveExactChartPair(input.chartArtist, title);
+    if (hit.stream) {
+      exactUrl = hit.stream;
+      break;
     }
+    if (hit.local) exactUrl = preferVideoUrl(exactUrl, hit.local) ?? hit.local;
   }
 
-  if (!localUrl && !possibleUrl) {
-    const vdjStem = norm(path.basename(input.vdjFilePath).replace(/\.[^.]+$/, ""));
-    const chartStem = `${norm(input.chartArtist)} ${norm(input.chartTitle)}`.trim();
-    if (vdjStem.length > 8 && chartStem.length > 8) {
-      const overlap = chartStem.split(" ").filter((t) => t.length > 2 && vdjStem.includes(t)).length;
-      if (overlap >= 2) {
-        const keyUrl = await fuzzyCacheLookup(input.chartArtist, input.chartTitle);
-        if (keyUrl) possibleUrl = keyUrl;
-      }
-    }
+  if (exactUrl) {
+    return { status: "playable", playUrl: exactUrl };
   }
 
   const djVideo = isVideoExtension(input.vdjFilePath) && isDjVideoFolder(input.vdjFilePath);
+  const overlap = fileTitleOverlapScore(input.chartArtist, input.chartTitle, input.vdjFilePath);
+  const scopedUrl = await scopedCacheLookup(input.chartArtist, input.chartTitle);
 
-  if (localUrl) return { status: "playable", playUrl: localUrl };
-  if (possibleUrl) return { status: "possible", playUrl: possibleUrl };
+  if (scopedUrl && overlap >= 28) {
+    return { status: "possible", playUrl: scopedUrl };
+  }
 
-  if (djVideo) {
-    const drift = await fuzzyCacheLookup(input.chartArtist, input.chartTitle);
-    if (drift) return { status: "possible", playUrl: drift };
+  if (djVideo && overlap >= 22) {
     return { status: "possible", playUrl: null };
+  }
+
+  if (scopedUrl && overlap >= 18) {
+    return { status: "possible", playUrl: scopedUrl };
   }
 
   return { status: "not_found", playUrl: null };

@@ -1,0 +1,31 @@
+{
+  "links": [
+    {
+      "chartArtist": "Marvin Gaye",
+      "chartTitle": "Got To Give It Up (Pt. I)",
+      "chartWeek": "1977-07-02",
+      "chartRank": 3,
+      "vdjPath": "/Users/bobhopp/DJ MEDIA/VIDEO/1970's/Marvin Gaye - Got To Give It Up.mp4",
+      "r2Url": "https://media.retroverse.live/video/1970's/Marvin%20Gaye%20-%20Got%20To%20Give%20It%20Up.mp4",
+      "at": "2026-05-18T00:07:23.198Z"
+    },
+    {
+      "chartArtist": "The Steve Miller Band",
+      "chartTitle": "Jet Airliner",
+      "chartWeek": "1977-07-02",
+      "chartRank": 9,
+      "vdjPath": "/Users/bobhopp/DJ MEDIA/VIDEO/1970's/Steve Miller Band - Jet Airliner.mp4",
+      "r2Url": null,
+      "at": "2026-05-18T00:12:45.421Z"
+    },
+    {
+      "chartArtist": "Eagles",
+      "chartTitle": "Life In The Fast Lane",
+      "chartWeek": "1977-07-02",
+      "chartRank": 11,
+      "vdjPath": "/Users/bobhopp/DJ MEDIA/VIDEO/1970's/The Eagles - Life In The Fast Lane.mp4",
+      "r2Url": "https://media.retroverse.live/video/1980's/Steve%20Winwood%20-%20Back%20In%20The%20High%20Life%20Again.mp4",
+      "at": "2026-05-18T00:14:09.039Z"
+    }
+  ]
+}

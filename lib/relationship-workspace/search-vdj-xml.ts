@@ -1,7 +1,8 @@
 import { createReadStream } from "node:fs";
+import path from "node:path";
 
 import { resolveVdjDatabaseXmlPath } from "./constants";
-import { fuzzyScoreParts, normalizedMatchKey } from "./fuzzy";
+import { artistMatchesChart, fuzzyScoreParts, normalizedMatchKey } from "./fuzzy";
 import type { VdjPanelEntry } from "./types";
 import { classifyVdjPath, videoMatchBoost, type VdjMediaKind } from "./vdj-media";
 
@@ -69,15 +70,14 @@ function blockMatchesNeedles(
     const fp = attr(block, "FilePath");
     return fp === needles.vdjPath || fp.toLowerCase().includes(needles.vdjPath.toLowerCase());
   }
-  const lower = block.toLowerCase();
-  const artistNeedle = needles.artist.split(/\s+/)[0]?.toLowerCase() ?? "";
-  if (artistNeedle.length >= 2 && !lower.includes(artistNeedle)) return false;
+  const parsed = parseSongBlock(block);
+  if (!parsed) return false;
+  if (!artistMatchesChart(needles.artist, parsed)) return false;
   if (needles.freeText) {
+    const lower = block.toLowerCase();
     const parts = needles.freeText.toLowerCase().split(/\s+/).filter((p) => p.length > 2);
     if (parts.some((p) => !lower.includes(p))) return false;
   }
-  const titleToken = needles.title.split(/\s+/).find((t) => t.length > 3)?.toLowerCase();
-  if (titleToken && !lower.includes(titleToken)) return false;
   return true;
 }
 
@@ -92,8 +92,8 @@ export async function searchVdjDatabaseXml(input: {
   const xmlPath = await resolveVdjDatabaseXmlPath();
   if (!xmlPath) return { path: null, entries: [] };
 
-  const limit = input.limit ?? 20;
-  const scanCap = limit * 8;
+  const limit = input.limit ?? 48;
+  const scanCap = Math.max(limit * 12, 400);
   const needles = {
     artist: input.artist.trim(),
     title: input.title.trim(),
@@ -136,12 +136,16 @@ export async function searchVdjDatabaseXml(input: {
       break;
     }
 
-    if (score < 12) continue;
-
     const mediaKind = classifyVdjPath(parsed.filePath);
     if (mediaKind === "ignored") continue;
+    if (mediaKind !== "video" && score < 12) continue;
 
-    const rankScore = score + videoMatchBoost(parsed.filePath, mediaKind);
+    const titleOnlyScore = fuzzyScoreParts(
+      `${parsed.title} ${path.basename(parsed.filePath)}`,
+      "",
+      needles.title,
+    ).score;
+    const rankScore = score + titleOnlyScore + videoMatchBoost(parsed.filePath, mediaKind);
 
     scored.push({
       title: parsed.title || "—",

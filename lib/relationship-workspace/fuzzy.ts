@@ -6,6 +6,25 @@ export function tokenize(s: string): string[] {
     .filter((t) => t.length > 1);
 }
 
+const ARTIST_STOPWORDS = new Set(["the", "a", "an", "&", "and"]);
+
+/** Significant artist tokens — every one must appear in VDJ tags or file path. */
+export function significantArtistTokens(artist: string): string[] {
+  return tokenize(artist).filter((t) => !ARTIST_STOPWORDS.has(t));
+}
+
+export function artistMatchesChart(
+  chartArtist: string,
+  candidate: { artist?: string; filePath?: string },
+): boolean {
+  const sig = significantArtistTokens(chartArtist);
+  if (sig.length === 0) return false;
+  const hay = normalizeKeyPart(
+    `${candidate.artist ?? ""} ${candidate.filePath ?? ""}`,
+  );
+  return sig.every((t) => hay.includes(t));
+}
+
 export function fuzzyScoreParts(
   haystack: string,
   artist: string,

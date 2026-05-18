@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import { checkPlaybackForFile } from "./playback-check";
+import { artistMatchesChart } from "./fuzzy";
 import { searchVdjDatabaseXml } from "./search-vdj-xml";
 import type { PlaybackCheck } from "./playback-check";
 import {
@@ -56,10 +57,14 @@ export async function loadLinkWorkspace(
     chartRank: Number.isFinite(chartRank) ? chartRank : null,
   };
 
-  const vdjResult = await searchVdjDatabaseXml({ artist, title, limit: 24 });
+  const vdjResult = await searchVdjDatabaseXml({ artist, title, limit: 64 });
+
+  const artistScoped = vdjResult.entries.filter((entry) =>
+    artistMatchesChart(artist, { artist: entry.artist, filePath: entry.filePath }),
+  );
 
   const files: VdjFileRow[] = await Promise.all(
-    vdjResult.entries.map(async (entry) => {
+    artistScoped.map(async (entry) => {
       const mediaKind =
         "mediaKind" in entry && entry.mediaKind
           ? (entry.mediaKind as VdjMediaKind)

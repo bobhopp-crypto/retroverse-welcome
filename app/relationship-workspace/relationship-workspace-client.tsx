@@ -30,10 +30,6 @@ function formatBadge(f: VdjFileRow): string {
   return "AUDIO";
 }
 
-function firstVideoPath(files: VdjFileRow[]): string | null {
-  return files.find((f) => f.mediaKind === "video")?.filePath ?? null;
-}
-
 function FileRow({
   f,
   selected,
@@ -71,9 +67,7 @@ export default function RelationshipWorkspaceClient({
   const router = useRouter();
   const [data] = useState<LinkWorkspacePayload | null>(initial);
   const [fileFilter, setFileFilter] = useState<FileFilter>("video");
-  const [selectedPath, setSelectedPath] = useState<string | null>(
-    initial ? firstVideoPath(initial.files) ?? initial.files[0]?.filePath ?? null : null,
-  );
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -89,14 +83,9 @@ export default function RelationshipWorkspaceClient({
   const showAudio = fileFilter === "all";
 
   const selected = useMemo(() => {
-    if (!data) return null;
-    const hit = data.files.find((f) => f.filePath === selectedPath);
-    if (hit) return hit;
-    if (fileFilter === "video") {
-      return videoFiles[0] ?? null;
-    }
-    return data.files[0] ?? null;
-  }, [data, selectedPath, fileFilter, videoFiles]);
+    if (!data || !selectedPath) return null;
+    return data.files.find((f) => f.filePath === selectedPath) ?? null;
+  }, [data, selectedPath]);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -116,7 +105,7 @@ export default function RelationshipWorkspaceClient({
           chartWeek: data.source.chartWeek,
           chartRank: data.source.chartRank,
           vdjPath: selected.filePath,
-          r2Url: selected.playback.playUrl,
+          r2Url: selected.playback.status === "playable" ? selected.playback.playUrl : null,
         }),
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
@@ -134,8 +123,8 @@ export default function RelationshipWorkspaceClient({
   }, [data, selected, router, showToast]);
 
   const playback = selected?.playback;
-  const canPlay = Boolean(playback?.playUrl);
-  const canAccept = selected?.mediaKind === "video";
+  const canPlay = playback?.status === "playable" && Boolean(playback.playUrl);
+  const canAccept = selected?.mediaKind === "video" && playback?.status === "playable";
 
   return (
     <div className="lk-scope min-h-[calc(100vh-3.5rem)] flex flex-col">
@@ -334,15 +323,14 @@ export default function RelationshipWorkspaceClient({
 
           <section className="lk-panel">
             <div className="lk-panel-head">
-              <span>My videos</span>
+              <span>My videos · {data.source.artist}</span>
               <div className="lk-filter">
                 <button
                   type="button"
                   className={fileFilter === "video" ? "lk-filter-on" : ""}
                   onClick={() => {
                     setFileFilter("video");
-                    const vp = firstVideoPath(data.files);
-                    if (vp) setSelectedPath(vp);
+                    setSelectedPath(null);
                   }}
                 >
                   video
@@ -420,10 +408,14 @@ export default function RelationshipWorkspaceClient({
                   >
                     ACCEPT LINK
                   </button>
-                  {!canAccept ? (
-                    <p className="lk-hint">Select a video file (MP4/MOV) to link.</p>
-                  ) : playback?.status === "possible" && !canPlay ? (
-                    <p className="lk-hint">Stream may need a sync — you can still link this video.</p>
+                  {!selected ? (
+                    <p className="lk-hint">Select a video file from the list.</p>
+                  ) : !canAccept ? (
+                    <p className="lk-hint">
+                      {playback?.status === "possible"
+                        ? "Possible match — exact R2 URL required before Accept."
+                        : "Select a DJ VIDEO file (MP4/MOV) with an exact playback match."}
+                    </p>
                   ) : null}
                 </>
               )}

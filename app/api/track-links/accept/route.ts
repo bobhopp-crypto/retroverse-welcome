@@ -32,15 +32,20 @@ export async function POST(request: Request) {
   const chartRankRaw = typeof o.chartRank === "number" ? o.chartRank : Number.parseInt(String(o.chartRank ?? ""), 10);
   const chartRank = Number.isFinite(chartRankRaw) ? chartRankRaw : null;
 
-  let r2Url = typeof o.r2Url === "string" && o.r2Url.trim() ? o.r2Url.trim() : null;
-  if (!r2Url) {
-    const playback = await checkPlaybackForFile({
-      chartArtist,
-      chartTitle,
-      vdjFilePath: vdjPath,
-    });
-    r2Url = playback.playUrl;
+  const playback = await checkPlaybackForFile({
+    chartArtist,
+    chartTitle,
+    vdjFilePath: vdjPath,
+  });
+
+  if (playback.status !== "playable" || !playback.playUrl) {
+    return NextResponse.json(
+      { ok: false, error: "exact_r2_match_required" },
+      { status: 400 },
+    );
   }
+
+  const r2Url = playback.playUrl;
 
   try {
     const link = await upsertTrackLink({
