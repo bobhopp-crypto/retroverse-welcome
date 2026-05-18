@@ -429,12 +429,21 @@ export default function PortalClient({ bootstrap }: { bootstrap: ViewerBootstrap
   }, [years.length, albumIds.length]);
 
   if (years.length === 0) {
-    return <div className="flex flex-1 items-center justify-center py-28 opacity-[0.5]" />;
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 py-28 text-center">
+        {bootstrap.sourceOffline ? (
+          <p className="text-[13px] tracking-[0.2em] text-[#a89e94]">Source offline</p>
+        ) : null}
+      </div>
+    );
   }
 
   if (albumIds.length === 0 || !centeredAlbumId) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6 py-20">
+        {bootstrap.sourceOffline ? (
+          <p className="text-[12px] tracking-[0.18em] text-[#a89e94]">Source offline</p>
+        ) : null}
         <p className="text-[clamp(0.95rem,4vw,1.2rem)] tracking-[0.35em] text-[#a89e94]">&middot;&nbsp;&nbsp;{idsYear}&nbsp;&nbsp;&middot;</p>
         <span className="h-px w-10 bg-[#4a4139]" aria-hidden />
       </div>

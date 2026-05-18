@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-
-import { HistoryBackButton } from "@/app/history-back-button";
+import { EntityStatus } from "@/app/components/entity-status";
+import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildArtistContextLine, buildArtistCulturalRole } from "@/lib/retroverse-editorial";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
@@ -520,7 +519,7 @@ async function loadArtistExperience(slug: string) {
         return dossier;
       }
       logArtistPageError("loadArtistExperienceFromSupabase", slug, e);
-      throw e;
+      return null;
     }
   }
 
@@ -675,8 +674,22 @@ function buildCareerChapters(data: Awaited<ReturnType<typeof loadArtistExperienc
 
 export default async function ArtistEntityPage({ params }: ArtistPageProps) {
   const { slug } = await params;
-  const data = await loadArtistExperience(slug);
-  if (!data) notFound();
+  let data: Awaited<ReturnType<typeof loadArtistExperience>> = null;
+  try {
+    data = await loadArtistExperience(slug);
+  } catch (e) {
+    logArtistPageError("ArtistEntityPage", slug, e);
+  }
+  if (!data) {
+    return (
+      <EntityStatus
+        title="Entity unavailable"
+        message="This artist could not be loaded. Try search or browse the archive."
+        backHref="/artists"
+        backLabel="Artists"
+      />
+    );
+  }
 
   const universe = (data as Partial<ArtistUniverseExperience>).universe ?? null;
 
@@ -836,10 +849,15 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
         </header>
 
         <div className="mb-9">
-          <HistoryBackButton
-            fallbackHref="/artists"
-            label="Back"
-            className="artist-uni-back inline-flex items-center rounded-full px-4 py-2.5 text-base font-medium"
+          <RetroverseEntityNav
+            back={{ href: "/artists", label: "Artists" }}
+            items={[
+              { href: "/", label: "Home" },
+              { href: "/albums", label: "Albums" },
+              { href: `/tracks?q=${encodeURIComponent(data.artist.canonical_artist_name)}`, label: "Tracks" },
+              { href: "/track-deck", label: "Charts" },
+              { href: "/album-retroscope", label: "Retroscope" },
+            ]}
           />
         </div>
 

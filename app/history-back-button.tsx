@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 
 export function HistoryBackButton({
   className,
-  fallbackHref = "/eras",
+  fallbackHref = "/",
   label = "Back",
 }: {
   className: string;

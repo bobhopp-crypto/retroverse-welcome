@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-
-import { HistoryBackButton } from "@/app/history-back-button";
+import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
+import { relationshipWorkspaceHref } from "@/lib/retroverse-nav";
 import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildTrackContextLine, buildTrackCulturalRole } from "@/lib/retroverse-editorial";
@@ -10,7 +9,9 @@ import { getEraBySlug } from "@/lib/eras";
 import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage, type TrackLineageAppearance } from "@/lib/retroverse-lineage";
 import { generateTrackPathways } from "@/lib/retroverse-pathways";
-import { createClient } from "@/lib/supabase";
+import { logEntityLoaderError } from "@/lib/entity-safe";
+import { createClient, tryCreateClient } from "@/lib/supabase";
+import { EntityStatus } from "@/app/components/entity-status";
 import { ArtworkFrame } from "@/app/components/artwork-frame";
 
 export const metadata: Metadata = {
@@ -150,7 +151,10 @@ async function resolveTrackIdFromParam(
     .ilike("source_key", `%::${idParam.toLowerCase()}`)
     .limit(1);
 
-  if (sourceMatchResult.error) throw sourceMatchResult.error;
+  if (sourceMatchResult.error) {
+    logEntityLoaderError("resolveTrackId:sourceMatch", "/tracks/[id]", idParam, sourceMatchResult.error);
+    return null;
+  }
   if (sourceMatchResult.data && sourceMatchResult.data.length > 0) {
     return sourceMatchResult.data[0].retroverse_entity_id;
   }
@@ -161,14 +165,27 @@ async function resolveTrackIdFromParam(
     .select("retroverse_track_id, canonical_title")
     .range(0, 5000);
 
-  if (titleMatchResult.error) throw titleMatchResult.error;
+  if (titleMatchResult.error) {
+    logEntityLoaderError("resolveTrackId:titleMatch", "/tracks/[id]", idParam, titleMatchResult.error);
+    return null;
+  }
   const exactSlugMatch =
     titleMatchResult.data?.find((row) => normalizeSlug(row.canonical_title) === normalizedId) ?? null;
   return exactSlugMatch?.retroverse_track_id ?? null;
 }
 
 async function loadTrackGraph(idParam: string) {
-  const supabase = createClient();
+  const route = `/tracks/${idParam}`;
+  const supabase = tryCreateClient() ?? (() => {
+    try {
+      return createClient();
+    } catch (e) {
+      logEntityLoaderError("createClient", route, idParam, e);
+      return null;
+    }
+  })();
+  if (!supabase) return null;
+
   const resolvedTrackId = await resolveTrackIdFromParam(supabase, idParam);
   if (!resolvedTrackId) return null;
 
@@ -179,14 +196,21 @@ async function loadTrackGraph(idParam: string) {
     .limit(1)
     .maybeSingle<TrackRow>();
 
-  if (trackResult.error) throw trackResult.error;
+  if (trackResult.error) {
+    logEntityLoaderError("retroverse_tracks", route, resolvedTrackId, trackResult.error);
+    return null;
+  }
   if (!trackResult.data) return null;
   const track = trackResult.data;
 
-  const lineage = await loadTrackLineage(supabase, track.retroverse_track_id);
-  if (!lineage) return null;
+  let lineage: Awaited<ReturnType<typeof loadTrackLineage>> = null;
+  try {
+    lineage = await loadTrackLineage(supabase, track.retroverse_track_id);
+  } catch (e) {
+    logEntityLoaderError("loadTrackLineage", route, track.retroverse_track_id, e);
+  }
 
-  const appearanceAlbumIds = [...new Set(lineage.appearances.map((row) => row.retroverseAlbumId))];
+  const appearanceAlbumIds = [...new Set((lineage?.appearances ?? []).map((row) => row.retroverseAlbumId))];
 
   const [artistResult, chartsResult, appearanceAlbumsResult] = await Promise.all([
     supabase
@@ -209,19 +233,24 @@ async function loadTrackGraph(idParam: string) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (artistResult.error) throw artistResult.error;
-  if (chartsResult.error) throw chartsResult.error;
-  if (appearanceAlbumsResult.error) throw appearanceAlbumsResult.error;
+  if (artistResult.error) logEntityLoaderError("retroverse_artists", route, track.retroverse_artist_id, artistResult.error);
+  if (chartsResult.error) logEntityLoaderError("retroverse_chart_appearances", route, track.retroverse_track_id, chartsResult.error);
+  if (appearanceAlbumsResult.error) {
+    logEntityLoaderError("retroverse_albums", route, track.retroverse_track_id, appearanceAlbumsResult.error);
+  }
 
-  const artist = artistResult.data;
-  if (!artist) return null;
+  const artist: ArtistRow =
+    artistResult.data ?? {
+      retroverse_artist_id: track.retroverse_artist_id,
+      canonical_artist_name: "Unknown artist",
+    };
   const charts = (chartsResult.data ?? []) as ChartRow[];
   const appearanceAlbums = (appearanceAlbumsResult.data ?? []) as AlbumRow[];
   const albumById = new Map(appearanceAlbums.map((row) => [row.retroverse_album_id, row]));
 
   const artworkRows = await loadAlbumArtworkRows(supabase, appearanceAlbumIds);
 
-  const appearancesWithAlbum = lineage.appearances
+  const appearancesWithAlbum = (lineage?.appearances ?? [])
     .map((row) => ({
       ...row,
       album: albumById.get(row.retroverseAlbumId) ?? null,
@@ -248,7 +277,7 @@ async function loadTrackGraph(idParam: string) {
           .select("retroverse_era_id, slug, display_name, start_year")
           .in("retroverse_era_id", connectedEraIds)
       : { data: [], error: null };
-  if (erasResult.error) throw erasResult.error;
+  if (erasResult.error) logEntityLoaderError("retroverse_eras", route, track.retroverse_track_id, erasResult.error);
   const eras = (erasResult.data ?? []) as EraRow[];
   const eraById = new Map(eras.map((row) => [row.retroverse_era_id, row]));
 
@@ -304,7 +333,7 @@ async function loadTrackGraph(idParam: string) {
     sequenceLabel,
   });
 
-  const primaryEditionIds = [...new Set(lineage.appearances.map((row) => row.retroverseAlbumEditionId))];
+  const primaryEditionIds = [...new Set((lineage?.appearances ?? []).map((row) => row.retroverseAlbumEditionId))];
   const albumTracksForContextResult =
     primaryEditionIds.length > 0
       ? await supabase
@@ -312,7 +341,9 @@ async function loadTrackGraph(idParam: string) {
           .select("retroverse_album_edition_id, retroverse_track_id")
           .in("retroverse_album_edition_id", primaryEditionIds)
       : { data: [], error: null };
-  if (albumTracksForContextResult.error) throw albumTracksForContextResult.error;
+  if (albumTracksForContextResult.error) {
+    logEntityLoaderError("retroverse_album_tracks:context", route, track.retroverse_track_id, albumTracksForContextResult.error);
+  }
   const albumTracksForContext = albumTracksForContextResult.data ?? [];
 
   const shareAlbumCandidateIds = new Set<string>();
@@ -329,7 +360,9 @@ async function loadTrackGraph(idParam: string) {
           .neq("retroverse_track_id", track.retroverse_track_id)
           .limit(200)
       : { data: [], error: null };
-  if (sameEraTracksResult.error) throw sameEraTracksResult.error;
+  if (sameEraTracksResult.error) {
+    logEntityLoaderError("retroverse_tracks:sameEra", route, track.retroverse_track_id, sameEraTracksResult.error);
+  }
   const sameEraCandidateIds = new Set((sameEraTracksResult.data ?? []).map((row) => row.retroverse_track_id));
 
   const reuseAlbumIds = new Set(
@@ -337,7 +370,7 @@ async function loadTrackGraph(idParam: string) {
       .filter((row) => row.appearanceContext === "later_compilation_reuse" || row.appearanceContext === "later_soundtrack_reuse")
       .map((row) => row.retroverseAlbumId),
   );
-  const reuseEditionIds = lineage.appearances
+  const reuseEditionIds = (lineage?.appearances ?? [])
     .filter((row) => reuseAlbumIds.has(row.retroverseAlbumId))
     .map((row) => row.retroverseAlbumEditionId);
   const reuseTracksResult =
@@ -348,7 +381,9 @@ async function loadTrackGraph(idParam: string) {
           .in("retroverse_album_edition_id", reuseEditionIds)
           .neq("retroverse_track_id", track.retroverse_track_id)
       : { data: [], error: null };
-  if (reuseTracksResult.error) throw reuseTracksResult.error;
+  if (reuseTracksResult.error) {
+    logEntityLoaderError("retroverse_album_tracks:reuse", route, track.retroverse_track_id, reuseTracksResult.error);
+  }
   const reusePatternCandidateIds = new Set((reuseTracksResult.data ?? []).map((row) => row.retroverse_track_id));
 
   const allRelatedIds = [...new Set([...shareAlbumCandidateIds, ...sameEraCandidateIds, ...reusePatternCandidateIds])].slice(0, 80);
@@ -366,8 +401,12 @@ async function loadTrackGraph(idParam: string) {
           .in("retroverse_track_id", allRelatedIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
-  if (relatedTracksResult.error) throw relatedTracksResult.error;
-  if (relatedChartsResult.error) throw relatedChartsResult.error;
+  if (relatedTracksResult.error) {
+    logEntityLoaderError("retroverse_tracks:related", route, track.retroverse_track_id, relatedTracksResult.error);
+  }
+  if (relatedChartsResult.error) {
+    logEntityLoaderError("retroverse_chart_appearances:related", route, track.retroverse_track_id, relatedChartsResult.error);
+  }
 
   const relatedTracks = relatedTracksResult.data ?? [];
   const relatedAlbumIds = [
@@ -389,8 +428,12 @@ async function loadTrackGraph(idParam: string) {
       : Promise.resolve({ data: [], error: null }),
     loadAlbumArtworkRows(supabase, relatedAlbumIds),
   ]);
-  if (relatedAlbumsResult.error) throw relatedAlbumsResult.error;
-  if (relatedEditionsResult.error) throw relatedEditionsResult.error;
+  if (relatedAlbumsResult.error) {
+    logEntityLoaderError("retroverse_albums:related", route, track.retroverse_track_id, relatedAlbumsResult.error);
+  }
+  if (relatedEditionsResult.error) {
+    logEntityLoaderError("retroverse_album_editions:related", route, track.retroverse_track_id, relatedEditionsResult.error);
+  }
 
   const relatedAlbumTitleById = new Map(
     (relatedAlbumsResult.data ?? []).map((row) => [row.retroverse_album_id, row.canonical_album_title]),
@@ -407,7 +450,9 @@ async function loadTrackGraph(idParam: string) {
           .select("retroverse_artist_id, canonical_artist_name")
           .in("retroverse_artist_id", relatedArtistIds)
       : { data: [], error: null };
-  if (artistsForRelatedResult.error) throw artistsForRelatedResult.error;
+  if (artistsForRelatedResult.error) {
+    logEntityLoaderError("retroverse_artists:related", route, track.retroverse_track_id, artistsForRelatedResult.error);
+  }
   const relatedArtistById = new Map(
     (artistsForRelatedResult.data ?? []).map((row) => [row.retroverse_artist_id, row.canonical_artist_name]),
   );
@@ -470,9 +515,15 @@ async function loadTrackGraph(idParam: string) {
     })
     .slice(0, 14);
 
-  const pathways = await generateTrackPathways(supabase, track.retroverse_track_id);
+  let pathways: Awaited<ReturnType<typeof generateTrackPathways>> = [];
+  try {
+    pathways = await generateTrackPathways(supabase, track.retroverse_track_id);
+  } catch (e) {
+    logEntityLoaderError("generateTrackPathways", route, track.retroverse_track_id, e);
+  }
 
   return {
+    partial: !lineage,
     track,
     artist,
     charts,
@@ -494,8 +545,21 @@ async function loadTrackGraph(idParam: string) {
 
 export default async function TrackDetailPage({ params }: TrackPageProps) {
   const { id } = await params;
-  const data = await loadTrackGraph(id);
-  if (!data) notFound();
+  let data: Awaited<ReturnType<typeof loadTrackGraph>> = null;
+  try {
+    data = await loadTrackGraph(id);
+  } catch (e) {
+    logEntityLoaderError("loadTrackGraph", `/tracks/${id}`, id, e);
+  }
+  if (!data) {
+    return (
+      <EntityStatus
+        title="Entity unavailable"
+        message="This track could not be loaded. Try search or browse charts."
+        backHref="/"
+      />
+    );
+  }
 
   const {
     track,
@@ -514,6 +578,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     reuseIntoLaterEra,
     relatedRows,
     pathways,
+    partial,
   } = data;
 
   const chartYearLabel =
@@ -583,16 +648,28 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             {peakChartPosition !== null ? ` · peak #${peakChartPosition}` : ""}
             {charts.length > 0 ? ` · ${charts.length} chart entries` : ""}
           </p>
+          {partial ? (
+            <p className="text-[0.82rem] text-[var(--text-secondary)]">Partial data — some graph details are unavailable.</p>
+          ) : null}
           <p className="max-w-[40ch] text-[1.03rem] leading-[1.7] text-[var(--text-secondary)] sm:text-[1.08rem]">
             {contextLine}
           </p>
         </header>
 
         <div className="mb-8">
-          <HistoryBackButton
-            fallbackHref="/tracks"
-            label="Back"
-            className="inline-flex items-center rounded-full border border-[var(--card-border)] px-4 py-2 text-[0.95rem] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
+          <RetroverseEntityNav
+            back={{ href: "/tracks", label: "Tracks" }}
+            items={[
+              { href: "/", label: "Home" },
+              { href: artistHref, label: "Artist" },
+              { href: primaryAlbumHref, label: "Album" },
+              { href: "/track-deck", label: "Charts" },
+              {
+                href: relationshipWorkspaceHref(artist.canonical_artist_name, track.canonical_title),
+                label: "Link",
+              },
+              { href: "/album-retroscope", label: "Retroscope" },
+            ]}
           />
         </div>
 

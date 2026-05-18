@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Retroverse Portal",
     short_name: "Retroverse",
-    description: "Chart memory — immersive album portal.",
+    description: "Search chart tracks, albums, and artists — then step into Retroscope.",
     start_url: "/",
     scope: "/",
     display: "standalone",

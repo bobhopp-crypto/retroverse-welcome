@@ -55,16 +55,22 @@
     "billboard200:artwork": "ITUNES_FILL_SCOPE=billboard200 tsx scripts/run_itunes_artwork_fill.ts",
     "billboard200:pipeline": "tsx scripts/run_billboard200_restoration_pipeline.ts",
     "itunes:test-transport": "tsx scripts/test_itunes_transport.ts",
-    "itunes:test-raw-enrichment": "tsx scripts/test_itunes_raw_enrichment.ts"
+    "itunes:test-raw-enrichment": "tsx scripts/test_itunes_raw_enrichment.ts",
+    "archive:capture-screenshots": "tsx scripts/capture_retroverse_archive_screenshots.ts",
+    "sites:capture-html": "tsx scripts/capture_retroverse_sites_html.ts",
+    "sites:index": "tsx scripts/index_retroverse_sites_drive.ts",
+    "sites:index-drive": "tsx scripts/index_retroverse_sites_drive.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
     "@supabase/supabase-js": "^2.105.3",
+    "@tanstack/react-virtual": "^3.13.24",
     "axios": "^1.16.0",
     "better-sqlite3": "^11.10.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "sharp": "^0.34.5",
     "undici": "^8.2.0"
   },
   "devDependencies": {
@@ -75,6 +81,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "playwright": "^1.52.0",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5"

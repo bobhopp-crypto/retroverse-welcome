@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { loadViewerBootstrap } from "@/lib/viewer-scope";
+import { emptyViewerBootstrap, loadViewerBootstrap } from "@/lib/viewer-scope";
 
 import PortalStageClient from "./portal-stage-client";
 
@@ -11,21 +11,12 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PortalStagePage() {
-  let bootstrap: Awaited<ReturnType<typeof loadViewerBootstrap>> = null;
+  let bootstrap;
   try {
     bootstrap = await loadViewerBootstrap();
-  } catch {
-    bootstrap = null;
-  }
-
-  if (!bootstrap) {
-    return (
-      <div className="portal-stage-main">
-        <div className="portal-stage-empty">
-          <p>Unable to load albums.</p>
-        </div>
-      </div>
-    );
+  } catch (err) {
+    console.error("[portal-stage] bootstrap catch", err);
+    bootstrap = emptyViewerBootstrap();
   }
 
   return <PortalStageClient bootstrap={bootstrap} />;

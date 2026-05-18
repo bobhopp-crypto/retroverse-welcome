@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+
+import { EntityStatus } from "@/app/components/entity-status";
 
 import { BodyClassName } from "@/app/components/body-class-name";
 import "../album-dossier.css";
@@ -10,6 +11,9 @@ import { getAlbumDossier } from "@/lib/load-album-dossier";
 import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
 import { buildRumoursCanonicalTapestryRows } from "@/lib/rumours-proof-poc";
 import { RumoursCanonicalTrackTapestry } from "./rumours-canonical-track-tapestry";
+import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
+import { artistRoute } from "@/lib/retroverse-routes";
+
 import { AlbumDossierOperatorOverlay } from "./album-dossier-operator-overlay";
 
 export const dynamic = "force-dynamic";
@@ -108,7 +112,22 @@ function shortenId(s: string): string {
 export default async function AlbumDossierPage({ params }: Props) {
   const { slug } = await params;
   const dossier = getAlbumDossier(slug);
-  if (!dossier) notFound();
+  if (!dossier) {
+    const id = slug.trim().toUpperCase();
+    const isCanonicalId = /^RVAL\d{6}$/.test(id);
+    return (
+      <EntityStatus
+        title={isCanonicalId ? "Partial data" : "Entity unavailable"}
+        message={
+          isCanonicalId
+            ? "This album ID is recognized but the local dossier is not loaded yet."
+            : "No album dossier matches this link. Try search or browse albums."
+        }
+        backHref="/albums"
+        backLabel="Albums"
+      />
+    );
+  }
 
   const { identity, chart, acoustic, related, scores, musicbrainz } = dossier;
   const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
@@ -126,12 +145,17 @@ export default async function AlbumDossierPage({ params }: Props) {
     <>
       <BodyClassName className="dossier-body" />
       <div className={`dossier-shell${rumoursCanonicalTapestry ? " dossier-shell--rumours-canonical-poc" : ""}`}>
-        <header className="dossier-top">
-          <Link href="/album-retroscope" className="dossier-back">
-            ← RetroScope
-          </Link>
+        <header className="dossier-top dossier-top--nav">
+          <RetroverseEntityNav
+            back={{ href: "/", label: "Home" }}
+            items={[
+              { href: artistRoute(identity.artist), label: "Artist" },
+              { href: `/tracks?q=${encodeURIComponent(identity.album)}`, label: "Tracks" },
+              { href: "/album-retroscope", label: "Retroscope" },
+              { href: "/track-deck", label: "Charts" },
+            ]}
+          />
           <div className="dossier-top-end">
-            <span className="dossier-plate-id">{dossier.albumId}</span>
             <AlbumDossierOperatorOverlay />
           </div>
         </header>

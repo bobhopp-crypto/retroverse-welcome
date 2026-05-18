@@ -88,10 +88,10 @@ export default function DevIndexPage() {
         rows={[
           {
             href: "/",
-            label: "Root — redirects to RetroScope",
+            label: "Root — Ask Retroverse (search)",
             file: "app/page.tsx",
             statuses: ["Active"],
-            note: "/ issues 308 to /album-retroscope",
+            note: "Home front door; /search mirrors same client",
           },
           {
             href: "/welcome",
@@ -255,6 +255,20 @@ export default function DevIndexPage() {
             statuses: ["Active"],
           },
           {
+            href: "/retroverse-archive",
+            label: "Retroverse Archive — archaeology browser",
+            file: "app/retroverse-archive/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "Filesystem scan of monorepo prototypes, routes, HTML, exports.",
+          },
+          {
+            href: "/retroverse-sites",
+            label: "Retroverse Sites — ~/Sites/Retroverse PNG gallery",
+            file: "app/retroverse-sites/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "All HTML pages as PNGs; npm run sites:capture-html",
+          },
+          {
             href: "/eras",
             label: "Eras index",
             file: "app/eras/page.tsx",
@@ -304,6 +318,40 @@ export default function DevIndexPage() {
             label: "Ops PIN gate",
             file: "app/internal/ops-pin/page.tsx",
             statuses: ["Active"],
+          },
+          {
+            href: "/api/playback/resolve?artist=Fleetwood%20Mac&title=Dreams",
+            label: "Playback resolve API (legacy R2 bridge)",
+            file: "app/api/playback/resolve/route.ts",
+            statuses: ["Active", "Local-first"],
+            note: "Also ?rvtr=RVTR######. Requires LEGACY_VIDEO_LOOKUP_PATH.",
+          },
+          {
+            href: "/track-deck",
+            label: "Track deck — Hot 100 ops browser",
+            file: "app/track-deck/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "SQLite chart universe + VDJ ownership. HOT100_SQLITE_PATH optional.",
+          },
+          {
+            href: "/track-deck?date=1977-06-18",
+            label: "Track deck (sample week)",
+            file: "app/track-deck/page.tsx",
+            statuses: ["Active", "Local-first"],
+          },
+          {
+            href: "/track-curator?artist=Marvin%20Gaye&title=Got%20To%20Give%20It%20Up%20(Pt.%201)",
+            label: "Track curator — chart track · VDJ match",
+            file: "app/track-curator/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "Also ?rvtr=RVTR######. VDJ_MEDIA_ROOT. Decisions → data/track-curator-decisions.json.",
+          },
+          {
+            href: "/relationship-workspace?artist=Marvin%20Gaye&title=Got%20To%20Give%20It%20Up%20(Pt.%201)",
+            label: "Relationship workspace — reconcile panels",
+            file: "app/relationship-workspace/page.tsx",
+            statuses: ["Active", "Local-first"],
+            note: "VDJ_DATABASE_XML_PATH · Hot100 SQLite · legacy R2. Decisions → data/relationship-workspace-decisions.json.",
           },
           {
             href: "/ops/review",

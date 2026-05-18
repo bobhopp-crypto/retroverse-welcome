@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
+import { PRIMARY_NAV } from "@/lib/retroverse-nav";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,7 +26,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Retroverse",
   description: "Chart memory — albums, artists, and eras.",
-  applicationName: "Retroverse Portal",
+  applicationName: "Retroverse",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -55,29 +57,19 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
         <header className="rv-global-header" role="banner">
-          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2.5 sm:px-5">
+          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-5">
             <Link
-              href="/album-retroscope"
+              href="/"
               className="font-serif text-[1.05rem] tracking-[0.04em] text-[var(--text-primary)] sm:text-[1.12rem]"
             >
               Retroverse
             </Link>
-            <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:gap-x-4" aria-label="Primary">
-              <Link className={navLink} href="/eras">
-                Eras
-              </Link>
-              <Link className={navLink} href="/artists">
-                Artists
-              </Link>
-              <Link className={navLink} href="/albums">
-                Albums
-              </Link>
-              <Link className={navLink} href="/search">
-                Search
-              </Link>
-              <Link className={navLink} href="/site-index">
-                Index
-              </Link>
+            <nav className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3" aria-label="Primary">
+              {PRIMARY_NAV.filter((item) => item.href !== "/").map((item) => (
+                <Link key={item.href} className={navLink} href={item.href}>
+                  {item.label}
+                </Link>
+              ))}
             </nav>
           </div>
         </header>

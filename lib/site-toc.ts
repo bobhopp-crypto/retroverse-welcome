@@ -36,15 +36,19 @@ export const indexSecondaryNav: SiteTocEntry[] = [
 
 /** Internal / ops — not in main header. */
 export const indexToolsNav: SiteTocEntry[] = [
+  { href: "/track-deck", label: "Track deck", note: "Hot 100 ops · VDJ gaps" },
+  { href: "/track-curator", label: "Track curator", note: "VDJ match · accept/reject" },
+  { href: "/relationship-workspace", label: "Relationship workspace", note: "multi-panel reconcile" },
   { href: "/internal/curator", label: "Curator", note: "artwork triage" },
   { href: "/portal-v2/curate", label: "Curator deep link", note: "?albumId=RVAL…" },
   { href: "/dev-index", label: "Dev route index", note: "all routes + status" },
+  { href: "/retroverse-archive", label: "Retroverse Archive", note: "historical prototypes excavation" },
   { href: "/toc", label: "Full route table" },
 ];
 
 /** Fixed app routes (no params) — used by /toc. */
 export const siteTocStaticPages: SiteTocEntry[] = [
-  { href: "/", label: "Home", note: "→ /album-retroscope" },
+  { href: "/", label: "Home · Ask Retroverse", note: "search front door" },
   { href: "/album-retroscope", label: "RetroScope · Albums" },
   { href: "/artist-retroscope", label: "RetroScope · Artists" },
   { href: "/track-retroscope", label: "RetroScope · Tracks" },
@@ -61,6 +65,13 @@ export const siteTocStaticPages: SiteTocEntry[] = [
   { href: "/discover", label: "Discover", note: "→ /album-retroscope" },
   { href: "/viewer", label: "Viewer", note: "→ /album-retroscope" },
   { href: "/toc", label: "Table of contents" },
+  { href: "/track-deck", label: "Track deck (internal)", note: "Hot 100 · VDJ ops" },
+  { href: "/track-curator", label: "Track curator (internal)", note: "chart track · VDJ files" },
+  {
+    href: "/relationship-workspace",
+    label: "Relationship workspace (internal)",
+    note: "chart · RVTR · VDJ · R2",
+  },
 ];
 
 export const siteTocDynamicPatterns: SiteTocPattern[] = [

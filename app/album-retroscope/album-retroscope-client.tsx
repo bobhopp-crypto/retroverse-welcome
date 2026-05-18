@@ -26,7 +26,7 @@ import {
   retroscopeCellKey,
 } from "@/lib/album-retroscope-data";
 import { retroscopeRankDisplayLabel, type RetroscopeMode } from "@/lib/retroscope-mode";
-import { hrefForArtist } from "@/lib/retroverse-routes";
+import { hrefForArtist, hrefForTrack } from "@/lib/retroverse-routes";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 
 import {
@@ -41,6 +41,7 @@ import { RetroscopeModeStrip } from "./retroscope-mode-strip";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
   centerViewportOnSelection,
+  clearRetroscopePersistedState,
   retroscopeViewportFocusIndices,
   saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
@@ -75,8 +76,11 @@ function entityHrefForCell(cell: RetroscopeCellDTO | null, mode: RetroscopeMode)
     return hrefForArtist(cell.entityId, cell.title);
   }
   if (mode === "track" || cell.entityKind === "track") {
-    const q = `${cell.artist} ${cell.title}`.trim();
-    return q ? `/search?q=${encodeURIComponent(q)}` : null;
+    if (cell.entityId && /^RVTR\d{6}$/i.test(cell.entityId)) {
+      return hrefForTrack(cell.entityId);
+    }
+    const q = cell.title.trim();
+    return q ? `/tracks?q=${encodeURIComponent(q)}` : null;
   }
   const rval = rvalFromCoverPath(cell.canonicalCoverPath);
   if (rval) return `/albums/${rval}`;
@@ -249,6 +253,7 @@ export default function RetroscopeClient({
   const [portalPulse, setPortalPulse] = useState(false);
   const [operatorPanelOpen, setOperatorPanelOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [mapResetEpoch, setMapResetEpoch] = useState(0);
   const router = useRouter();
   const [viewYear0, setViewYear0] = useState(() => {
     const rows = serverSnapshotRetroscopeGridRows();
@@ -629,6 +634,38 @@ export default function RetroscopeClient({
     [moveTo],
   );
 
+  const onResetRetroscope = useCallback(() => {
+    clearRetroscopePersistedState(persistScope);
+    const init = parseRetroscopeCoordKey(initialActiveKey);
+    const startKey = retroscopeCellKey(init.y, init.r);
+    const nextExplored = new Set([startKey]);
+    exploredRef.current = nextExplored;
+    setExplored(nextExplored);
+    posRef.current = { y: init.y, r: init.r };
+    setActiveYear(init.y);
+    setActiveRank(init.r);
+    const origin = centerViewportOnSelection({
+      activeYear: init.y,
+      activeRank: init.r,
+      visibleGridRows,
+    });
+    setViewYear0(origin.viewYear0);
+    setViewRank0(origin.viewRank0);
+    persistSnapRef.current = {
+      corpusId,
+      activeYear: init.y,
+      activeRank: init.r,
+      exploredKeys: [startKey],
+      viewYear0: origin.viewYear0,
+      viewRank0: origin.viewRank0,
+    };
+    saveRetroscopePersistedSession(
+      { version: 1, ...persistSnapRef.current },
+      persistScope,
+    );
+    setMapResetEpoch((n) => n + 1);
+  }, [corpusId, initialActiveKey, persistScope, visibleGridRows]);
+
   const onCellTap = useCallback(
     (y: number, r: number) => {
       const k = retroscopeCellKey(y, r);
@@ -649,7 +686,7 @@ export default function RetroscopeClient({
 
   const searchHref =
     activeCell != null
-      ? `/search?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`
+      ? `/?q=${encodeURIComponent(`${activeCell.artist} ${activeCell.title}`.trim())}`
       : null;
 
   const cellCount = visibleGridRows * RETROSCOPE_GRID_COLS;
@@ -982,7 +1019,7 @@ export default function RetroscopeClient({
                       <span className="arv-cell-glyph" aria-hidden />
                       <span className="arv-cell-artist-name">{cell.title}</span>
                     </>
-                  ) : isTrackMode && cell ? (
+                  ) : isTrackMode && cell && (isExplored || isActive) ? (
                     <>
                       <span className="arv-cell-track-bar" aria-hidden />
                       <span className="arv-cell-artist-name">{cell.title}</span>
@@ -1014,8 +1051,10 @@ export default function RetroscopeClient({
           activeKey={activeKey}
           explored={explored}
           byKey={byKey}
+          resetEpoch={mapResetEpoch}
           onClose={() => setMapOpen(false)}
           onSelectCoordinate={onMapSelectCoordinate}
+          onResetApp={onResetRetroscope}
         />
       ) : null}
     </div>

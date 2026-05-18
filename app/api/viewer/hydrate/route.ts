@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
 import { hydrateDiscoverAlbumRows, hydrateDiscoverAlbumRowsFresh } from "@/lib/discover-hydrate-rows";
+import {
+  hydrateSqliteAlbumRows,
+  isSqliteCorpusAlbumId,
+} from "@/lib/viewer-corpus-sqlite";
 
 /** Portal/Discover cover rows: overrides → dossier → Supabase artwork fallback. */
 export const dynamic = "force-dynamic";
@@ -19,21 +23,37 @@ export async function POST(req: Request) {
   const typed = body as { ids?: unknown; fresh?: unknown };
   const forceFresh = typed.fresh === true;
   const idsRaw = Array.isArray(typed.ids) ? typed.ids : [];
-  const ids: string[] = [];
+  const rvalIds: string[] = [];
+  const sqliteIds: string[] = [];
   for (const raw of idsRaw) {
     if (typeof raw !== "string") continue;
-    const id = raw.trim().toUpperCase();
-    if (RVAL.test(id) && !ids.includes(id)) ids.push(id);
-    if (ids.length >= HYDRATE_MAX) break;
+    const id = raw.trim();
+    if (isSqliteCorpusAlbumId(id)) {
+      if (!sqliteIds.includes(id)) sqliteIds.push(id);
+    } else {
+      const upper = id.toUpperCase();
+      if (RVAL.test(upper) && !rvalIds.includes(upper)) rvalIds.push(upper);
+    }
+    if (rvalIds.length + sqliteIds.length >= HYDRATE_MAX) break;
   }
-  if (ids.length === 0) {
+  if (rvalIds.length === 0 && sqliteIds.length === 0) {
     return NextResponse.json({ rows: [] satisfies DiscoverStableAlbumRow[] });
   }
-  try {
-    const rows = forceFresh ? await hydrateDiscoverAlbumRowsFresh(ids) : await hydrateDiscoverAlbumRows(ids);
+
+  const rows: DiscoverStableAlbumRow[] = hydrateSqliteAlbumRows(sqliteIds, null);
+
+  if (rvalIds.length === 0) {
     return NextResponse.json({ rows });
+  }
+
+  try {
+    const supabaseRows = forceFresh
+      ? await hydrateDiscoverAlbumRowsFresh(rvalIds)
+      : await hydrateDiscoverAlbumRows(rvalIds);
+    return NextResponse.json({ rows: [...rows, ...supabaseRows] });
   } catch (e) {
-    console.error("[viewer/hydrate]", e);
+    console.warn(`[viewer/hydrate] supabase_offline error=${e instanceof Error ? e.message : String(e)}`);
+    if (rows.length > 0) return NextResponse.json({ rows });
     return NextResponse.json({ error: "hydrate failed" }, { status: 500 });
   }
 }

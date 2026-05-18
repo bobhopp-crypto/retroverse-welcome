@@ -578,7 +578,10 @@ export default function PortalStageClient({ bootstrap }: { bootstrap: ViewerBoot
   if (years.length === 0) {
     return (
       <div className="portal-stage-main">
-        <div className="portal-stage-empty">No years.</div>
+        <div className="portal-stage-empty">
+          {bootstrap.sourceOffline ? <p>Source offline</p> : null}
+          <p>No years.</p>
+        </div>
       </div>
     );
   }
@@ -587,6 +590,7 @@ export default function PortalStageClient({ bootstrap }: { bootstrap: ViewerBoot
     return (
       <div className="portal-stage-main">
         <div className="portal-stage-empty">
+          {bootstrap.sourceOffline ? <p>Source offline</p> : null}
           <p className="portal-stage-empty-year">{idsYear}</p>
         </div>
       </div>

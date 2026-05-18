@@ -110,7 +110,10 @@ export async function loadTrackLineage(
     .limit(1)
     .maybeSingle<TrackCoreRow>();
 
-  if (trackResult.error) throw trackResult.error;
+  if (trackResult.error) {
+    console.warn("[retroverse-lineage:track]", trackResult.error.message);
+    return null;
+  }
   if (!trackResult.data) return null;
   const track = trackResult.data;
 
@@ -121,7 +124,17 @@ export async function loadTrackLineage(
     )
     .eq("retroverse_track_id", retroverseTrackId);
 
-  if (membershipResult.error) throw membershipResult.error;
+  if (membershipResult.error) {
+    console.warn("[retroverse-lineage:membership]", membershipResult.error.message);
+    return {
+      retroverseTrackId: track.retroverse_track_id,
+      canonicalTitle: track.canonical_title,
+      retroverseArtistId: track.retroverse_artist_id,
+      retroverseOriginAlbumId: track.retroverse_album_id,
+      originalReleaseYear: track.release_year,
+      appearances: [],
+    };
+  }
   const rows = (membershipResult.data ?? []) as MembershipRow[];
 
   const appearances: TrackLineageAppearance[] = rows

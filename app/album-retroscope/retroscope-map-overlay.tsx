@@ -18,7 +18,6 @@ import {
 
 const MIN_CELL_PX = 6;
 const MAX_CELL_PX = 44;
-const DEFAULT_CELL_PX = 18;
 const GAP_PX = 1;
 const TAP_SLOP_PX = 10;
 
@@ -38,20 +37,17 @@ type MapTransform = {
   cellPx: number;
 };
 
-function centerTransform(
-  width: number,
-  height: number,
-  activeYear: number,
-  activeRank: number,
-  cellPx: number,
-): MapTransform {
+/** Default map view: entire year × rank world at minimum zoom, centered in the viewport. */
+function fitWorldTransform(width: number, height: number, cellPx = MIN_CELL_PX): MapTransform {
   const step = cellPx + GAP_PX;
-  const wx = (activeYear - RETROSCOPE_WORLD_YEAR_MIN) * step;
-  const wy = (activeRank - 1) * step;
+  const yearSpan = RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_WORLD_YEAR_MIN;
+  const rankSpan = RETROSCOPE_RANK_MAX - 1;
+  const worldW = yearSpan * step + cellPx;
+  const worldH = rankSpan * step + cellPx;
   return {
     cellPx,
-    panX: width / 2 - wx - cellPx / 2,
-    panY: height / 2 - wy - cellPx / 2,
+    panX: (width - worldW) / 2,
+    panY: (height - worldH) / 2,
   };
 }
 
@@ -89,6 +85,9 @@ type RetroscopeMapOverlayProps = {
   byKey: Map<string, RetroscopeCellDTO>;
   onClose: () => void;
   onSelectCoordinate: (year: number, rank: number) => void;
+  onResetApp: () => void;
+  /** Bump after reset so the map re-applies the world-fit zoom. */
+  resetEpoch?: number;
 };
 
 export function RetroscopeMapOverlay({
@@ -100,11 +99,14 @@ export function RetroscopeMapOverlay({
   byKey,
   onClose,
   onSelectCoordinate,
+  onResetApp,
+  resetEpoch = 0,
 }: RetroscopeMapOverlayProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const transformRef = useRef<MapTransform>({ panX: 0, panY: 0, cellPx: DEFAULT_CELL_PX });
+  const transformRef = useRef<MapTransform>({ panX: 0, panY: 0, cellPx: MIN_CELL_PX });
   const [size, setSize] = useState({ w: 0, h: 0 });
+  const [resetPending, setResetPending] = useState(false);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const pinchRef = useRef<{ dist: number; cellPx: number } | null>(null);
   const movedRef = useRef(false);
@@ -225,9 +227,9 @@ export function RetroscopeMapOverlay({
 
   useLayoutEffect(() => {
     if (size.w <= 0 || size.h <= 0) return;
-    transformRef.current = centerTransform(size.w, size.h, activeYear, activeRank, DEFAULT_CELL_PX);
+    transformRef.current = fitWorldTransform(size.w, size.h);
     scheduleDraw();
-  }, [activeRank, activeYear, scheduleDraw, size.h, size.w]);
+  }, [resetEpoch, scheduleDraw, size.h, size.w]);
 
   useEffect(() => {
     scheduleDraw();
@@ -341,9 +343,33 @@ export function RetroscopeMapOverlay({
           </span>
           <span className="arv-map-readout-mode">{modeLabel(mode)} layer</span>
         </div>
-        <button type="button" className="arv-map-close" onClick={onClose}>
-          Close
-        </button>
+        <div className="arv-map-header-actions">
+          {resetPending ? (
+            <div className="arv-map-reset-prompt" role="group" aria-label="Confirm reset">
+              <span className="arv-map-reset-prompt-text">Clear explored cells and return to start?</span>
+              <button type="button" className="arv-map-reset-btn" onClick={() => setResetPending(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="arv-map-reset-btn arv-map-reset-btn--confirm"
+                onClick={() => {
+                  setResetPending(false);
+                  onResetApp();
+                }}
+              >
+                Reset
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="arv-map-reset-btn" onClick={() => setResetPending(true)}>
+              Reset
+            </button>
+          )}
+          <button type="button" className="arv-map-close" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </header>
       <div ref={viewportRef} className="arv-map-viewport">
         <canvas

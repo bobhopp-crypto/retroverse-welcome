@@ -22,7 +22,7 @@ export async function GET(req: Request) {
     const ids = entries.map((e) => e.albumId);
     return NextResponse.json({ entries, ids });
   } catch (e) {
-    console.error("[viewer/year-albums]", e);
+    console.warn(`[viewer/year-albums] error=${e instanceof Error ? e.message : String(e)}`);
     return NextResponse.json({ error: "fetch failed" }, { status: 500 });
   }
 }

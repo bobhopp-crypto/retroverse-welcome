@@ -6,6 +6,13 @@ import { albumIdFromChartAppearanceRow } from "@/lib/chart-appearance-album-id";
 import { comparePortalYearAlbumRank } from "@/lib/portal-year-rank-sort";
 import { CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG } from "@/lib/canonical-artwork-overrides";
 import { hydrateDiscoverAlbumRows } from "@/lib/discover-hydrate-rows";
+import {
+  hydrateSqliteAlbumRows,
+  isSqliteCorpusAlbumId,
+  loadSqliteCorpusCounts,
+  loadSqliteCorpusYears,
+  loadSqliteRankedAlbumEntriesForYear,
+} from "@/lib/viewer-corpus-sqlite";
 import { createClient } from "@/lib/supabase";
 
 const YEAR_PAGE = 1000;
@@ -32,7 +39,126 @@ export type ViewerBootstrap = {
   albumIds: string[];
   startIndex: number;
   hydrated: DiscoverStableAlbumRow[];
+  /** True when one or more bootstrap sections failed (e.g. Supabase offline). */
+  sourceOffline?: boolean;
+  /** Runtime corpus provider used for years / year-album navigation. */
+  corpusSource?: "supabase" | "sqlite";
 };
+
+function bootstrapErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    if (typeof o.message === "string") return o.message;
+    if (typeof o.error === "string") return o.error;
+    if (typeof o.details === "string") return o.details;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
+/** Operational backend outage — degrade quietly, do not console.error. */
+export function isExpectedBootstrapFailure(err: unknown): boolean {
+  const msg = bootstrapErrorMessage(err).toLowerCase();
+  const parts: string[] = [msg];
+
+  if (err && typeof err === "object") {
+    const o = err as Record<string, unknown>;
+    if (typeof o.code === "string") parts.push(o.code.toLowerCase());
+    if (typeof o.name === "string") parts.push(o.name.toLowerCase());
+    if (typeof o.cause === "string") parts.push(o.cause.toLowerCase());
+    else if (o.cause) parts.push(bootstrapErrorMessage(o.cause).toLowerCase());
+  }
+
+  const haystack = parts.join(" ");
+  const expected = [
+    "schema cache",
+    "retry",
+    "fetch failed",
+    "failed to fetch",
+    "network timeout",
+    "network error",
+    "timed out",
+    "timeout",
+    "econnrefused",
+    "enotfound",
+    "econnreset",
+    "terminated",
+    "connection terminated",
+    "postgrest unavailable",
+    "postgrest",
+    "503",
+    "502",
+    "504",
+    "service unavailable",
+    "socket hang up",
+    "getaddrinfo",
+    "aborterror",
+    "dns",
+    "unreachable",
+  ];
+
+  return expected.some((needle) => haystack.includes(needle));
+}
+
+function logBootstrapFailure(
+  section: "years" | "entries" | "hydrated" | "cache_wrapper",
+  err: unknown,
+): void {
+  const message = bootstrapErrorMessage(err);
+  if (isExpectedBootstrapFailure(err)) {
+    console.warn(`[portal/bootstrap] ${section}_offline error=${message}`);
+  } else {
+    console.error(`[portal/bootstrap] ${section}_unexpected error=${message}`);
+  }
+}
+
+/** Degraded bootstrap — portal shell still renders; prefers SQLite corpus when available. */
+export function emptyViewerBootstrap(overrides?: Partial<ViewerBootstrap>): ViewerBootstrap {
+  let years: number[] = [];
+  let entries: ViewerYearAlbumEntry[] = [];
+  let corpusSource: "supabase" | "sqlite" = "supabase";
+  try {
+    years = loadSqliteCorpusYears();
+    if (years.length > 0) {
+      corpusSource = "sqlite";
+      const year = years.includes(VIEWER_BOOTSTRAP_DEFAULT_YEAR)
+        ? VIEWER_BOOTSTRAP_DEFAULT_YEAR
+        : years[0]!;
+      entries = loadSqliteRankedAlbumEntriesForYear(year);
+      const windowIds = entries.slice(0, 5).map((e) => e.albumId);
+      return {
+        years,
+        year,
+        entries,
+        albumIds: entries.map((e) => e.albumId),
+        startIndex: 0,
+        hydrated: hydrateSqliteAlbumRows(windowIds, year),
+        sourceOffline: true,
+        corpusSource,
+        ...overrides,
+      };
+    }
+  } catch {
+    /* fall through */
+  }
+
+  return {
+    years: [],
+    year: VIEWER_BOOTSTRAP_DEFAULT_YEAR,
+    entries: [],
+    albumIds: [],
+    startIndex: 0,
+    hydrated: [],
+    sourceOffline: true,
+    corpusSource,
+    ...overrides,
+  };
+}
 
 type ChartAggRow = {
   chart_date: string;
@@ -108,7 +234,7 @@ async function loadAlbumSortLabels(
  * change only on data import (rare); 7-day TTL with manual revalidation via
  * `revalidateTag("viewer-distinct-years")` when an import runs.
  */
-async function loadViewerDistinctYearsImpl(): Promise<number[]> {
+async function loadViewerDistinctYearsSupabaseImpl(): Promise<number[]> {
   const seen = new Set<number>();
   const supabase = createClient();
   for (let from = 0; ; from += YEAR_PAGE) {
@@ -129,10 +255,30 @@ async function loadViewerDistinctYearsImpl(): Promise<number[]> {
   return [...seen].sort((a, b) => b - a);
 }
 
+async function loadViewerDistinctYearsImpl(): Promise<number[]> {
+  try {
+    const years = await loadViewerDistinctYearsSupabaseImpl();
+    if (years.length > 0) return years;
+  } catch (err) {
+    logBootstrapFailure("years", err);
+  }
+
+  const sqliteYears = loadSqliteCorpusYears();
+  if (sqliteYears.length > 0) {
+    const counts = loadSqliteCorpusCounts();
+    console.warn(
+      `[portal/bootstrap] years_sqlite_fallback count=${sqliteYears.length} bb200_rows=${counts.billboard200WeeklyRows} hot100_weeks=${counts.hot100Weeks}`,
+    );
+    return sqliteYears;
+  }
+
+  return [];
+}
+
 export async function loadViewerDistinctYears(): Promise<number[]> {
   return unstable_cache(
     loadViewerDistinctYearsImpl,
-    ["viewer-distinct-years"],
+    ["viewer-distinct-years-v2"],
     { revalidate: 60 * 60 * 24 * 7, tags: ["viewer-distinct-years"] },
   )();
 }
@@ -168,7 +314,9 @@ export async function loadViewerAlbumIdsForYear(year: number): Promise<string[]>
  *
  * Fallback: alphabetical `release_year` albums when nothing charted on **Billboard album lists** that year.
  */
-async function loadViewerRankedAlbumEntriesForYearImpl(year: number): Promise<ViewerYearAlbumEntry[]> {
+async function loadViewerRankedAlbumEntriesForYearSupabaseImpl(
+  year: number,
+): Promise<ViewerYearAlbumEntry[]> {
   const supabase = createClient();
   const fromDate = `${year}-01-01`;
   const toDate = `${year}-12-31`;
@@ -280,29 +428,90 @@ async function loadViewerRankedAlbumEntriesForYearImpl(year: number): Promise<Vi
  * The client already prefetches ±1 year on every navigation, so once the user
  * has touched a year band, all subsequent year switches in that band feel instant.
  */
+async function loadViewerRankedAlbumEntriesForYearImpl(year: number): Promise<ViewerYearAlbumEntry[]> {
+  try {
+    const entries = await loadViewerRankedAlbumEntriesForYearSupabaseImpl(year);
+    if (entries.length > 0) return entries;
+  } catch (err) {
+    logBootstrapFailure("entries", err);
+  }
+
+  const sqliteEntries = loadSqliteRankedAlbumEntriesForYear(year);
+  if (sqliteEntries.length > 0) {
+    console.warn(
+      `[portal/bootstrap] entries_sqlite_fallback year=${year} count=${sqliteEntries.length}`,
+    );
+    return sqliteEntries;
+  }
+
+  return [];
+}
+
 export async function loadViewerRankedAlbumEntriesForYear(year: number): Promise<ViewerYearAlbumEntry[]> {
   return unstable_cache(
     async () => loadViewerRankedAlbumEntriesForYearImpl(year),
-    ["viewer-year-albums", String(year)],
+    ["viewer-year-albums-v2", String(year)],
     { revalidate: 60 * 60 * 24 * 7, tags: ["viewer-year-albums", `viewer-year-albums:${year}`] },
   )();
 }
 
-async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap | null> {
+async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap> {
+  let sourceOffline = false;
+  let corpusSource: "supabase" | "sqlite" = "supabase";
+
+  let years: number[] = [];
   try {
-    const years = await loadViewerDistinctYears();
-    if (years.length === 0) return null;
+    years = await loadViewerDistinctYearsSupabaseImpl();
+  } catch (err) {
+    logBootstrapFailure("years", err);
+    years = [];
+    sourceOffline = true;
+  }
+  if (years.length === 0) {
+    const sqliteYears = loadSqliteCorpusYears();
+    if (sqliteYears.length > 0) {
+      years = sqliteYears;
+      corpusSource = "sqlite";
+      sourceOffline = true;
+      const counts = loadSqliteCorpusCounts();
+      console.warn(
+        `[portal/bootstrap] years_sqlite_fallback count=${years.length} bb200_rows=${counts.billboard200WeeklyRows} hot100_weeks=${counts.hot100Weeks}`,
+      );
+    }
+  }
 
-    let chosenYear: number | null = null;
-    let entries: ViewerYearAlbumEntry[] = [];
+  let chosenYear = years.includes(VIEWER_BOOTSTRAP_DEFAULT_YEAR)
+    ? VIEWER_BOOTSTRAP_DEFAULT_YEAR
+    : (years[0] ?? VIEWER_BOOTSTRAP_DEFAULT_YEAR);
+  let entries: ViewerYearAlbumEntry[] = [];
 
-    const preferred = await loadViewerRankedAlbumEntriesForYear(VIEWER_BOOTSTRAP_DEFAULT_YEAR);
+  const loadEntriesForYear = async (y: number): Promise<ViewerYearAlbumEntry[]> => {
+    if (corpusSource === "sqlite") {
+      return loadSqliteRankedAlbumEntriesForYear(y);
+    }
+    try {
+      const fromSupabase = await loadViewerRankedAlbumEntriesForYearSupabaseImpl(y);
+      if (fromSupabase.length > 0) return fromSupabase;
+    } catch (err) {
+      logBootstrapFailure("entries", err);
+      sourceOffline = true;
+    }
+    const sqliteEntries = loadSqliteRankedAlbumEntriesForYear(y);
+    if (sqliteEntries.length > 0) {
+      corpusSource = "sqlite";
+      console.warn(`[portal/bootstrap] entries_sqlite_fallback year=${y} count=${sqliteEntries.length}`);
+    }
+    return sqliteEntries;
+  };
+
+  try {
+    const preferred = await loadEntriesForYear(VIEWER_BOOTSTRAP_DEFAULT_YEAR);
     if (preferred.length > 0) {
       chosenYear = VIEWER_BOOTSTRAP_DEFAULT_YEAR;
       entries = preferred;
-    } else {
+    } else if (years.length > 0) {
       for (const y of years) {
-        const next = await loadViewerRankedAlbumEntriesForYear(y);
+        const next = await loadEntriesForYear(y);
         if (next.length > 0) {
           chosenYear = y;
           entries = next;
@@ -310,21 +519,53 @@ async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap | null> {
         }
       }
     }
-    if (chosenYear === null || entries.length === 0) return null;
-
-    const albumIds = entries.map((e) => e.albumId);
-    const startIndex = 0;
-    const windowIds = [0, 1, 2, 3, 4]
-      .map((i) => (i < albumIds.length ? albumIds[i]! : null))
-      .filter((id): id is string => typeof id === "string");
-    /** Covers: overrides → dossier → Supabase artwork (see `hydrateDiscoverAlbumRows`). */
-    const hydrated = await hydrateDiscoverAlbumRows(windowIds);
-
-    return { years, year: chosenYear, entries, albumIds, startIndex, hydrated };
-  } catch (e) {
-    console.error("[portal] bootstrap failed", e);
-    return null;
+  } catch (err) {
+    logBootstrapFailure("entries", err);
+    entries = [];
+    sourceOffline = true;
   }
+
+  const albumIds = entries.map((e) => e.albumId);
+  const startIndex = 0;
+  const windowIds = [0, 1, 2, 3, 4]
+    .map((i) => (i < albumIds.length ? albumIds[i]! : null))
+    .filter((id): id is string => typeof id === "string");
+
+  const rvalIds = windowIds.filter((id) => !isSqliteCorpusAlbumId(id));
+  const sqliteIds = windowIds.filter((id) => isSqliteCorpusAlbumId(id));
+
+  let hydrated: DiscoverStableAlbumRow[] = [];
+  if (sqliteIds.length > 0) {
+    hydrated = hydrateSqliteAlbumRows(sqliteIds, chosenYear);
+  }
+  if (rvalIds.length > 0) {
+    try {
+      const fromSupabase = await hydrateDiscoverAlbumRows(rvalIds);
+      hydrated = [...hydrated, ...fromSupabase];
+    } catch (err) {
+      logBootstrapFailure("hydrated", err);
+      sourceOffline = true;
+      if (hydrated.length === 0 && entries.length > 0) {
+        hydrated = hydrateSqliteAlbumRows(windowIds, chosenYear);
+        corpusSource = "sqlite";
+      }
+    }
+  }
+
+  if (years.length === 0 && entries.length === 0) {
+    sourceOffline = true;
+  }
+
+  return {
+    years,
+    year: chosenYear,
+    entries,
+    albumIds,
+    startIndex,
+    hydrated,
+    corpusSource,
+    ...(sourceOffline ? { sourceOffline: true } : {}),
+  };
 }
 
 /**
@@ -335,13 +576,18 @@ async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap | null> {
  * `artwork:<id>`), so a manual `revalidateTag("viewer-bootstrap")` from a
  * data-import script will refresh everything on the next render.
  */
-export async function loadViewerBootstrap(): Promise<ViewerBootstrap | null> {
-  return unstable_cache(
-    loadViewerBootstrapImpl,
-    ["viewer-bootstrap"],
-    {
-      revalidate: 60 * 60,
-      tags: ["viewer-bootstrap", CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG],
-    },
-  )();
+export async function loadViewerBootstrap(): Promise<ViewerBootstrap> {
+  try {
+    return await unstable_cache(
+      loadViewerBootstrapImpl,
+      ["viewer-bootstrap"],
+      {
+        revalidate: 60 * 60,
+        tags: ["viewer-bootstrap", CANONICAL_ARTWORK_OVERRIDES_CACHE_TAG],
+      },
+    )();
+  } catch (err) {
+    logBootstrapFailure("cache_wrapper", err);
+    return emptyViewerBootstrap();
+  }
 }

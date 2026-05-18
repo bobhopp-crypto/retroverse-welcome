@@ -795,8 +795,9 @@ export default function PortalV2Client({
 
   if (years.length === 0) {
     return (
-      <div className="pv2-device-column flex flex-1 items-center justify-center py-16 text-[var(--pv2-muted,#8f8574)]">
-        No years in corpus.
+      <div className="pv2-device-column flex flex-1 flex-col items-center justify-center gap-2 py-16 text-[var(--pv2-muted,#8f8574)]">
+        {bootstrap.sourceOffline ? <p className="text-[13px] tracking-[0.12em]">Source offline</p> : null}
+        <p>No years in corpus.</p>
       </div>
     );
   }

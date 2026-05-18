@@ -279,3 +279,15 @@ export function saveRetroscopePersistedSession(
     /* quota / private mode */
   }
 }
+
+/** Wipe session + explored fog-of-war for this Retroscope layer (album / artist / track). */
+export function clearRetroscopePersistedState(scope: RetroscopePersistScope = "album"): void {
+  if (typeof window === "undefined") return;
+  try {
+    const keys = retroscopeStorageKeys(scope);
+    window.localStorage.removeItem(keys.session);
+    window.localStorage.removeItem(keys.explored);
+  } catch {
+    /* private mode */
+  }
+}

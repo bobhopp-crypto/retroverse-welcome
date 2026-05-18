@@ -2135,6 +2135,60 @@ body.arv-body-lock main {
   opacity: 0.55;
 }
 
+.arv-map-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem 0.45rem;
+}
+
+.arv-map-reset-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  max-width: min(100%, 22rem);
+  padding: 0.25rem 0.4rem;
+  border: 1px solid rgba(255, 120, 80, 0.35);
+  border-radius: 2px;
+  background: rgba(20, 8, 8, 0.55);
+}
+
+.arv-map-reset-prompt-text {
+  flex: 1 1 10rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  color: rgba(255, 210, 180, 0.9);
+}
+
+.arv-map-reset-btn {
+  font: inherit;
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid rgba(180, 200, 220, 0.35);
+  background: rgba(8, 14, 22, 0.75);
+  color: rgba(220, 236, 248, 0.88);
+  cursor: pointer;
+}
+
+.arv-map-reset-btn:hover {
+  border-color: rgba(220, 236, 248, 0.5);
+}
+
+.arv-map-reset-btn--confirm {
+  border-color: rgba(255, 120, 80, 0.55);
+  color: #ffb090;
+}
+
+.arv-map-reset-btn--confirm:hover {
+  border-color: rgba(255, 160, 120, 0.75);
+  background: rgba(48, 16, 12, 0.85);
+}
+
 .arv-map-close {
   padding: 0.35rem 0.75rem;
   font-size: 0.55rem;
