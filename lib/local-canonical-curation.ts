@@ -99,6 +99,34 @@ export function upsertCanonicalArtworkLocal(input: {
   };
 }
 
+export function preflightCanonicalArtworkLocalWrite(albumId: string, traceId?: string): void {
+  const album_id = normalizeAlbumId(albumId);
+  if (!/^RVAL\d{6}$/i.test(album_id)) {
+    throw new Error("invalid_rval_album_id");
+  }
+  const db = getLocalRetroverseDb();
+  let began = false;
+  try {
+    db.prepare("BEGIN IMMEDIATE").run();
+    began = true;
+    db.prepare("SELECT 1 FROM canonical_artwork WHERE album_id = ?").get(album_id);
+    db.prepare("ROLLBACK").run();
+    began = false;
+    curatorPipelineLog("local_db_preflight", { traceId, ok: true, albumId: album_id });
+  } catch (e) {
+    if (began) {
+      try {
+        db.prepare("ROLLBACK").run();
+      } catch {
+        /* best effort rollback */
+      }
+    }
+    const error = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    curatorPipelineLog("local_db_preflight", { traceId, ok: false, albumId: album_id, error });
+    throw e;
+  }
+}
+
 export function readCanonicalArtworkLocal(albumId: string): CanonicalArtworkLocalRow | null {
   const album_id = normalizeAlbumId(albumId);
   const row = getLocalRetroverseDb()

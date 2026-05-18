@@ -2,6 +2,7 @@ import { diagLog } from "@/lib/diag-log";
 
 export type CuratorPipelineStep =
   | "local_db_write"
+  | "local_db_preflight"
   | "local_db_verify"
   | "r2_upload"
   | "r2_verify"

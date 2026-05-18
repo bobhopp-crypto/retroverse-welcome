@@ -27,6 +27,7 @@ import {
 import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
 import {
   insertCuratorActionLocal,
+  preflightCanonicalArtworkLocalWrite,
   upsertCanonicalArtworkLocal,
   verifyCanonicalArtworkLocal,
 } from "@/lib/local-canonical-curation";
@@ -231,6 +232,13 @@ export async function POST(request: Request) {
 
   if (!isValidRvalAlbumId(albumId)) {
     return saveFail(traceId, "validate", "invalid_rval_album_id", `Expected RVAL######, got ${albumId}`, 400);
+  }
+
+  try {
+    preflightCanonicalArtworkLocalWrite(albumId, traceId);
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    return saveFail(traceId, "local_db_preflight", msg, msg);
   }
 
   try {
