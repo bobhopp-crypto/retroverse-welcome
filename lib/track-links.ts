@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
+import { upsertVdjLinkLocal } from "@/lib/local-canonical-curation";
 import { chartTrackLinkKey } from "@/lib/track-link-key";
 
 export const TRACK_LINKS_PATH =
@@ -91,5 +93,25 @@ export async function upsertTrackLink(
   );
   store.links.push(entry);
   await writeFile(abs, JSON.stringify(store, null, 2), "utf8");
+
+  const trackId = key;
+  try {
+    upsertVdjLinkLocal({
+      albumId: null,
+      trackId,
+      vdjFilePath: entry.vdjPath,
+    });
+    curatorPipelineLog("local_db_write", {
+      ok: true,
+      kind: "vdj_link",
+      trackId,
+      vdjPath: entry.vdjPath,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    curatorPipelineLog("local_db_write", { ok: false, kind: "vdj_link", trackId, error: msg });
+    throw new Error(`local_vdj_link_failed:${msg}`);
+  }
+
   return entry;
 }

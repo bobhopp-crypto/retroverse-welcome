@@ -310,13 +310,39 @@ export default function PortalV2CurateClient({
 
   const hasSelection = Boolean(selected);
 
-  function formatSaveFailure(httpStatus: number, payload: { error?: string; traceId?: string } | null, rawBody: string): string {
+  function formatSaveFailure(
+    httpStatus: number,
+    payload: {
+      error?: string;
+      traceId?: string;
+      stage?: string;
+      verification?: {
+        localDb?: { ok?: boolean; error?: string };
+        r2?: { ok?: boolean; error?: string };
+        overrides?: { ok?: boolean; error?: string };
+        supabaseMirror?: { ok?: boolean; error?: string; skipped?: boolean };
+      };
+    } | null,
+    rawBody: string,
+  ): string {
     const err = payload?.error ?? "";
+    const stage = payload?.stage ? ` [${payload.stage}]` : "";
     const trace = payload?.traceId ? ` (trace ${payload.traceId})` : "";
+    const v = payload?.verification;
+    const verifyHint =
+      v && !v.localDb?.ok
+        ? " Local DB write failed."
+        : v && v.r2 && !v.r2.ok
+          ? " R2 verification failed."
+          : v && !v.overrides?.ok
+            ? " Overrides file write failed."
+            : v && v.supabaseMirror && !v.supabaseMirror.ok && !v.supabaseMirror.skipped
+              ? " Supabase mirror failed (local save may still be canonical)."
+              : "";
     if (httpStatus === 401 && err === "ops_gate_required") {
       return `Save blocked: ops PIN required${trace}. Open /internal/ops-pin then retry.`;
     }
-    if (err) return `Save failed: ${err}${trace}`;
+    if (err) return `Save failed: ${err}${stage}${verifyHint}${trace}`;
     if (rawBody.trim()) {
       return `Save failed (HTTP ${httpStatus}): ${rawBody.slice(0, 240)}${rawBody.length > 240 ? "…" : ""}${trace}`;
     }
