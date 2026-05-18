@@ -2310,3 +2310,122 @@ body.arv-body-lock main {
     animation: none !important;
   }
 }
+
+/* —— First-launch orientation tour —— */
+.arv-orient {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  pointer-events: none;
+}
+
+.arv-orient-spotlight {
+  position: fixed;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(2, 2, 1, 0.82);
+  border: 2px solid rgba(255, 174, 56, 0.85);
+  z-index: 121;
+}
+
+.arv-orient-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 2, 1, 0.82);
+  z-index: 121;
+}
+
+.arv-orient-card {
+  position: fixed;
+  left: 50%;
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(22rem, calc(100vw - 1.5rem));
+  padding: 1rem 1.1rem 1.15rem;
+  background: linear-gradient(165deg, #2a1d12, #15100a);
+  border: 2px solid rgba(255, 174, 56, 0.55);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65);
+  pointer-events: auto;
+  z-index: 122;
+}
+
+.arv-orient-step {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(168, 94, 16, 0.75);
+  margin: 0 0 0.35rem;
+}
+
+.arv-orient-title {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--arv-amber-hot, #ffae38);
+  margin: 0 0 0.45rem;
+}
+
+.arv-orient-body {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: rgba(241, 227, 195, 0.92);
+  margin: 0 0 0.65rem;
+}
+
+.arv-orient-link {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--arv-amber-hot, #ffae38);
+  margin-bottom: 0.65rem;
+}
+
+.arv-orient-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.arv-orient-btn {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid rgba(168, 94, 16, 0.45);
+  background: transparent;
+  color: rgba(241, 227, 195, 0.9);
+  cursor: pointer;
+}
+
+.arv-orient-btn--primary {
+  background: rgba(232, 136, 24, 0.25);
+  border-color: rgba(255, 174, 56, 0.7);
+  color: var(--arv-amber-hot, #ffae38);
+}
+
+.arv-orient-btn--ghost {
+  opacity: 0.75;
+}
+
+.arv-help-tour-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.55rem 0.65rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--arv-amber-hot, #ffae38);
+  background: rgba(232, 136, 24, 0.12);
+  border: 1px solid rgba(255, 174, 56, 0.45);
+  cursor: pointer;
+}
+
+.arv-machine--orienting .arv-portal,
+.arv-machine--orienting .arv-viewport,
+.arv-machine--orienting .arv-strip--secondary {
+  position: relative;
+  z-index: 1;
+}

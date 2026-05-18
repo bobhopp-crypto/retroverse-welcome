@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 
+import { diagLog } from "@/lib/diag-log";
+
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import type { LinkWorkspacePayload, VdjFileRow } from "@/lib/relationship-workspace/load-link-workspace";
 import type { PlaybackStatus } from "@/lib/relationship-workspace/playback-check";
@@ -109,6 +111,14 @@ export default function RelationshipWorkspaceClient({
         }),
       });
       const body = (await res.json()) as { ok?: boolean; error?: string };
+      diagLog("track_link_client", {
+        ok: res.ok,
+        status: res.status,
+        error: body.error ?? null,
+        chartArtist: data.source.artist,
+        chartTitle: data.source.title,
+        vdjPath: selected.filePath,
+      });
       if (!res.ok) throw new Error(body.error ?? `${res.status}`);
       showToast("Saved");
       const back = data.source.chartWeek

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { checkPlaybackForFile } from "@/lib/relationship-workspace/playback-check";
 import { classifyVdjPath, isVideoExtension } from "@/lib/relationship-workspace/vdj-media";
+import { diagLog } from "@/lib/diag-log";
 import { upsertTrackLink } from "@/lib/track-links";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,13 @@ export async function POST(request: Request) {
   }
 
   const r2Url = playback.playUrl;
+
+  diagLog("track_link_accept", {
+    chartArtist,
+    chartTitle,
+    vdjPath,
+    playbackStatus: playback.status,
+  });
 
   try {
     const link = await upsertTrackLink({

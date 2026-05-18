@@ -38,6 +38,7 @@ import {
 } from "./retroscope-hero";
 import { RetroscopeMapOverlay } from "./retroscope-map-overlay";
 import { RetroscopeModeStrip } from "./retroscope-mode-strip";
+import { RetroscopeOrientationOverlay } from "./retroscope-orientation-overlay";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
   centerViewportOnSelection,
@@ -46,6 +47,11 @@ import {
   saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
 } from "@/lib/retroscope-persist-session";
+import { diagLog } from "@/lib/diag-log";
+import {
+  clearRetroscopeOrientationDismissed,
+  isRetroscopeOrientationDismissed,
+} from "@/lib/retroscope-orientation";
 
 const RVAL_RE = /RVAL[0-9]{6}/i;
 /** Finger noise only — inside this radius = tap to open dossier; outside = exactly one ±1 movement. */
@@ -254,7 +260,12 @@ export default function RetroscopeClient({
   const [operatorPanelOpen, setOperatorPanelOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [mapResetEpoch, setMapResetEpoch] = useState(0);
+  const [orientationOpen, setOrientationOpen] = useState(false);
   const router = useRouter();
+  const machineRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLElement>(null);
+  const viewportRef = useRef<HTMLElement>(null);
+  const stripRef = useRef<HTMLElement>(null);
   const [viewYear0, setViewYear0] = useState(() => {
     const rows = serverSnapshotRetroscopeGridRows();
     return centerViewportOnSelection({
@@ -422,6 +433,21 @@ export default function RetroscopeClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reflow on row-band change
   }, [visibleGridRows]);
 
+  /** First-launch orientation tour (dismissed permanently until reopened from help). */
+  useEffect(() => {
+    if (!bootstrapped || mapOpen) return;
+    if (isRetroscopeOrientationDismissed(persistScope)) return;
+    const t = window.setTimeout(() => setOrientationOpen(true), 500);
+    return () => window.clearTimeout(t);
+  }, [bootstrapped, mapOpen, persistScope]);
+
+  const openOrientationTour = useCallback(() => {
+    clearRetroscopeOrientationDismissed(persistScope);
+    setOperatorPanelOpen(false);
+    setMapOpen(false);
+    setOrientationOpen(true);
+  }, [persistScope]);
+
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
   const viewportFocus = useMemo(
@@ -451,6 +477,12 @@ export default function RetroscopeClient({
       },
       persistScope,
     );
+    diagLog("retroscope_persist", {
+      corpusId,
+      activeYear: snap.activeYear,
+      activeRank: snap.activeRank,
+      exploredCount: exploredKeys.length,
+    });
   }, [corpusId, viewYear0, viewRank0, persistScope]);
   const centerViewportOnActive = useCallback(
     (ny: number, nr: number) => {
@@ -693,9 +725,20 @@ export default function RetroscopeClient({
 
   const rankLabel = retroscopeRankDisplayLabel(activeRank, mode);
 
+  const orientationTargets = useMemo(
+    () => ({
+      welcome: machineRef,
+      portal: portalRef,
+      grid: viewportRef,
+      controls: stripRef,
+    }),
+    [],
+  );
+
   return (
     <div
-      className={`arv-machine${isArtistMode ? " arv-mode-artist" : ""}${isTrackMode ? " arv-mode-track" : ""}${operatorFlash ? " arv-machine--operator" : ""}${!bootstrapped ? " arv-machine--bootstrapping" : ""}`}
+      ref={machineRef}
+      className={`arv-machine${isArtistMode ? " arv-mode-artist" : ""}${isTrackMode ? " arv-mode-track" : ""}${operatorFlash ? " arv-machine--operator" : ""}${!bootstrapped ? " arv-machine--bootstrapping" : ""}${orientationOpen ? " arv-machine--orienting" : ""}`}
       style={isArtistMode && activeCell ? (artistSignalVars(activeCell) as CSSProperties) : undefined}
     >
       <div className="arv-device-face">
@@ -727,6 +770,7 @@ export default function RetroscopeClient({
       </Link>
 
       <section
+        ref={portalRef}
         className={`arv-portal${isArtistMode ? " arv-portal--field" : ""}${isTrackMode ? " arv-portal--track" : ""}`}
         aria-label={isArtistMode ? "Artist signal field" : isTrackMode ? "Track scan field" : "Album portal"}
       >
@@ -856,6 +900,10 @@ export default function RetroscopeClient({
                 <p className="arv-help-tip-line">Explore freely. There are no wrong moves.</p>
                 <p className="arv-help-tip-line arv-help-tip-line--accent">Follow the signal. Trust your curiosity.</p>
               </div>
+
+              <button type="button" className="arv-help-tour-btn" onClick={openOrientationTour}>
+                Replay guided tour
+              </button>
             </div>
 
             <footer className="arv-help-actions" aria-label="Aux channels">
@@ -920,7 +968,11 @@ export default function RetroscopeClient({
         </div>
       </section>
 
-      <section className="arv-strip arv-strip--secondary" aria-label="Retroscope controls (secondary)">
+      <section
+        ref={stripRef}
+        className="arv-strip arv-strip--secondary"
+        aria-label="Retroscope controls (secondary)"
+      >
         <div className="arv-readout arv-readout--year">
           <span className="arv-readout-lamp" aria-hidden />
           <div className="arv-readout-label">Year</div>
@@ -946,6 +998,7 @@ export default function RetroscopeClient({
       </section>
 
       <section
+        ref={viewportRef}
         className="arv-viewport"
         aria-label="Exploration viewport"
         style={
@@ -1057,6 +1110,14 @@ export default function RetroscopeClient({
           onResetApp={onResetRetroscope}
         />
       ) : null}
+
+      <RetroscopeOrientationOverlay
+        open={orientationOpen && bootstrapped && !mapOpen}
+        scope={persistScope}
+        targets={orientationTargets}
+        searchHref={searchHref ?? "/"}
+        onClose={() => setOrientationOpen(false)}
+      />
     </div>
   );
 }

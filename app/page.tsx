@@ -4,8 +4,9 @@ import { Suspense } from "react";
 import AskRetroverseClient from "./ask-retroverse-client";
 
 export const metadata: Metadata = {
-  title: "Ask Retroverse",
-  description: "Search chart tracks, albums, artists — and step into Retroscope, Track Deck, and more.",
+  title: "Retroverse — Search music history",
+  description:
+    "Press play for the past. Search chart tracks, albums, and artists — then travel through Retroscope, charts, and your DJ memory trails.",
 };
 
 /** Home is the search front door (200 OK — no redirect). */

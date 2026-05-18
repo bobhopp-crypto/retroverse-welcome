@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { CURATOR_LONG_PRESS_MS, CURATOR_MOVE_CANCEL_PX } from "@/app/components/album-curator-repair";
 import type { DiscoverStableAlbumRow } from "@/app/discover/discover-feed-types";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+import { diagLog } from "@/lib/diag-log";
 import {
   clampRankIndex,
   loadPortalRankSession,
@@ -267,7 +268,7 @@ export default function PortalV2Client({
       const resolvedUrl =
         publicCoverUrl ??
         canonicalCoverPathToUrl(canonicalCoverPath, { cacheBust: savedAt, coverBaseUrl });
-      console.log("[CURATOR/CLIENT] apply_curator_save", {
+      diagLog("curator_save_client", {
         albumId: id,
         canonicalCoverPath,
         savedAt,

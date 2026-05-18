@@ -1,0 +1,356 @@
+/* Retroverse front door — psychedelic magazine / FM guide */
+
+.rv-door {
+  --rv-magenta: #e91e8c;
+  --rv-orange: #ff6b2c;
+  --rv-gold: #ffc233;
+  --rv-lime: #7dff4a;
+  --rv-cyan: #2ee8ff;
+  --rv-violet: #8b5cf6;
+  --rv-cream: #fff4d6;
+  --rv-ink: #1a0a2e;
+  --rv-paper: #2d1548;
+  position: relative;
+  min-height: calc(100dvh - var(--rv-header-offset, 3rem));
+  color: var(--rv-cream);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 10% -20%, rgba(233, 30, 140, 0.55), transparent 50%),
+    radial-gradient(ellipse 90% 70% at 95% 10%, rgba(46, 232, 255, 0.4), transparent 45%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255, 107, 44, 0.45), transparent 50%),
+    linear-gradient(165deg, #1a0a2e 0%, #3d1a6b 38%, #5c2080 62%, #1f0d3a 100%);
+}
+
+.rv-door::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+.rv-door::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.04) 3px,
+    rgba(0, 0, 0, 0.04) 4px
+  );
+  pointer-events: none;
+}
+
+.rv-door-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 36rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+@media (min-width: 640px) {
+  .rv-door-inner {
+    max-width: 44rem;
+    padding: 2rem 1.5rem 4rem;
+  }
+}
+
+/* —— Hero / search —— */
+
+.rv-door-hero {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.rv-door-wordmark {
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  font-size: clamp(2.4rem, 11vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 0.95;
+  text-transform: uppercase;
+  background: linear-gradient(
+    95deg,
+    var(--rv-gold) 0%,
+    var(--rv-orange) 28%,
+    var(--rv-magenta) 55%,
+    var(--rv-cyan) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(255, 194, 51, 0.35));
+  margin-bottom: 0.5rem;
+}
+
+.rv-door-kicker {
+  font-family: Georgia, "Iowan Old Style", Palatino, serif;
+  font-size: clamp(1.15rem, 4.5vw, 1.55rem);
+  font-style: italic;
+  color: var(--rv-lime);
+  text-shadow: 0 0 20px rgba(125, 255, 74, 0.45);
+  margin: 0 0 0.35rem;
+}
+
+.rv-door-promise {
+  font-size: clamp(0.95rem, 3.2vw, 1.15rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 244, 214, 0.88);
+  margin: 0;
+}
+
+.rv-door-search-block {
+  margin-bottom: 1rem;
+}
+
+.rv-door-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 3px solid var(--rv-gold);
+  border-radius: 2px;
+  background: rgba(26, 10, 46, 0.92);
+  color: var(--rv-cream);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: clamp(1.2rem, 4.5vw, 1.65rem);
+  line-height: 1.25;
+  padding: 1rem 1.1rem;
+  min-height: 3.5rem;
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(255, 194, 51, 0.15),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.rv-door-search::placeholder {
+  color: rgba(255, 244, 214, 0.4);
+  font-size: clamp(0.85rem, 3vw, 1rem);
+}
+
+.rv-door-search:focus {
+  border-color: var(--rv-cyan);
+  box-shadow:
+    0 0 0 4px rgba(46, 232, 255, 0.25),
+    0 8px 40px rgba(46, 232, 255, 0.2);
+}
+
+.rv-door-hint {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 244, 214, 0.55);
+  margin-top: 0.55rem;
+  min-height: 1.1rem;
+}
+
+/* —— Search results —— */
+
+.rv-door-results {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: rgba(26, 10, 46, 0.75);
+  border: 2px solid rgba(255, 194, 51, 0.35);
+}
+
+.rv-door-section-head {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--rv-cyan);
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px dashed rgba(46, 232, 255, 0.4);
+}
+
+.rv-door-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-bottom: 1px solid rgba(255, 244, 214, 0.1);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0.55rem 0.25rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.rv-door-row:hover {
+  background: rgba(233, 30, 140, 0.12);
+}
+
+.rv-door-row-main {
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.rv-door-row-sub {
+  font-size: 0.75rem;
+  opacity: 0.65;
+  margin-top: 0.15rem;
+}
+
+/* —— Editorial magazine strips —— */
+
+.rv-door-magazine {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  margin-top: 0.5rem;
+  transition: opacity 0.35s ease, filter 0.35s ease;
+}
+
+.rv-door-magazine--dim {
+  opacity: 0.25;
+  filter: blur(2px) saturate(0.5);
+  pointer-events: none;
+}
+
+.rv-door-story {
+  position: relative;
+  padding: 1.1rem 1rem 1.15rem;
+  border: 2px solid;
+  transform: rotate(-0.4deg);
+  box-shadow: 6px 8px 0 rgba(0, 0, 0, 0.35);
+}
+
+.rv-door-story:nth-child(even) {
+  transform: rotate(0.5deg);
+  margin-left: 0.35rem;
+}
+
+.rv-door-story-num {
+  position: absolute;
+  top: -0.65rem;
+  left: 0.75rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  padding: 0.15rem 0.45rem;
+  background: var(--rv-ink);
+  border: 2px solid currentColor;
+}
+
+.rv-door-story-title {
+  font-family: Georgia, "Iowan Old Style", Palatino, serif;
+  font-size: clamp(1.35rem, 5vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0.35rem 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rv-door-story-body {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 0 0 0.85rem;
+  opacity: 0.92;
+}
+
+.rv-door-story-cta {
+  display: inline-block;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--rv-ink);
+  background: var(--rv-gold);
+  padding: 0.45rem 0.75rem;
+  border: 2px solid var(--rv-ink);
+}
+
+.rv-door-story-cta:hover {
+  background: var(--rv-lime);
+}
+
+.rv-door-story--magenta {
+  background: linear-gradient(135deg, rgba(233, 30, 140, 0.35), rgba(139, 92, 246, 0.4));
+  border-color: var(--rv-magenta);
+  color: #fff;
+}
+
+.rv-door-story--magenta .rv-door-story-num {
+  color: var(--rv-magenta);
+}
+
+.rv-door-story--orange {
+  background: linear-gradient(135deg, rgba(255, 107, 44, 0.4), rgba(255, 194, 51, 0.25));
+  border-color: var(--rv-orange);
+  color: #fff8ee;
+}
+
+.rv-door-story--orange .rv-door-story-num {
+  color: var(--rv-orange);
+}
+
+.rv-door-story--gold {
+  background: linear-gradient(135deg, rgba(255, 194, 51, 0.35), rgba(255, 107, 44, 0.3));
+  border-color: var(--rv-gold);
+  color: #1a0a2e;
+}
+
+.rv-door-story--gold .rv-door-story-title {
+  color: #1a0a2e;
+}
+
+.rv-door-story--gold .rv-door-story-num {
+  color: var(--rv-gold);
+}
+
+.rv-door-story--lime {
+  background: linear-gradient(135deg, rgba(125, 255, 74, 0.25), rgba(46, 232, 255, 0.3));
+  border-color: var(--rv-lime);
+  color: #0a1a12;
+}
+
+.rv-door-story--lime .rv-door-story-title {
+  color: #0a1a12;
+}
+
+.rv-door-story--lime .rv-door-story-num {
+  color: #2a8a20;
+}
+
+.rv-door-story--cyan {
+  background: linear-gradient(135deg, rgba(46, 232, 255, 0.3), rgba(139, 92, 246, 0.35));
+  border-color: var(--rv-cyan);
+  color: #fff;
+}
+
+.rv-door-story--cyan .rv-door-story-num {
+  color: var(--rv-cyan);
+}
+
+.rv-door-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.rv-door-footer a {
+  color: var(--rv-gold);
+  text-decoration: none;
+  margin: 0 0.35rem;
+}
+
+.rv-door-footer a:hover {
+  color: var(--rv-lime);
+}
