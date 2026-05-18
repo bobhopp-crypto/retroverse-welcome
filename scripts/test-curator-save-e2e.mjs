@@ -2,8 +2,7 @@
  * Curator save smoke tests (no browser).
  * Usage: npx tsx scripts/test-curator-save-e2e.mjs [baseUrl]
  */
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 
 const albumId = "RVAL342687";
 const stagedPath =
@@ -93,33 +92,42 @@ async function testApi(baseUrl, label, expectStorage) {
   });
 }
 
-function startDevWithoutR2(port) {
-  const env = {
-    ...process.env,
-    PORT: String(port),
-    R2_ACCOUNT_ID: "",
-    R2_ACCESS_KEY_ID: "",
-    R2_SECRET_ACCESS_KEY: "",
-    R2_BUCKET_NAME: "",
-  };
-  return spawn("npm", ["run", "dev"], {
-    cwd: process.cwd(),
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-}
+async function testRouteDirectNoR2() {
+  process.env.R2_ACCOUNT_ID = "";
+  process.env.R2_ACCESS_KEY_ID = "";
+  process.env.R2_SECRET_ACCESS_KEY = "";
+  process.env.R2_BUCKET_NAME = "";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "";
+  process.env.CANONICAL_ARTWORK_OVERRIDES_PATH = "/dev/null/retroverse-overrides.json";
 
-async function waitForServer(baseUrl, timeoutMs = 90_000) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    try {
-      const res = await fetch(`${baseUrl}/api/health`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok || res.status === 404) return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 1500));
-    }
+  const { POST } = await import("../app/api/artwork-workbench/living-action/route.ts");
+  const req = new Request("http://local.test/api/artwork-workbench/living-action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "replace_artwork",
+      albumId,
+      artist: "Fleetwood Mac",
+      title: "Rumours",
+      stagedFilePath: stagedPath,
+      replaceSource: "staged",
+    }),
+  });
+  const res = await POST(req);
+  const json = await res.json();
+  if (res.status !== 200 || !json.ok) {
+    throw new Error(`[route-direct-no-r2] failed ${res.status} ${JSON.stringify(json)}`);
   }
-  throw new Error("dev server did not become ready");
+  if (json.storage !== "local") throw new Error(`expected local storage, got ${json.storage}`);
+  if (!json.localDbVerified) throw new Error("localDbVerified false");
+  if (!json.displayUrl?.startsWith("/retroverse/covers/")) {
+    throw new Error(`bad local displayUrl ${json.displayUrl}`);
+  }
+  console.log("[e2e] direct route no-R2 + optional override failure OK", {
+    storage: json.storage,
+    displayUrl: json.displayUrl,
+    canonicalCoverPath: json.canonicalCoverPath,
+  });
 }
 
 async function main() {
@@ -131,22 +139,7 @@ async function main() {
     return;
   }
 
-  const port = 3011;
-  const baseUrl = `http://localhost:${port}`;
-  const child = startDevWithoutR2(port);
-  let logs = "";
-  child.stdout?.on("data", (d) => {
-    logs += d.toString();
-  });
-  child.stderr?.on("data", (d) => {
-    logs += d.toString();
-  });
-  try {
-    await waitForServer(baseUrl);
-    await testApi(baseUrl, "no-r2-dev", "local");
-  } finally {
-    child.kill("SIGTERM");
-  }
+  await testRouteDirectNoR2();
 }
 
 main().catch((e) => {

@@ -15,6 +15,8 @@ export function curatorPipelineLog(
   payload: Record<string, unknown> & { traceId?: string; ok?: boolean },
 ): void {
   const row = { step, ...payload };
-  console.info("[CURATOR/PIPELINE]", row);
+  if (process.env.NODE_ENV !== "production" || payload.ok === false) {
+    console.info("[CURATOR/PIPELINE]", row);
+  }
   diagLog(`curator_${step}`, row);
 }

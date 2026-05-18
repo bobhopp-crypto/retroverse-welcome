@@ -128,6 +128,12 @@ function saveFail(
   return NextResponse.json({ ok: false, stage, message, detail: detail ?? message, traceId }, { status });
 }
 
+function curatorDebug(event: string, payload: Record<string, unknown>): void {
+  if (process.env.NODE_ENV !== "production") {
+    console.log(event, payload);
+  }
+}
+
 function runRevalidate(traceId: string, albumId: string): void {
   const tags = [
     `artwork:${albumId}`,
@@ -137,7 +143,7 @@ function runRevalidate(traceId: string, albumId: string): void {
   for (const tag of tags) {
     try {
       revalidateTag(tag, { expire: 0 });
-      console.log("[CURATOR/REVALIDATE] tag_ok", { traceId, tag });
+      curatorDebug("[CURATOR/REVALIDATE] tag_ok", { traceId, tag });
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/REVALIDATE] tag_failed", { traceId, tag, error: msg });
@@ -155,7 +161,7 @@ function runRevalidate(traceId: string, albumId: string): void {
   for (const p of paths) {
     try {
       revalidatePath(p);
-      console.log("[CURATOR/REVALIDATE] path_ok", { traceId, path: p });
+      curatorDebug("[CURATOR/REVALIDATE] path_ok", { traceId, path: p });
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/REVALIDATE] path_failed", { traceId, path: p, error: msg });
@@ -169,7 +175,7 @@ export async function POST(request: Request) {
 
   logCuratorR2EnvPresence(traceId);
 
-  console.log("[CURATOR/API] request_received", {
+  curatorDebug("[CURATOR/API] request_received", {
     traceId,
     ts: ts(),
     method: request.method,
@@ -203,7 +209,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: `invalid_json:${msg}`, traceId }, { status: 400 });
   }
 
-  console.log("[CURATOR/API] request_body", {
+  curatorDebug("[CURATOR/API] request_body", {
     traceId,
     ts: ts(),
     action: body.action ?? null,
@@ -229,7 +235,13 @@ export async function POST(request: Request) {
 
   try {
 
-  const registry = await loadArtworkStateRegistry();
+  let registry: Awaited<ReturnType<typeof loadArtworkStateRegistry>> | null = null;
+  try {
+    registry = await loadArtworkStateRegistry();
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.warn("[CURATOR/API] artwork_state_registry_load_failed_nonfatal", { traceId, error: msg });
+  }
   const beforePath = await pickCanonicalCoverPathForAlbum(albumId);
   const beforeSnapshot = {
     retroverse_album_id: body.albumId,
@@ -237,7 +249,7 @@ export async function POST(request: Request) {
     artwork_status: null as string | null,
   };
 
-  console.log("[CURATOR/API] before_local_cover", {
+  curatorDebug("[CURATOR/API] before_local_cover", {
     traceId,
     existingCanonicalPath: beforePath ?? null,
   });
@@ -260,7 +272,7 @@ export async function POST(request: Request) {
   if (body.action === "approve" || body.action === "replace_artwork") {
     const stagedPath = allowedStagedPath(body.stagedFilePath);
     const remote = allowedRemoteImage(body.candidateImageUrl ?? null);
-    console.log("[CURATOR/API] deploy_source_resolved", {
+    curatorDebug("[CURATOR/API] deploy_source_resolved", {
       traceId,
       hasStagedPath: Boolean(stagedPath),
       hasRemote: Boolean(remote),
@@ -271,7 +283,7 @@ export async function POST(request: Request) {
       console.warn("[CURATOR/API] reject_missing_valid_replace_source", { traceId });
       return saveFail(traceId, "source", "missing_valid_replace_source", undefined, 400);
     }
-    console.log("[CURATOR/API] deploy_start", {
+    curatorDebug("[CURATOR/API] deploy_start", {
       traceId,
       mode: stagedPath ? "staged" : "remote",
     });
@@ -287,7 +299,7 @@ export async function POST(request: Request) {
     }
     canonicalPath = deployed.canonicalPath;
     coverStorage = deployed.storage;
-    console.log("[CURATOR/API] cover_persisted", {
+    curatorDebug("[CURATOR/API] cover_persisted", {
       traceId,
       canonicalPath,
       storage: coverStorage,
@@ -370,7 +382,7 @@ export async function POST(request: Request) {
       traceId,
     );
     curatorPipelineLog("overrides_write", { traceId, ok: true, albumId, canonicalPath });
-    console.log("[CURATOR/API] canonical_overrides_written", {
+    curatorDebug("[CURATOR/API] canonical_overrides_written", {
       traceId,
       canonicalPath,
       artwork_status: status,
@@ -380,20 +392,25 @@ export async function POST(request: Request) {
     console.warn("[CURATOR/API] override_write_failed_nonfatal", { traceId, error: msg });
   }
 
-  const mirror = await mirrorCanonicalArtworkToSupabase({
-    albumId,
-    canonicalCoverPath: canonicalPath,
-    artworkStatus: status,
-    coverSource: sourceTag,
-    notes,
-    traceId,
-  });
-  if (!mirror.ok && !("skipped" in mirror && mirror.skipped)) {
-    console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", {
+  try {
+    const mirror = await mirrorCanonicalArtworkToSupabase({
       traceId,
       albumId,
-      error: mirror.error,
+      canonicalCoverPath: canonicalPath,
+      artworkStatus: status,
+      coverSource: sourceTag,
+      notes,
     });
+    if (!mirror.ok && !("skipped" in mirror && mirror.skipped)) {
+      console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", {
+        traceId,
+        albumId,
+        error: mirror.error,
+      });
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", { traceId, albumId, error: msg });
   }
 
   try {
@@ -410,36 +427,38 @@ export async function POST(request: Request) {
     canonical_cover_path: canonicalPath,
     artwork_status: statusForState(nextState),
   };
-  upsertArtworkState(registry, {
-    albumId: body.albumId,
-    nextState,
-    confidenceScore: body.confidence ?? null,
-    provisional: nextState !== "canonical_verified" && nextState !== "manually_corrected",
-    provenanceSource: sourceTag,
-    provenanceRunId: body.runId ?? null,
-    candidateArtist: body.sourceArtist ?? null,
-    candidateCollection: body.sourceCollection ?? null,
-    candidateReleaseDate: body.sourceReleaseDate ?? null,
-    candidateArtworkUrl: body.candidateSource ?? null,
-    stagedFile: body.stagedFilePath ?? null,
-    queryUsed: body.queryUsed ?? null,
-    normalizedQuery: body.normalizedQuery ?? null,
-    appliedAt: new Date().toISOString(),
-    action: body.action,
-    actor: "curator",
-    notes: `${notes}; storage=${coverStorage ?? "n/a"}`,
-    dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
-    dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
-  });
-  try {
-    await saveArtworkStateRegistry(registry);
-    console.log("[CURATOR/API] artwork_state_registry_saved", {
-      traceId,
-      skippedInProduction: process.env.NODE_ENV === "production",
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.warn("[CURATOR/API] artwork_state_registry_failed_nonfatal", { traceId, error: msg });
+  if (registry) {
+    try {
+      upsertArtworkState(registry, {
+        albumId: body.albumId,
+        nextState,
+        confidenceScore: body.confidence ?? null,
+        provisional: nextState !== "canonical_verified" && nextState !== "manually_corrected",
+        provenanceSource: sourceTag,
+        provenanceRunId: body.runId ?? null,
+        candidateArtist: body.sourceArtist ?? null,
+        candidateCollection: body.sourceCollection ?? null,
+        candidateReleaseDate: body.sourceReleaseDate ?? null,
+        candidateArtworkUrl: body.candidateSource ?? null,
+        stagedFile: body.stagedFilePath ?? null,
+        queryUsed: body.queryUsed ?? null,
+        normalizedQuery: body.normalizedQuery ?? null,
+        appliedAt: new Date().toISOString(),
+        action: body.action,
+        actor: "curator",
+        notes: `${notes}; storage=${coverStorage ?? "n/a"}`,
+        dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
+        dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
+      });
+      await saveArtworkStateRegistry(registry);
+      curatorDebug("[CURATOR/API] artwork_state_registry_saved", {
+        traceId,
+        skippedInProduction: process.env.NODE_ENV === "production",
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.warn("[CURATOR/API] artwork_state_registry_failed_nonfatal", { traceId, error: msg });
+    }
   }
 
   const payload = {
@@ -457,7 +476,7 @@ export async function POST(request: Request) {
     traceId,
   };
 
-  console.log("[CURATOR/API] response_ok", {
+  curatorDebug("[CURATOR/API] response_ok", {
     traceId,
     albumId: body.albumId,
     action: body.action,

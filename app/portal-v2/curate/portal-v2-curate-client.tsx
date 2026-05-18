@@ -294,7 +294,10 @@ export default function PortalV2CurateClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Ingest keyed on stable album primitives; avoids parent row object identity churn re-fetching curator.
   }, [row.albumId, row.artist, row.title, row.year]);
 
-  const displaySlots: WorkbenchCandidate[] = loading || candidateFetchError ? [] : grid;
+  const displaySlots: WorkbenchCandidate[] = useMemo(
+    () => (loading || candidateFetchError ? [] : grid),
+    [candidateFetchError, grid, loading],
+  );
 
   const selected = useMemo(() => {
     if (!selectedUrl) return null;
@@ -350,7 +353,7 @@ export default function PortalV2CurateClient({
   }, [loading, candidateFetchError, grid]);
 
   async function applySelected() {
-    if (!selected || applyPending) return;
+    if (!selected || applyPending || pastePending) return;
     const stagedAbs =
       typeof selected.stagedFilePath === "string" ? selected.stagedFilePath.trim() : "";
     const img = typeof selected.image === "string" ? selected.image.trim() : "";
@@ -498,6 +501,7 @@ export default function PortalV2CurateClient({
    */
   function submitSave(e: FormEvent) {
     e.preventDefault();
+    if (pastePending || applyPending) return;
     if (pasteUrl.trim().length > 0) {
       void submitPasteUrl(e);
       return;
@@ -530,7 +534,7 @@ export default function PortalV2CurateClient({
 
   async function submitPasteUrl(e: FormEvent) {
     e.preventDefault();
-    if (pastePending) return;
+    if (pastePending || applyPending) return;
     const raw = pasteUrl.trim();
     if (!raw) return;
 
@@ -652,6 +656,7 @@ export default function PortalV2CurateClient({
         onDismiss();
       } else {
         setPasteUrl("");
+        setSelectedUrl(null);
       }
     } catch (err) {
       const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
