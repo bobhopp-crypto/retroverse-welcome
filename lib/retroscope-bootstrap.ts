@@ -11,7 +11,7 @@ import {
 } from "@/lib/album-retroscope-constants";
 import { retroscopeStorageKeys, type RetroscopePersistScope } from "@/lib/retroscope-mode";
 import {
-  fitViewportToIncludeCoordinate,
+  centerViewportOnSelection,
   isValidRetroscopeCoordKey,
   loadRetroscopeExploredKeys,
   loadRetroscopePersistedSession,
@@ -105,18 +105,11 @@ function coordinateFromExploredFallback(
   return parseRetroscopeCoordKey(initialActiveKey);
 }
 
-function fittedViewport(
-  activeYear: number,
-  activeRank: number,
-  viewYear0: number,
-  viewRank0: number,
-  visibleGridRows: number,
-) {
-  return fitViewportToIncludeCoordinate({
+/** Always derive viewport from center-locked playhead (ignore legacy saved pan offsets). */
+function fittedViewport(activeYear: number, activeRank: number, visibleGridRows: number) {
+  return centerViewportOnSelection({
     activeYear,
     activeRank,
-    viewYear0,
-    viewRank0,
     visibleGridRows,
   });
 }
@@ -149,13 +142,7 @@ export function resolveRetroscopeBootstrap(opts: {
   const parsedInitial = parseRetroscopeCoordKey(initialActiveKey);
 
   if (typeof window === "undefined") {
-    const fitted = fittedViewport(
-      parsedInitial.y,
-      parsedInitial.r,
-      clamp(parsedInitial.y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
-      clamp(parsedInitial.r, 1, RETROSCOPE_RANK_MAX - gridRows + 1),
-      gridRows,
-    );
+    const fitted = fittedViewport(parsedInitial.y, parsedInitial.r, gridRows);
     const activeK = retroscopeCellKey(parsedInitial.y, parsedInitial.r);
     return {
       activeYear: parsedInitial.y,
@@ -187,7 +174,7 @@ export function resolveRetroscopeBootstrap(opts: {
   if (saved) {
     const ay = saved.activeYear;
     const ar = saved.activeRank;
-    const fitted = fittedViewport(ay, ar, saved.viewYear0, saved.viewRank0, gridRows);
+    const fitted = fittedViewport(ay, ar, gridRows);
     const exploredKeys = mergeRetroscopeExploredKeys(storedExplored, saved.exploredKeys);
     saveRetroscopeExploredKeys(exploredKeys, scope);
     const result: RetroscopeBootstrapResult = {
@@ -217,13 +204,7 @@ export function resolveRetroscopeBootstrap(opts: {
 
   if (isFirstVisit) {
     const { y, r } = randomFirstVisitBootstrap(cells);
-    const fitted = fittedViewport(
-      y,
-      r,
-      clamp(y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
-      clamp(r, 1, RETROSCOPE_RANK_MAX - gridRows + 1),
-      gridRows,
-    );
+    const fitted = fittedViewport(y, r, gridRows);
     const exploredKeys = mergeRetroscopeExploredKeys(storedExplored, [retroscopeCellKey(y, r)]);
     saveRetroscopeExploredKeys(exploredKeys, scope);
     saveRetroscopePersistedSession(
@@ -259,13 +240,7 @@ export function resolveRetroscopeBootstrap(opts: {
   }
 
   const { y, r } = coordinateFromExploredFallback(storedExplored, initialActiveKey, keys);
-  const fitted = fittedViewport(
-    y,
-    r,
-    clamp(y, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1),
-    clamp(r, 1, RETROSCOPE_RANK_MAX - gridRows + 1),
-    gridRows,
-  );
+  const fitted = fittedViewport(y, r, gridRows);
   const exploredKeys = mergeRetroscopeExploredKeys(storedExplored, [retroscopeCellKey(y, r)]);
   saveRetroscopeExploredKeys(exploredKeys, scope);
   saveRetroscopePersistedSession(

@@ -1019,7 +1019,7 @@ export default function RetroscopeClient({
                       <span className="arv-cell-glyph" aria-hidden />
                       <span className="arv-cell-artist-name">{cell.title}</span>
                     </>
-                  ) : isTrackMode && cell && (isExplored || isActive) ? (
+                  ) : isTrackMode && cell ? (
                     <>
                       <span className="arv-cell-track-bar" aria-hidden />
                       <span className="arv-cell-artist-name">{cell.title}</span>

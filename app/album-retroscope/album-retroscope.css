@@ -917,7 +917,14 @@ body.arv-body-lock main {
 }
 
 .arv-cell--unexplored:not(.arv-cell--void) {
-  opacity: 0.48;
+  /* Avoid cell-level opacity — it dims ::before notch squares below visibility. */
+  background: #040302;
+  border-top-color: rgba(48, 40, 32, 0.55);
+}
+
+.arv-cell--unexplored:not(.arv-cell--void)::before {
+  background: rgba(168, 94, 16, 0.52);
+  box-shadow: 0 0 2px rgba(168, 94, 16, 0.35);
 }
 
 .arv-cell--explored:not(.arv-cell--active) {

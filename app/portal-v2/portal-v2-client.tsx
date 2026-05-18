@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { CURATOR_LONG_PRESS_MS, CURATOR_MOVE_CANCEL_PX } from "@/app/components/album-curator-repair";
@@ -159,6 +160,7 @@ export default function PortalV2Client({
   /** R2 public origin from server env — avoids stale NEXT_PUBLIC at client build time. */
   coverBaseUrl?: string | null;
 }) {
+  const router = useRouter();
   const { years } = bootstrap;
   const bootstrapYearIdxRaw = years.indexOf(bootstrap.year);
   const bootstrapYearIdx = bootstrapYearIdxRaw >= 0 ? bootstrapYearIdxRaw : 0;
@@ -299,8 +301,10 @@ export default function PortalV2Client({
             error: e instanceof Error ? e.message : String(e),
           });
         });
+
+      router.refresh();
     },
-    [coverBaseUrl, mergeRowsCached],
+    [coverBaseUrl, mergeRowsCached, router],
   );
 
   const ensureHydrated = useCallback(
