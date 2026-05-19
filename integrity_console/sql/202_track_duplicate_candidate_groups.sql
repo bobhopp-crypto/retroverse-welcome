@@ -8,6 +8,7 @@ WITH normalized AS (
     t.artist_id,
     a.canonical_name AS artist_name,
     t.title AS original_title,
+    length(t.title) AS title_length,
     t.duration_seconds,
     lower(trim(regexp_replace(t.title, '\s+', ' ', 'g'))) AS normalized_title_basic,
     lower(
