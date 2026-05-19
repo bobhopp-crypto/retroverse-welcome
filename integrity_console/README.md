@@ -41,6 +41,16 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 | `sql/304_track_variant_relationship_analysis.sql` | Pairwise variant relationships inside families | No |
 | `sql/305_track_family_population_execute.sql` | Populate families + members (idempotent) | **Yes** (additive DML) |
 
+### Phase 4 — Album identity & lineage (analysis only)
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/401_album_identity_analysis.sql` | Album graph integrity report | No |
+| `sql/402_album_family_candidates.sql` | Canonical album family candidates | No |
+| `sql/403_album_track_lineage_analysis.sql` | Album ↔ track family lineage | No |
+| `sql/404_billboard_200_import_readiness.sql` | Billboard 200 import readiness | No |
+| `sql/405_album_graph_preview.sql` | Artist → album → edition → track family graph | No |
+
 ## Run order
 
 ### Artists
@@ -71,6 +81,37 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 5. `305_track_family_population_execute.sql` — populate identity tables only
 
 **305 does not modify `tracks` or `chart_appearances`.** Re-running 305 skips existing members (`ON CONFLICT DO NOTHING`).
+
+### Albums (Phase 4 — read-only)
+
+1. `401_album_identity_analysis.sql` — orphans, duplicates, chart gaps
+2. `402_album_family_candidates.sql` — proposed album families (remaster/deluxe/live preserved)
+3. `403_album_track_lineage_analysis.sql` — album ↔ track family wiring
+4. `404_billboard_200_import_readiness.sql` — structural B200 readiness
+5. `405_album_graph_preview.sql` — full graph preview (limited rows)
+
+**Phase 4 does not merge albums, delete editions, or rewrite chart history.**
+
+## Retroverse Album Identity Model
+
+Albums in Retroverse are **canonical identity anchors**, not flat release metadata.
+
+| Concept | Table / layer | What it represents |
+|---------|----------------|-------------------|
+| **Canonical album** | `albums` | Artist-owned album identity (title + release context) |
+| **Edition** | `album_editions` | Release/edition slice (remaster year, deluxe, canonical flag) |
+| **Album track** | `tracks.album_id` | Which recordings appear on this album |
+| **Track family** | `track_families` + members | Song-level identity under the album |
+| **Chart lineage** | `chart_appearances` | Week facts on `album_id` and/or `track_id` — never collapsed in Phase 4 |
+
+### Relationship to track families
+
+- **Album** = release container (Hotel California the album).
+- **Track family** = song identity (title variants across cuts).
+- **Edition** = which pressing/package (Deluxe, Remastered 2013).
+- **Chart appearance** = historical proof of what charted.
+
+Phase 4 analysis links these layers without merging rows. Future album merge tooling must preserve chart FKs the same way track merges do.
 
 ## Retroverse Track Identity Model
 
@@ -194,5 +235,6 @@ Take a `pg_dump` snapshot before first production bulk merge on a large database
 - No CSV cleanup
 - No writes to `staging_music_imports`
 - No track merges, track deletes, or track updates (Phase 2–3)
-- Phase 3 does not rewrite `chart_appearances` lineage
+- No album merges or edition deletes (Phase 4)
+- Phase 3–4 do not rewrite `chart_appearances` lineage
 - No automatic promotion to canonical beyond FK reassignment (artist execute scripts only)
