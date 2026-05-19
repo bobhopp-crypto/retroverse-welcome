@@ -123,6 +123,57 @@ function CandidateTile({
   );
 }
 
+function RestorationPanel({
+  label,
+  eyebrow,
+  src,
+  fallbackLabel,
+  remixKey,
+  active = false,
+  restored = false,
+}: {
+  label: string;
+  eyebrow: string;
+  src: string | null;
+  fallbackLabel: string;
+  remixKey: string;
+  active?: boolean;
+  restored?: boolean;
+}) {
+  return (
+    <section
+      className={[
+        "min-w-0 rounded-[1.05rem] p-[3px] transition-all duration-500",
+        restored
+          ? "bg-[linear-gradient(145deg,rgba(255,123,64,0.95),rgba(200,169,107,0.9)_42%,rgba(109,59,255,0.76))] shadow-[0_0_34px_rgba(255,123,64,0.28)]"
+          : active
+            ? "bg-[linear-gradient(145deg,rgba(200,169,107,0.72),rgba(113,78,43,0.35),rgba(18,34,52,0.92))]"
+            : "bg-[linear-gradient(145deg,rgba(200,169,107,0.28),rgba(14,25,38,0.88))]",
+      ].join(" ")}
+    >
+      <div className="rounded-[0.9rem] bg-[radial-gradient(circle_at_30%_0%,rgba(255,123,64,0.14),transparent_42%),linear-gradient(180deg,#100b16,#07111c)] p-2 shadow-[inset_0_0_0_1px_rgba(243,234,219,0.08)]">
+        <div className="mb-2 flex min-h-10 flex-col justify-end">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#c8a96b]">{eyebrow}</p>
+          <p className="mt-0.5 truncate text-[13px] font-semibold text-[#f3eadb]">{label}</p>
+        </div>
+        <div
+          className={[
+            "relative aspect-square overflow-hidden rounded-[0.7rem] bg-[#08111d] ring-1 transition-transform duration-500",
+            restored ? "scale-[1.015] ring-[#f3eadb]/45" : "ring-[rgba(200,169,107,0.22)]",
+          ].join(" ")}
+          style={{
+            boxShadow: restored
+              ? "0 18px 44px rgba(0,0,0,0.58), inset 0 0 38px rgba(255,255,255,0.08)"
+              : "inset 0 0 38px rgba(0,0,0,0.55)",
+          }}
+        >
+          <HeroCover src={src} fallbackLabel={fallbackLabel} remixKey={remixKey} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type PortalV2CuratePresentation = "page" | "overlay";
 
 /**
@@ -183,22 +234,22 @@ export default function PortalV2CurateClient({
   const [savedCacheBust, setSavedCacheBust] = useState<number | null>(null);
   const [savedDisplayUrl, setSavedDisplayUrl] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
 
   /**
    * `normalizeCandidateArtworkUrl` strips query params (used for dedupe), so
    * the cache-bust token has to be applied AFTER normalization — otherwise it
    * would be stripped and the browser would keep showing the stale image.
    */
-  const currentCoverUrl = useMemo(() => {
-    if (savedDisplayUrl) return savedDisplayUrl;
+  const archiveCoverUrl = useMemo(() => {
     const normalized = normalizeCandidateArtworkUrl(
       canonicalCoverPathToUrl(row.canonicalCoverPath, {
-        cacheBust: savedCacheBust ?? undefined,
+        cacheBust: row.canonicalCoverCacheBust ?? undefined,
         coverBaseUrl,
       }),
     );
     return normalized;
-  }, [row.canonicalCoverPath, savedCacheBust, coverBaseUrl, savedDisplayUrl]);
+  }, [row.canonicalCoverPath, row.canonicalCoverCacheBust, coverBaseUrl]);
 
   const grid = useMemo(() => {
     const out: WorkbenchCandidate[] = [];
@@ -305,14 +356,11 @@ export default function PortalV2CurateClient({
   }, [selectedUrl, displaySlots]);
 
   const previewSrc = selected ? normalizeCandidateArtworkUrl(selected.image) : null;
-  const heroSrc = previewSrc ?? currentCoverUrl;
-  /**
-   * `savedCacheBust` participates so the hero <img> re-mounts after a save and
-   * the browser refetches the new R2 bytes (same URL, new content).
-   */
-  const heroRemixKey = selected
-    ? `pick-${normalizeCandidateArtworkUrl(selected.image) ?? "none"}`
-    : `archive-${normalizeCandidateArtworkUrl(currentCoverUrl) ?? "none"}-${savedCacheBust ?? 0}`;
+  const restoredCoverUrl = previewSrc ?? savedDisplayUrl;
+  const archiveRemixKey = `current-${normalizeCandidateArtworkUrl(archiveCoverUrl) ?? "none"}`;
+  const restoredRemixKey = selected
+    ? `restored-pick-${normalizeCandidateArtworkUrl(selected.image) ?? "none"}`
+    : `restored-${normalizeCandidateArtworkUrl(savedDisplayUrl) ?? "empty"}-${savedCacheBust ?? 0}`;
 
   const hasSelection = Boolean(selected);
 
@@ -332,13 +380,13 @@ export default function PortalV2CurateClient({
     const detail = payload?.detail && payload.detail !== err ? ` — ${payload.detail}` : "";
     const trace = payload?.traceId ? ` (trace ${payload.traceId})` : "";
     if (httpStatus === 401 && err === "ops_gate_required") {
-      return `Save blocked: ops PIN required${trace}. Open /internal/ops-pin then retry.`;
+      return `Restoration blocked: ops PIN required${trace}. Open /internal/ops-pin then retry.`;
     }
-    if (err) return `Save failed${stage}: ${err}${detail}${trace}`;
+    if (err) return `Restoration failed${stage}: ${err}${detail}${trace}`;
     if (rawBody.trim()) {
-      return `Save failed (HTTP ${httpStatus}): ${rawBody.slice(0, 240)}${rawBody.length > 240 ? "…" : ""}${trace}`;
+      return `Restoration failed (HTTP ${httpStatus}): ${rawBody.slice(0, 240)}${rawBody.length > 240 ? "…" : ""}${trace}`;
     }
-    return `Save failed (HTTP ${httpStatus})${trace}`;
+    return `Restoration failed (HTTP ${httpStatus})${trace}`;
   }
 
   useEffect(() => {
@@ -390,6 +438,7 @@ export default function PortalV2CurateClient({
     setApplyPending(true);
     setSaveError(null);
     setSaveSuccess(null);
+    setRestoredAt(null);
     console.log("[CURATOR/CLIENT] save_started", {
       albumId: row.albumId,
       replaceSource,
@@ -459,10 +508,11 @@ export default function PortalV2CurateClient({
         setSavedDisplayUrl(displayUrl);
       }
       setSavedCacheBust(savedAt);
+      setRestoredAt(savedAt);
       setSaveSuccess(
         payload.storage === "local"
-          ? "Cover saved locally."
-          : "Cover saved.",
+          ? "Restored identity held in the local archive."
+          : "Restored identity applied to the archive.",
       );
 
       onSaved?.({
@@ -480,7 +530,7 @@ export default function PortalV2CurateClient({
     } catch (e) {
       const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/CLIENT] save_failed", { albumId: row.albumId, error: detail });
-      setSaveError(`Save failed: ${detail}`);
+      setSaveError(`Restoration failed: ${detail}`);
     } finally {
       setApplyPending(false);
     }
@@ -548,6 +598,8 @@ export default function PortalV2CurateClient({
 
     setPastePending(true);
     setSaveError(null);
+    setSaveSuccess(null);
+    setRestoredAt(null);
     console.log("[CURATOR/CLIENT] paste_save_started", { albumId: row.albumId, urlKind: kind });
     try {
       let imageUrl: string | null = null;
@@ -645,7 +697,8 @@ export default function PortalV2CurateClient({
         savePayload.canonicalCoverPath ?? savePayload.canonicalPath ?? null;
       if (displayUrl) setSavedDisplayUrl(displayUrl);
       setSavedCacheBust(savedAt);
-      setSaveSuccess("Cover saved.");
+      setRestoredAt(savedAt);
+      setSaveSuccess("Restored identity applied to the archive.");
       onSaved?.({
         albumId: row.albumId,
         canonicalCoverPath,
@@ -694,8 +747,15 @@ export default function PortalV2CurateClient({
   }
 
   return (
-    <div className={shellCls} style={{ fontFamily: "var(--font-pv2-sans), system-ui, sans-serif" }}>
-      <div className="mx-auto flex w-full max-w-md shrink-0 items-center justify-between gap-3 border-b border-[rgba(200,169,107,0.28)] pb-3">
+    <div
+      className={shellCls}
+      style={{
+        fontFamily: "var(--font-pv2-sans), system-ui, sans-serif",
+        background:
+          "radial-gradient(circle at 18% 0%, rgba(255,123,64,0.16), transparent 34%), radial-gradient(circle at 82% 12%, rgba(109,59,255,0.14), transparent 30%)",
+      }}
+    >
+      <div className="mx-auto flex w-full max-w-md shrink-0 items-center justify-between gap-3 border-b border-[rgba(255,191,112,0.28)] pb-3">
         {isOverlay ? (
           <button
             type="button"
@@ -715,8 +775,8 @@ export default function PortalV2CurateClient({
             ←
           </button>
         )}
-        <span className="text-center text-[11px] font-semibold uppercase tracking-[0.26em] text-[#c8a96b]">
-          Curator
+        <span className="text-center text-[11px] font-semibold uppercase tracking-[0.26em] text-[#ffbf70]">
+          Restoration Bench
         </span>
         {isOverlay ? (
           <button
@@ -738,20 +798,44 @@ export default function PortalV2CurateClient({
       </div>
 
       <div className="mx-auto mt-5 w-full max-w-md shrink-0">
-        <div
-          className="rounded-[1.2rem] p-[5px] shadow-[0_18px_44px_rgba(0,0,0,0.6),inset_0_0_0_1px_rgba(200,169,107,0.18)] sm:p-1.5"
-          style={{
-            background: "linear-gradient(168deg, rgba(16,28,42,0.92) 0%, #08111d 50%, #05070b 100%)",
-          }}
-        >
-          <div
-            className="relative aspect-square w-full overflow-hidden rounded-[0.95rem] ring-1 ring-[rgba(200,169,107,0.22)]"
-            style={{
-              boxShadow: "inset 0 0 40px rgba(0,0,0,0.55), inset 0 0 10px rgba(200,169,107,0.05)",
-            }}
-          >
-            <HeroCover src={heroSrc} fallbackLabel={row.title} remixKey={heroRemixKey} />
+        <div className="rounded-[1.35rem] border border-[rgba(255,191,112,0.18)] bg-[linear-gradient(160deg,rgba(32,18,36,0.92),rgba(7,17,28,0.96)_58%,rgba(22,14,10,0.94))] p-3 shadow-[0_22px_60px_rgba(0,0,0,0.66),inset_0_0_0_1px_rgba(243,234,219,0.05)]">
+          <div className="mb-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#ffbf70]">
+              Vinyl Archive Lab
+            </p>
+            <p
+              className="mt-1 text-[clamp(1.45rem,6vw,2rem)] font-semibold leading-none text-[#f8ead4]"
+              style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
+            >
+              Restore the album identity
+            </p>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <RestorationPanel
+              label="Current Edition"
+              eyebrow="Source sleeve"
+              src={archiveCoverUrl}
+              fallbackLabel={row.title}
+              remixKey={archiveRemixKey}
+            />
+            <RestorationPanel
+              label="Restored Edition"
+              eyebrow={restoredAt ? "Restored identity" : "Archive version"}
+              src={restoredCoverUrl}
+              fallbackLabel={selected ? row.title : "Choose an archive version"}
+              remixKey={restoredRemixKey}
+              active={Boolean(selected)}
+              restored={Boolean(restoredAt && savedDisplayUrl && !selected)}
+            />
+          </div>
+          {saveSuccess ? (
+            <div className="mt-3 rounded-2xl border border-[#ffbf70]/35 bg-[radial-gradient(circle_at_20%_0%,rgba(255,191,112,0.20),transparent_44%),rgba(43,24,18,0.58)] px-4 py-3 text-center shadow-[0_0_30px_rgba(255,123,64,0.16)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ffbf70]">
+                Restoration complete
+              </p>
+              <p className="mt-1 text-[14px] leading-snug text-[#f8ead4]">{saveSuccess}</p>
+            </div>
+          ) : null}
         </div>
 
         <p
@@ -773,7 +857,7 @@ export default function PortalV2CurateClient({
               role="alert"
               className="mb-3 rounded-xl border border-red-500/35 bg-[rgba(80,28,28,0.22)] px-3 py-2.5 text-center text-[13px] leading-snug text-[#f0dcd8]"
             >
-              <p className="font-semibold text-[#f3e6e4]">Unable to fetch artwork.</p>
+              <p className="font-semibold text-[#f3e6e4]">Unable to scan archive versions.</p>
             </div>
           ) : null}
           {!candidateFetchError && ingestWarnings.length > 0 ? (
@@ -789,7 +873,7 @@ export default function PortalV2CurateClient({
             </div>
           ) : null}
           {loading && !candidateFetchError ? (
-            <p className="mb-3 text-center text-[13px] text-[#8a7f6f]">Loading alternates…</p>
+            <p className="mb-3 text-center text-[13px] text-[#8a7f6f]">Scanning archive versions…</p>
           ) : null}
           {displaySlots.length > 0 ? (
             <ul className="grid grid-cols-3 gap-2.5 sm:gap-3">
@@ -802,7 +886,11 @@ export default function PortalV2CurateClient({
                       candidate={c}
                       active={active}
                       hasSelection={hasSelection}
-                      onPick={() => setSelectedUrl(tileUrl)}
+                      onPick={() => {
+                        setSelectedUrl(tileUrl);
+                        setSaveSuccess(null);
+                        setRestoredAt(null);
+                      }}
                     />
                   </li>
                 );
@@ -811,7 +899,7 @@ export default function PortalV2CurateClient({
           ) : null}
           {!loading && !candidateFetchError && grid.length === 0 ? (
             <p className="mt-4 text-center text-[15px] leading-snug text-[#b7aa95]" role="status">
-              No suitable alternates found.
+              No strong archive versions found.
             </p>
           ) : null}
         </div>
@@ -823,7 +911,7 @@ export default function PortalV2CurateClient({
             rel="noopener noreferrer"
             className="text-[#c8a96b] underline decoration-[rgba(200,169,107,0.35)] underline-offset-2 hover:text-[#f3eadb]"
           >
-            Search Discogs ↗
+            Search Archive Sources ↗
           </a>
         </div>
         <form onSubmit={submitSave} className="mt-3 px-2">
@@ -847,8 +935,10 @@ export default function PortalV2CurateClient({
               onChange={(e) => {
                 setPasteUrl(e.target.value);
                 if (saveError) setSaveError(null);
+                if (saveSuccess) setSaveSuccess(null);
+                if (restoredAt) setRestoredAt(null);
               }}
-              placeholder="Paste Discogs URL"
+              placeholder="Paste archive source"
               className="min-w-0 flex-1 rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-3 py-3 text-[14px] text-[#f3eadb] shadow-[inset_0_2px_10px_rgba(0,0,0,0.35)] placeholder:text-[#6d6358] focus:border-[#c8a96b] focus:outline-none focus:ring-1 focus:ring-[#c8a96b]/35"
             />
             <button
@@ -861,17 +951,12 @@ export default function PortalV2CurateClient({
                   : "bg-[#c8a96b] text-[#05070b] ring-1 ring-[rgba(243,234,219,0.25)] hover:opacity-95 active:opacity-90",
               ].join(" ")}
             >
-              {pastePending || applyPending ? "Saving…" : "Save"}
+              {pastePending || applyPending ? "Restoring…" : "Apply Restoration"}
             </button>
           </div>
           {saveError ? (
             <p role="alert" className="mt-2 text-center text-[12px] leading-snug text-[#f0dcd8]">
               {saveError}
-            </p>
-          ) : null}
-          {saveSuccess ? (
-            <p role="status" className="mt-2 text-center text-[12px] leading-snug text-emerald-300/90">
-              {saveSuccess}
             </p>
           ) : null}
         </form>
