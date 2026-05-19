@@ -4,13 +4,13 @@
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
   --rv-magenta: #e91e8c;
-  --rv-orange: #ff6b2c;
-  --rv-gold: #ffc233;
+  --rv-orange: var(--rv-psychedelic-orange, #ff6b2c);
+  --rv-gold: var(--rv-psychedelic-gold, #ffc233);
   --rv-lime: #7dff4a;
-  --rv-cyan: #2ee8ff;
+  --rv-cyan: var(--rv-psychedelic-blue, #2ee8ff);
   --rv-violet: #8b5cf6;
-  --rv-cream: #fff4d6;
-  --rv-ink: #1a0a2e;
+  --rv-cream: var(--rv-psychedelic-cream, #fff4d6);
+  --rv-ink: var(--rv-psychedelic-indigo, #1a0a2e);
   --rv-paper: #2d1548;
   position: relative;
   min-height: calc(100dvh - var(--rv-header-offset, 3rem));
@@ -20,8 +20,8 @@
   background:
     radial-gradient(ellipse 120% 80% at 10% -20%, rgba(233, 30, 140, 0.55), transparent 50%),
     radial-gradient(ellipse 90% 70% at 95% 10%, rgba(46, 232, 255, 0.4), transparent 45%),
-    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255, 107, 44, 0.45), transparent 50%),
-    linear-gradient(165deg, #1a0a2e 0%, #3d1a6b 38%, #5c2080 62%, #1f0d3a 100%);
+    radial-gradient(ellipse 80% 60% at 50% 100%, rgba(255, 107, 44, 0.5), transparent 50%),
+    linear-gradient(165deg, #160817 0%, #351163 38%, #641f78 62%, #130833 100%);
 }
 
 .rv-door::before {
@@ -116,9 +116,11 @@
   display: block;
   width: 100%;
   box-sizing: border-box;
-  border: 3px solid var(--rv-gold);
-  border-radius: 2px;
-  background: rgba(26, 10, 46, 0.92);
+  border: 2px solid color-mix(in srgb, var(--rv-gold) 76%, var(--rv-orange) 24%);
+  border-radius: 0.95rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 32%),
+    rgba(22, 8, 23, 0.9);
   color: var(--rv-cream);
   font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-size: max(1.2rem, 16px);
@@ -127,9 +129,11 @@
   min-height: 3.5rem;
   outline: none;
   box-shadow:
-    0 0 0 4px rgba(255, 194, 51, 0.15),
-    0 8px 32px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 0 0 4px rgba(255, 194, 51, 0.11),
+    0 18px 46px rgba(0, 0, 0, 0.46),
+    0 0 28px rgba(255, 107, 44, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11),
+    inset 0 -18px 38px rgba(0, 0, 0, 0.22);
 }
 
 .rv-door-search::placeholder {
@@ -159,8 +163,14 @@
 .rv-door-results {
   margin-bottom: 1.5rem;
   padding: 0.75rem;
-  background: rgba(26, 10, 46, 0.75);
-  border: 2px solid rgba(255, 194, 51, 0.35);
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.055), transparent 38%),
+    rgba(22, 8, 23, 0.72);
+  border: 1px solid rgba(255, 194, 51, 0.42);
+  border-radius: 1rem;
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 244, 214, 0.08);
 }
 
 .rv-door-section-head {
@@ -182,7 +192,7 @@
   background: transparent;
   color: inherit;
   font: inherit;
-  padding: 0.65rem 0.35rem;
+  padding: 0.72rem 0.5rem;
   min-height: 2.75rem;
   cursor: pointer;
   text-decoration: none;
@@ -190,7 +200,7 @@
 }
 
 .rv-door-row:hover {
-  background: rgba(233, 30, 140, 0.12);
+  background: linear-gradient(90deg, rgba(255, 107, 44, 0.16), rgba(46, 232, 255, 0.08));
 }
 
 .rv-door-row-main {
@@ -223,9 +233,13 @@
 .rv-door-story {
   position: relative;
   padding: 1.1rem 1rem 1.15rem;
-  border: 2px solid;
+  border: 1px solid;
+  border-radius: 0.45rem;
   transform: rotate(-0.4deg);
-  box-shadow: 6px 8px 0 rgba(0, 0, 0, 0.35);
+  box-shadow:
+    6px 8px 0 rgba(0, 0, 0, 0.35),
+    0 0 30px rgba(255, 107, 44, 0.08),
+    inset 0 1px 0 rgba(255, 244, 214, 0.12);
 }
 
 .rv-door-story:nth-child(even) {
@@ -274,9 +288,13 @@
   text-transform: uppercase;
   text-decoration: none;
   color: var(--rv-ink);
-  background: var(--rv-gold);
+  background: linear-gradient(135deg, var(--rv-gold), var(--rv-orange));
   padding: 0.5rem 0.85rem;
-  border: 2px solid var(--rv-ink);
+  border: 1px solid color-mix(in srgb, var(--rv-ink) 74%, transparent);
+  border-radius: 999px;
+  box-shadow:
+    0 0 18px rgba(255, 194, 51, 0.18),
+    inset 0 1px 0 rgba(255, 244, 214, 0.28);
   -webkit-tap-highlight-color: transparent;
 }
 
