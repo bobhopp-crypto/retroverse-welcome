@@ -352,6 +352,162 @@ html[data-theme="dark"] .rv-global-header {
   opacity: 0.88;
 }
 
+.rv-route-tuner {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--rv-psychedelic-gold) 12%, transparent), transparent 28%),
+    linear-gradient(110deg, transparent 0%, color-mix(in srgb, var(--rv-psychedelic-blue) 7%, transparent) 48%, transparent 78%);
+  animation: rv-route-tune 760ms ease-out both;
+}
+
+.rv-route-tuner__beam {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 4px,
+      color-mix(in srgb, var(--rv-psychedelic-cream) 4%, transparent) 4px 5px
+    ),
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--rv-psychedelic-gold) 16%, transparent), transparent);
+  mix-blend-mode: screen;
+  transform: translateX(-18%);
+  animation: rv-route-sweep 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rv-route-tuner__plate {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--rv-illuminated-edge) 54%, transparent);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--rv-psychedelic-cream) 8%, transparent), transparent),
+    color-mix(in srgb, var(--rv-psychedelic-ink) 78%, transparent);
+  box-shadow:
+    0 0 34px color-mix(in srgb, var(--rv-psychedelic-orange) 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--rv-psychedelic-cream) 12%, transparent);
+  padding: 0.6rem 0.9rem;
+  color: var(--rv-psychedelic-cream);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-shadow: 0 0 16px color-mix(in srgb, var(--rv-psychedelic-gold) 24%, transparent);
+}
+
+.rv-route-tuner__dial,
+.rv-memory-loading__dial {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  background: var(--rv-psychedelic-gold);
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--rv-psychedelic-gold) 78%, transparent),
+    0 0 24px color-mix(in srgb, var(--rv-psychedelic-orange) 46%, transparent);
+}
+
+.rv-memory-loading {
+  display: grid;
+  min-height: calc(100dvh - var(--rv-header-offset, 3rem));
+  place-items: center;
+  padding: 2rem 1rem;
+  background:
+    radial-gradient(circle at 50% 18%, color-mix(in srgb, var(--rv-psychedelic-orange) 18%, transparent), transparent 34%),
+    radial-gradient(circle at 78% 32%, color-mix(in srgb, var(--rv-psychedelic-blue) 9%, transparent), transparent 34%);
+}
+
+.rv-memory-loading__panel {
+  width: min(100%, 22rem);
+  border: 1px solid color-mix(in srgb, var(--rv-illuminated-edge) 42%, transparent);
+  border-radius: 1.2rem;
+  background: var(--rv-analog-panel);
+  box-shadow:
+    var(--rv-analog-glow),
+    inset 0 1px 0 color-mix(in srgb, var(--rv-psychedelic-cream) 10%, transparent);
+  padding: 1.35rem;
+  text-align: center;
+  animation: rv-memory-load 1.7s ease-in-out infinite alternate;
+}
+
+.rv-memory-loading__dial {
+  display: inline-block;
+  margin-bottom: 0.85rem;
+}
+
+.rv-memory-loading__kicker {
+  margin: 0 0 0.35rem;
+  color: var(--rv-psychedelic-gold);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.rv-memory-loading__title {
+  margin: 0;
+  color: var(--rv-psychedelic-cream);
+  font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  font-size: clamp(1.45rem, 7vw, 2rem);
+  line-height: 1.05;
+}
+
+@keyframes rv-route-tune {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  16% {
+    opacity: 1;
+    backdrop-filter: blur(5px) saturate(1.25);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+@keyframes rv-route-sweep {
+  from {
+    transform: translateX(-30%);
+    opacity: 0;
+  }
+  40% {
+    opacity: 0.92;
+  }
+  to {
+    transform: translateX(30%);
+    opacity: 0;
+  }
+}
+
+@keyframes rv-memory-load {
+  from {
+    filter: saturate(0.92) brightness(0.94);
+    transform: translateY(0);
+  }
+  to {
+    filter: saturate(1.12) brightness(1.04);
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-route-tuner,
+  .rv-route-tuner__beam,
+  .rv-memory-loading__panel {
+    animation: none;
+  }
+}
+
 button[data-active="true"] {
   background: var(--accent-primary);
   color: var(--text-on-accent);
