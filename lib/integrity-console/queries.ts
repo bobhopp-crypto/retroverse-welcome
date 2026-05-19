@@ -252,8 +252,13 @@ export async function loadExplorerData(opts: {
     families,
     familyDetail,
     relationships,
+    albums: [],
+    albumDetail: null,
+    b200Rows: [],
+    tracklistRows: [],
     selectedArtistId,
     selectedFamilyId: opts.familyId,
+    selectedAlbumId: null,
     searchQ: opts.searchQ,
     view: opts.view,
   };

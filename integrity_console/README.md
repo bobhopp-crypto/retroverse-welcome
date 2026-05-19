@@ -51,6 +51,17 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 | `sql/404_billboard_200_import_readiness.sql` | Billboard 200 import readiness | No |
 | `sql/405_album_graph_preview.sql` | Artist → album → edition → track family graph | No |
 
+### Phase 5 — Billboard 200 + MusicBrainz ingestion
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/501_billboard_200_staging_schema.sql` | Staging + linkage tables | **Yes** (additive DDL) |
+| `sql/502_billboard_200_import_pipeline.sql` | Staging → linkage → `chart_appearances` | **Yes** (additive DML) |
+| `sql/503_musicbrainz_tracklist_linkage.sql` | MB tracklist linkage analysis | No |
+| `sql/504_album_track_graph_population.sql` | Populate `album_track_lineage` | **Yes** (additive DML) |
+| `sql/505_billboard_200_readiness_report.sql` | Post-ingestion coverage report | No |
+| `sql/506_album_timeline_preview.sql` | Album timeline / B200 preview | No |
+
 ## Run order
 
 ### Artists
@@ -91,6 +102,19 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 5. `405_album_graph_preview.sql` — full graph preview (limited rows)
 
 **Phase 4 does not merge albums, delete editions, or rewrite chart history.**
+
+### Billboard 200 + MusicBrainz (Phase 5)
+
+1. `501_billboard_200_staging_schema.sql` — create staging + linkage tables
+2. Load `staging_billboard_200_weekly` (CSV `\copy` from SQLite export)
+3. `502_billboard_200_import_pipeline.sql` — linkage candidates + chart rows (idempotent)
+4. Load `staging_album_tracklist_imports` / `staging_musicbrainz_release_mappings`
+5. `503_musicbrainz_tracklist_linkage.sql` — review MB linkage
+6. `504_album_track_graph_population.sql` — populate `album_track_lineage`
+7. `505_billboard_200_readiness_report.sql` — coverage metrics
+8. `506_album_timeline_preview.sql` — timeline inspection
+
+**Integrity viewer** (`/integrity`): Albums, Billboard 200, Album Tracklists sections (read-only).
 
 ## Retroverse Album Identity Model
 
@@ -235,6 +259,7 @@ Take a `pg_dump` snapshot before first production bulk merge on a large database
 - No CSV cleanup
 - No writes to `staging_music_imports`
 - No track merges, track deletes, or track updates (Phase 2–3)
-- No album merges or edition deletes (Phase 4)
-- Phase 3–4 do not rewrite `chart_appearances` lineage
+- No album merges or edition deletes (Phase 4–5)
+- Phase 5 adds chart rows only via idempotent inserts (never rewrites existing chart history)
+- Phase 3–5 preserve `chart_appearances` lineage on original rows
 - No automatic promotion to canonical beyond FK reassignment (artist execute scripts only)

@@ -1,4 +1,63 @@
-export type IntegrityView = "artists" | "families" | "variants" | "relationships";
+export type IntegrityView =
+  | "artists"
+  | "families"
+  | "variants"
+  | "relationships"
+  | "albums"
+  | "b200"
+  | "tracklists";
+
+export type AlbumListItem = {
+  id: number;
+  title: string;
+  artist_name: string;
+  release_year: number | null;
+  edition_count: number;
+  track_count: number;
+  b200_chart_rows: number;
+};
+
+export type AlbumDetail = {
+  id: number;
+  title: string;
+  artist_id: number;
+  artist_name: string;
+  release_year: number | null;
+  editions: Array<{
+    id: number;
+    edition_name: string;
+    release_year: number | null;
+    is_canonical: boolean;
+  }>;
+  lineage: AlbumTracklistRow[];
+  b200: AlbumB200Row[];
+  families: Array<{
+    track_family_id: number;
+    track_family_name: string;
+    member_count: number;
+  }>;
+};
+
+export type AlbumB200Row = {
+  chart_date: string;
+  chart_position: number | null;
+  weeks_on_chart: number | null;
+  album_title?: string;
+  artist_name?: string;
+};
+
+export type AlbumTracklistRow = {
+  disc_number: number | null;
+  track_number: number | null;
+  sequence_index: number | null;
+  track_family_name: string | null;
+  track_title: string | null;
+  source_provenance: string;
+  relationship_type: string | null;
+  is_primary_recording: boolean | null;
+  album_title?: string;
+  artist_name?: string;
+};
 
 export type ArtistListItem = {
   id: number;
@@ -57,8 +116,13 @@ export type ExplorerData = {
   families: FamilyRow[];
   familyDetail: FamilyDetail | null;
   relationships: RelationshipRow[];
+  albums: AlbumListItem[];
+  albumDetail: AlbumDetail | null;
+  b200Rows: AlbumB200Row[];
+  tracklistRows: AlbumTracklistRow[];
   selectedArtistId: number | null;
   selectedFamilyId: number | null;
+  selectedAlbumId: number | null;
   searchQ: string;
   view: IntegrityView;
 };
