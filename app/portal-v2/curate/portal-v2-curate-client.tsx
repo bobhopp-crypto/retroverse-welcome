@@ -159,13 +159,12 @@ function CandidateTile({
   );
 }
 
-function RestorationPanel({
+function DominantRestorationHero({
   label,
   eyebrow,
   src,
   fallbackLabel,
   remixKey,
-  active = false,
   restored = false,
   pending = false,
 }: {
@@ -174,35 +173,38 @@ function RestorationPanel({
   src: string | null;
   fallbackLabel: string;
   remixKey: string;
-  active?: boolean;
   restored?: boolean;
   pending?: boolean;
 }) {
   return (
     <section
       className={[
-        "min-w-0 rounded-[1.05rem] p-[3px] transition-all duration-500",
+        "relative rounded-[1.35rem] p-[3px] transition-all duration-700",
         restored
-          ? "bg-[linear-gradient(145deg,rgba(255,123,64,0.95),rgba(200,169,107,0.9)_42%,rgba(109,59,255,0.76))] shadow-[0_0_34px_rgba(255,123,64,0.28)]"
-          : active
-            ? "bg-[linear-gradient(145deg,rgba(200,169,107,0.72),rgba(113,78,43,0.35),rgba(18,34,52,0.92))]"
-            : "bg-[linear-gradient(145deg,rgba(200,169,107,0.28),rgba(14,25,38,0.88))]",
+          ? "bg-[linear-gradient(145deg,rgba(255,123,64,0.98),rgba(200,169,107,0.94)_42%,rgba(109,59,255,0.82))] shadow-[0_0_54px_rgba(255,123,64,0.34)]"
+          : "bg-[linear-gradient(145deg,rgba(200,169,107,0.36),rgba(14,25,38,0.88),rgba(109,59,255,0.28))]",
       ].join(" ")}
     >
-      <div className="rounded-[0.9rem] bg-[radial-gradient(circle_at_30%_0%,rgba(255,123,64,0.14),transparent_42%),linear-gradient(180deg,#100b16,#07111c)] p-2 shadow-[inset_0_0_0_1px_rgba(243,234,219,0.08)]">
-        <div className="mb-2 flex min-h-10 flex-col justify-end">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.22em] text-[#c8a96b]">{eyebrow}</p>
-          <p className="mt-0.5 truncate text-[13px] font-semibold text-[#f3eadb]">{label}</p>
+      <div className="rounded-[1.18rem] bg-[radial-gradient(circle_at_50%_-8%,rgba(255,191,112,0.22),transparent_42%),radial-gradient(circle_at_18%_18%,rgba(109,59,255,0.16),transparent_38%),linear-gradient(180deg,#120b16,#07111c)] p-3 shadow-[inset_0_0_0_1px_rgba(243,234,219,0.08)]">
+        <div className="mb-3 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#ffbf70]">{eyebrow}</p>
+          <p
+            className="mt-1 text-[clamp(1.35rem,5.8vw,1.8rem)] font-semibold leading-none text-[#f8ead4]"
+            style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
+          >
+            {label}
+          </p>
         </div>
         <div
           className={[
-            "relative aspect-square overflow-hidden rounded-[0.7rem] bg-[#08111d] ring-1 transition-transform duration-500",
-            restored ? "scale-[1.015] ring-[#f3eadb]/45" : "ring-[rgba(200,169,107,0.22)]",
+            "relative aspect-square overflow-hidden rounded-[1rem] bg-[#08111d] ring-1 transition-transform duration-700",
+            restored ? "scale-[1.01] ring-[#f3eadb]/50" : "ring-[rgba(200,169,107,0.24)]",
           ].join(" ")}
           style={{
+            animation: "curatorSleeveReveal 560ms ease-out",
             boxShadow: restored
-              ? "0 18px 44px rgba(0,0,0,0.58), inset 0 0 38px rgba(255,255,255,0.08)"
-              : "inset 0 0 38px rgba(0,0,0,0.55)",
+              ? "0 22px 62px rgba(0,0,0,0.68), 0 0 44px rgba(255,191,112,0.18), inset 0 0 42px rgba(255,255,255,0.09)"
+              : "0 18px 48px rgba(0,0,0,0.62), inset 0 0 42px rgba(0,0,0,0.58)",
           }}
         >
           <HeroCover src={src} fallbackLabel={fallbackLabel} remixKey={remixKey} />
@@ -213,8 +215,23 @@ function RestorationPanel({
               </span>
             </div>
           ) : null}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-[linear-gradient(180deg,transparent,rgba(5,7,11,0.34))]" />
         </div>
       </div>
+      <style jsx>{`
+        @keyframes curatorSleeveReveal {
+          0% {
+            opacity: 0.72;
+            transform: translateY(6px) scale(0.985);
+            filter: saturate(0.82) brightness(0.9);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: saturate(1) brightness(1);
+          }
+        }
+      `}</style>
     </section>
   );
 }
@@ -402,11 +419,11 @@ export default function PortalV2CurateClient({
   }, [selectedUrl, displaySlots]);
 
   const previewSrc = selected ? normalizeCandidateArtworkUrl(selected.image) : null;
-  const restoredCoverUrl = previewSrc ?? savedDisplayUrl;
-  const archiveRemixKey = `current-${normalizeCandidateArtworkUrl(archiveCoverUrl) ?? "none"}`;
-  const restoredRemixKey = selected
-    ? `restored-pick-${normalizeCandidateArtworkUrl(selected.image) ?? "none"}`
-    : `restored-${normalizeCandidateArtworkUrl(savedDisplayUrl) ?? "empty"}-${savedCacheBust ?? 0}`;
+  const heroCoverUrl = previewSrc ?? savedDisplayUrl ?? archiveCoverUrl;
+  const heroIsRestored = Boolean(previewSrc || savedDisplayUrl);
+  const heroLabel = heroIsRestored ? "Restored Edition" : "Current Edition";
+  const heroEyebrow = restoredAt ? "Restored identity" : heroIsRestored ? "Archive version" : "Source sleeve";
+  const heroRemixKey = `${heroLabel}-${normalizeCandidateArtworkUrl(heroCoverUrl) ?? "none"}-${savedCacheBust ?? 0}`;
 
   const hasSelection = Boolean(selected);
   const restorationPending = applyPending || pastePending;
@@ -919,36 +936,38 @@ export default function PortalV2CurateClient({
       </div>
 
       <div className="mx-auto mt-5 w-full max-w-md shrink-0">
-        <div className="rounded-[1.35rem] border border-[rgba(255,191,112,0.18)] bg-[linear-gradient(160deg,rgba(32,18,36,0.92),rgba(7,17,28,0.96)_58%,rgba(22,14,10,0.94))] p-3 shadow-[0_22px_60px_rgba(0,0,0,0.66),inset_0_0_0_1px_rgba(243,234,219,0.05)]">
+        <div className="rounded-[1.55rem] border border-[rgba(255,191,112,0.18)] bg-[linear-gradient(160deg,rgba(32,18,36,0.92),rgba(7,17,28,0.96)_58%,rgba(22,14,10,0.94))] p-3 shadow-[0_22px_70px_rgba(0,0,0,0.70),inset_0_0_0_1px_rgba(243,234,219,0.05)]">
           <div className="mb-3 text-center">
             <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[#ffbf70]">
               Vinyl Archive Lab
             </p>
             <p
-              className="mt-1 text-[clamp(1.45rem,6vw,2rem)] font-semibold leading-none text-[#f8ead4]"
+              className="mt-1 text-[clamp(1.35rem,5.6vw,1.85rem)] font-semibold leading-none text-[#f8ead4]"
               style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
             >
               Restore the album identity
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <RestorationPanel
-              label="Current Edition"
-              eyebrow="Source sleeve"
-              src={archiveCoverUrl}
-              fallbackLabel={row.title}
-              remixKey={archiveRemixKey}
-            />
-            <RestorationPanel
-              label="Restored Edition"
-              eyebrow={restoredAt ? "Restored identity" : "Archive version"}
-              src={restoredCoverUrl}
-              fallbackLabel={selected ? row.title : "Choose an archive version"}
-              remixKey={restoredRemixKey}
-              active={Boolean(selected)}
-              restored={Boolean(restoredAt && savedDisplayUrl && !selected)}
-              pending={restorationPending}
-            />
+          <DominantRestorationHero
+            label={heroLabel}
+            eyebrow={heroEyebrow}
+            src={heroCoverUrl}
+            fallbackLabel={row.title}
+            remixKey={heroRemixKey}
+            restored={heroIsRestored}
+            pending={restorationPending}
+          />
+          <div className="mt-4 text-center">
+            <p
+              className="text-[clamp(1.3rem,5vw,1.75rem)] font-semibold leading-tight text-[#f3eadb]"
+              style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
+            >
+              {row.title}
+            </p>
+            <p className="mt-1 text-[clamp(0.98rem,3.4vw,1.08rem)] text-[#b7aa95]">
+              {row.artist}
+              {row.year != null ? <span className="tabular-nums text-[#8a7f6f]"> · {row.year}</span> : null}
+            </p>
           </div>
           {restorationPending ? (
             <div
@@ -977,17 +996,6 @@ export default function PortalV2CurateClient({
             </div>
           ) : null}
         </div>
-
-        <p
-          className="mt-4 text-center text-[clamp(1.35rem,5.2vw,1.85rem)] font-semibold leading-tight text-[#f3eadb]"
-          style={{ fontFamily: "var(--font-pv2-display), ui-serif, Georgia, serif" }}
-        >
-          {row.title}
-        </p>
-        <p className="mt-1 text-center text-[clamp(1rem,3.6vw,1.125rem)] text-[#b7aa95]">
-          {row.artist}
-          {row.year != null ? <span className="tabular-nums text-[#8a7f6f]"> · {row.year}</span> : null}
-        </p>
 
         <div className="mt-5">
           <div className="mb-3 text-center">
