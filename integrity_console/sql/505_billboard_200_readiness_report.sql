@@ -69,10 +69,15 @@ FROM by_year
 
 UNION ALL
 
-SELECT 'UNRESOLVED_ALBUM' AS section, s.source_album AS metric, s.source_artist AS detail
-FROM album_chart_linkage_candidates c
-JOIN staging_billboard_200_weekly s ON s.id = c.staging_row_id
-WHERE c.review_flag IN ('review_album', 'review_artist', 'review_duplicate_album')
-LIMIT 100
-
-ORDER BY section, metric;
+SELECT section, metric, detail
+FROM (
+  SELECT
+    'UNRESOLVED_ALBUM' AS section,
+    s.source_album AS metric,
+    s.source_artist AS detail
+  FROM album_chart_linkage_candidates c
+  JOIN staging_billboard_200_weekly s ON s.id = c.staging_row_id
+  WHERE c.review_flag IN ('review_album', 'review_artist', 'review_duplicate_album')
+  ORDER BY s.source_artist, s.source_album
+  LIMIT 100
+) unresolved;

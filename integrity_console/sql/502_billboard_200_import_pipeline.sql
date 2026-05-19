@@ -20,33 +20,39 @@ INSERT INTO album_chart_linkage_candidates (
 SELECT
   s.id,
   a.id AS resolved_artist_id,
-  al.id AS resolved_album_id,
+  al.album_id AS resolved_album_id,
   CASE
-    WHEN a.id IS NOT NULL AND al.id IS NOT NULL THEN 'artist_album_exact'
+    WHEN a.id IS NOT NULL AND al.album_id IS NOT NULL THEN 'artist_album_exact'
     WHEN a.id IS NOT NULL THEN 'artist_only'
     ELSE 'unresolved'
   END AS match_method,
   CASE
-    WHEN a.id IS NOT NULL AND al.id IS NOT NULL THEN 90
+    WHEN a.id IS NOT NULL AND al.album_id IS NOT NULL THEN 90
     WHEN a.id IS NOT NULL THEN 55
     ELSE 20
   END AS confidence_score,
   CASE
     WHEN a.id IS NULL THEN 'review_artist'
-    WHEN al.id IS NULL THEN 'review_album'
-    WHEN EXISTS (
-      SELECT 1 FROM albums al2
-      WHERE al2.artist_id = a.id AND al2.id <> al.id
-        AND lower(trim(al2.title)) = lower(trim(s.source_album))
-    ) THEN 'review_duplicate_album'
+    WHEN al.album_id IS NULL THEN 'review_album'
+    WHEN coalesce(al.dup_count, 0) > 1 THEN 'review_duplicate_album'
     ELSE 'ok'
   END AS review_flag
 FROM staging_billboard_200_weekly s
-LEFT JOIN artists a
-  ON lower(trim(a.canonical_name)) = lower(trim(s.source_artist))
-LEFT JOIN albums al
-  ON al.artist_id = a.id
- AND lower(trim(al.title)) = lower(trim(s.source_album))
+LEFT JOIN LATERAL (
+  SELECT id
+  FROM artists
+  WHERE lower(trim(canonical_name)) = lower(trim(s.source_artist))
+  ORDER BY id
+  LIMIT 1
+) a ON true
+LEFT JOIN LATERAL (
+  SELECT
+    min(al.id) AS album_id,
+    count(*)::int AS dup_count
+  FROM albums al
+  WHERE al.artist_id = a.id
+    AND lower(trim(al.title)) = lower(trim(s.source_album))
+) al ON a.id IS NOT NULL
 ON CONFLICT (staging_row_id) DO UPDATE SET
   resolved_artist_id = EXCLUDED.resolved_artist_id,
   resolved_album_id = EXCLUDED.resolved_album_id,

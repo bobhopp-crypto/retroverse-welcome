@@ -20,6 +20,9 @@
 # production
 /build
 
+# large local chart exports
+/exports/billboard_200/*.csv
+
 # misc
 .DS_Store
 *.pem
