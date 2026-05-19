@@ -9,6 +9,7 @@ import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
+import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/canonical-album-sequences";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { artistRoute } from "@/lib/retroverse-routes";
 
@@ -20,112 +21,6 @@ type Props = { params: Promise<{ slug: string }> };
 type CanonicalTrackDisplay = AlbumDossierTrack & {
   canonicalRefLabel?: string;
   canonicalSequenceLabel?: string;
-};
-type CanonicalTrackOverride = {
-  sourceNote: string;
-  tracks: Array<{ side: string; title: string; sourceTitle?: string }>;
-};
-
-const CANONICAL_TRACK_OVERRIDES: Record<string, CanonicalTrackOverride> = {
-  RVAL110155: {
-    sourceNote:
-      "Canonical 2LP side sequence shown from the MusicBrainz/Discogs release identity; local acoustic source has Spotify rows that omit LP cuts and add bonus/unissued material.",
-    tracks: [
-      { side: "A1", title: "Watch Out" },
-      { side: "A2", title: "Ooh Baby" },
-      { side: "A3", title: "South Indiana - Take 1" },
-      { side: "A4", title: "South Indiana - Take 2" },
-      { side: "A5", title: "Last Night" },
-      { side: "A6", title: "Red Hot Jam" },
-      { side: "B1", title: "World's in a Tangle" },
-      { side: "B2", title: "Talk with You" },
-      { side: "B3", title: "Like It This Way" },
-      { side: "B4", title: "Someday Soon Baby" },
-      { side: "B5", title: "Hungry Country Girl" },
-      { side: "C1", title: "I'm Worried" },
-      { side: "C2", title: "I Held My Baby Last Night" },
-      { side: "C3", title: "Madison Blues" },
-      { side: "C4", title: "I Can't Hold Out" },
-      { side: "C5", title: "I Need Your Love" },
-      { side: "C6", title: "I Got the Blues" },
-      { side: "D1", title: "Black Jack Blues" },
-      { side: "D2", title: "Everyday I Have the Blues" },
-      { side: "D3", title: "Rockin' Boogie" },
-      { side: "D4", title: "Sugar Mama" },
-      { side: "D5", title: "Homework" },
-    ],
-  },
-  RVAL000003: {
-    sourceNote:
-      "Canonical Rumours LP sequence shown from the original album identity; non-LP source rows stay outside the main listening sequence.",
-    tracks: [
-      { side: "A1", title: "Second Hand News" },
-      { side: "A2", title: "Dreams" },
-      { side: "A3", title: "Never Going Back Again" },
-      { side: "A4", title: "Don't Stop" },
-      { side: "A5", title: "Go Your Own Way" },
-      { side: "A6", title: "Songbird" },
-      { side: "B1", title: "The Chain" },
-      { side: "B2", title: "You Make Loving Fun" },
-      { side: "B3", title: "I Don't Want to Know" },
-      { side: "B4", title: "Oh Daddy" },
-      { side: "B5", title: "Gold Dust Woman" },
-    ],
-  },
-  RVAL205451: {
-    sourceNote:
-      "Canonical Abbey Road LP sequence shown from the original album identity; local source durations are matched without rendering source edition labels.",
-    tracks: [
-      { side: "A1", title: "Come Together" },
-      { side: "A2", title: "Something" },
-      { side: "A3", title: "Maxwell's Silver Hammer" },
-      { side: "A4", title: "Oh! Darling" },
-      { side: "A5", title: "Octopus's Garden" },
-      { side: "A6", title: "I Want You (She's So Heavy)" },
-      { side: "B1", title: "Here Comes The Sun" },
-      { side: "B2", title: "Because" },
-      { side: "B3", title: "You Never Give Me Your Money" },
-      { side: "B4", title: "Sun King" },
-      { side: "B5", title: "Mean Mr Mustard" },
-      { side: "B6", title: "Polythene Pam" },
-      { side: "B7", title: "She Came In Through The Bathroom Window" },
-      { side: "B8", title: "Golden Slumbers" },
-      { side: "B9", title: "Carry That Weight" },
-      { side: "B10", title: "The End" },
-      { side: "B11", title: "Her Majesty" },
-    ],
-  },
-  RVAL695796: {
-    sourceNote:
-      "Canonical Dark Side LP sequence shown from the original album identity; local source rows are reordered into album listening order.",
-    tracks: [
-      { side: "A1", title: "Speak to Me" },
-      { side: "A2", title: "Breathe (In the Air)" },
-      { side: "A3", title: "On the Run" },
-      { side: "A4", title: "Time" },
-      { side: "A5", title: "The Great Gig in the Sky" },
-      { side: "B1", title: "Money" },
-      { side: "B2", title: "Us and Them" },
-      { side: "B3", title: "Any Colour You Like" },
-      { side: "B4", title: "Brain Damage" },
-      { side: "B5", title: "Eclipse" },
-    ],
-  },
-  RVAL281995: {
-    sourceNote:
-      "Canonical Hotel California LP sequence shown from the original album identity; local source durations are matched without rendering source edition labels.",
-    tracks: [
-      { side: "A1", title: "Hotel California" },
-      { side: "A2", title: "New Kid in Town" },
-      { side: "A3", title: "Life in the Fast Lane" },
-      { side: "A4", title: "Wasted Time", sourceTitle: "Wasted Time - Eagles 2013 Remaster" },
-      { side: "B1", title: "Wasted Time (Reprise)", sourceTitle: "Wasted Time - 2013 Remaster" },
-      { side: "B2", title: "Victim of Love" },
-      { side: "B3", title: "Pretty Maids All in a Row" },
-      { side: "B4", title: "Try and Love Again" },
-      { side: "B5", title: "The Last Resort" },
-    ],
-  },
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -181,47 +76,16 @@ function normalizeCanonicalTitle(value: string): string {
     .trim();
 }
 
-const POLLUTED_TRACK_TITLE =
-  /\b(previously\s+unissued|bonus\s+track|bonus|take\s+\d+|early\s+take|alternate|outtake|outtakes|demo|instrumental|remaster(?:ed)?|expanded|deluxe|incomplete)\b/i;
-
-function isCanonicalListeningTrack(track: AlbumDossierTrack): boolean {
-  const title = track.title?.trim() ?? "";
-  if (!title) return false;
-  if (POLLUTED_TRACK_TITLE.test(title)) return false;
-  if (/\s[-–—]\s*live\b/i.test(title)) return false;
-  return true;
-}
-
 function canonicalTrackPosition(track: CanonicalTrackDisplay, fallbackIndex: number): number | string {
   if (track.canonicalSequenceLabel) return track.canonicalSequenceLabel;
   const pos = track.musicbrainz?.position;
   return typeof pos === "number" && Number.isFinite(pos) && pos > 0 ? pos : fallbackIndex + 1;
 }
 
-function canonicalTrackSortPosition(track: AlbumDossierTrack, fallbackIndex: number): number {
-  const pos = track.musicbrainz?.position;
-  return typeof pos === "number" && Number.isFinite(pos) && pos > 0 ? pos : fallbackIndex + 1;
-}
-
-function resolveCanonicalTracks(tracks: AlbumDossierTrack[]): CanonicalTrackDisplay[] {
-  const filtered = tracks.filter(isCanonicalListeningTrack);
-  if (filtered.length === 0) return [];
-  const positions = filtered
-    .map((track) => track.musicbrainz?.position)
-    .filter((pos): pos is number => typeof pos === "number" && Number.isFinite(pos) && pos > 0);
-  const canSortByPosition = positions.length === filtered.length && new Set(positions).size === positions.length;
-  return canSortByPosition
-    ? filtered.slice().sort((a, b) => canonicalTrackSortPosition(a, 0) - canonicalTrackSortPosition(b, 0))
-    : filtered;
-}
-
-function resolveCanonicalOverrideTracks(
-  albumId: string,
+function resolveCanonicalSequenceTracks(
+  sequence: CanonicalAlbumSequence,
   sourceTracks: AlbumDossierTrack[],
-): { tracks: CanonicalTrackDisplay[]; sourceNote: string } | null {
-  const override = CANONICAL_TRACK_OVERRIDES[albumId];
-  if (!override) return null;
-
+): { tracks: CanonicalTrackDisplay[]; unresolvedTrackCount: number } {
   const sourceByTitle = new Map<string, AlbumDossierTrack>();
   const sourceByRawTitle = new Map<string, AlbumDossierTrack>();
   for (const track of sourceTracks) {
@@ -230,21 +94,30 @@ function resolveCanonicalOverrideTracks(
     sourceByRawTitle.set(track.title.trim(), track);
   }
 
-  return {
-    sourceNote: override.sourceNote,
-    tracks: override.tracks.map((track) => {
-      const source = track.sourceTitle
-        ? sourceByRawTitle.get(track.sourceTitle.trim()) ?? sourceByTitle.get(normalizeCanonicalTitle(track.sourceTitle))
-        : sourceByTitle.get(normalizeCanonicalTitle(track.title));
-      return {
-        ...source,
-        title: track.title,
-        duration_ms: source?.duration_ms ?? null,
-        canonicalRefLabel: "original side sequence",
-        canonicalSequenceLabel: track.side,
-      };
-    }),
-  };
+  let unresolvedTrackCount = 0;
+  const tracks = sequence.tracks.map((track) => {
+    const source = track.source_title
+      ? sourceByRawTitle.get(track.source_title.trim()) ?? sourceByTitle.get(normalizeCanonicalTitle(track.source_title))
+      : sourceByTitle.get(normalizeCanonicalTitle(track.canonical_title));
+    if (!source) unresolvedTrackCount += 1;
+
+    return {
+      ...source,
+      title: track.canonical_title,
+      duration_ms: track.duration_ms ?? source?.duration_ms ?? null,
+      canonicalRefLabel: sequence.source_label,
+      canonicalSequenceLabel:
+        track.side_label && track.side_position != null
+          ? `${track.side_label}${track.side_position}`
+          : String(track.global_position),
+    };
+  });
+
+  return { tracks, unresolvedTrackCount };
+}
+
+function canonicalSequenceSourceLabel(sequence: CanonicalAlbumSequence | null): string {
+  return sequence?.source_label ?? "canonical_sequence_unresolved";
 }
 
 export default async function AlbumDossierPage({ params }: Props) {
@@ -271,9 +144,12 @@ export default async function AlbumDossierPage({ params }: Props) {
   const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
   const coverUrl = canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
   const curateHref = `/portal-v2/curate?albumId=${encodeURIComponent(dossier.albumId)}`;
-  const canonicalOverride = resolveCanonicalOverrideTracks(dossier.albumId, acoustic.tracks);
-  const canonicalTracks = canonicalOverride?.tracks ?? resolveCanonicalTracks(acoustic.tracks);
-  const filteredTrackCount = canonicalOverride ? 0 : Math.max(0, acoustic.tracks.length - canonicalTracks.length);
+  const canonicalSequence = getCanonicalAlbumSequence(dossier.albumId);
+  const resolvedSequence = canonicalSequence
+    ? resolveCanonicalSequenceTracks(canonicalSequence, acoustic.tracks)
+    : { tracks: [], unresolvedTrackCount: acoustic.tracks.length };
+  const canonicalTracks = resolvedSequence.tracks;
+  const sequenceSourceLabel = canonicalSequenceSourceLabel(canonicalSequence);
 
   return (
     <>
@@ -343,16 +219,16 @@ export default async function AlbumDossierPage({ params }: Props) {
           </dl>
         </section>
 
-        {canonicalTracks.length ? (
-          <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank">
-            <h2 className="dossier-panel-label">Canonical tracks</h2>
-            {canonicalOverride?.sourceNote ? (
-              <p className="dossier-provenance dossier-canonical-note">{canonicalOverride.sourceNote}</p>
-            ) : filteredTrackCount > 0 ? (
-              <p className="dossier-provenance dossier-canonical-note">
-                {filteredTrackCount} alternate, bonus, or previously unreleased row{filteredTrackCount === 1 ? "" : "s"} kept out of this historical listening sequence.
-              </p>
-            ) : null}
+        <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank">
+          <h2 className="dossier-panel-label">Canonical tracks</h2>
+          <p className="dossier-provenance dossier-canonical-note">
+            {canonicalSequence?.source_note ??
+              "Canonical sequence unresolved. Track rows are withheld until an original listening sequence is available."}
+          </p>
+          <p className="dossier-provenance dossier-sequence-debug">
+            Source used: {sequenceSourceLabel} · canonical sequence count: {canonicalTracks.length} · fallback source used: none · unresolved tracks: {resolvedSequence.unresolvedTrackCount}
+          </p>
+          {canonicalTracks.length ? (
             <div className="dossier-track-scroll">
               <table className="dossier-table dossier-table--tracks">
                 <thead>
@@ -396,8 +272,12 @@ export default async function AlbumDossierPage({ params }: Props) {
                 </tbody>
               </table>
             </div>
-          </section>
-        ) : null}
+          ) : (
+            <div className="dossier-unresolved-sequence" role="status">
+              Canonical sequence unresolved
+            </div>
+          )}
+        </section>
 
         <section className="dossier-panel dossier-panel--coordinates dossier-panel--paths dossier-panel--band-violet">
           <div className="dossier-tunnels">

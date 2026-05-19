@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "generated_at": "2026-05-18T00:00:00.000Z",
+  "description": "Canonical original major listening sequences for Retroverse album pages. These rows are curated identity data, not acoustic or Spotify enrichment output.",
+  "sequences": {
+    "RVAL110155": {
+      "album_id": "RVAL110155",
+      "artist": "Fleetwood Mac",
+      "album": "Fleetwood Mac In Chicago",
+      "source_label": "canonical_sequence_manual_seed",
+      "source_note": "Original 2LP side sequence from canonical release identity; local acoustic source omits LP cuts and includes bonus/unissued rows.",
+      "canonical_edition": "original_major_listening_edition",
+      "tracks": [
+        { "global_position": 1, "side_label": "A", "side_position": 1, "canonical_title": "Watch Out", "duration_ms": 250000, "canonical_edition_flag": "original" },
+        { "global_position": 2, "side_label": "A", "side_position": 2, "canonical_title": "Ooh Baby", "duration_ms": 195000, "canonical_edition_flag": "original" },
+        { "global_position": 3, "side_label": "A", "side_position": 3, "canonical_title": "South Indiana - Take 1", "duration_ms": 192000, "canonical_edition_flag": "original" },
+        { "global_position": 4, "side_label": "A", "side_position": 4, "canonical_title": "South Indiana - Take 2", "duration_ms": 163000, "canonical_edition_flag": "original" },
+        { "global_position": 5, "side_label": "A", "side_position": 5, "canonical_title": "Last Night", "duration_ms": 295000, "canonical_edition_flag": "original" },
+        { "global_position": 6, "side_label": "A", "side_position": 6, "canonical_title": "Red Hot Jam", "duration_ms": 276000, "canonical_edition_flag": "original" },
+        { "global_position": 7, "side_label": "B", "side_position": 1, "canonical_title": "World's in a Tangle", "duration_ms": 295000, "canonical_edition_flag": "original", "source_title": "World's in a Tangle" },
+        { "global_position": 8, "side_label": "B", "side_position": 2, "canonical_title": "Talk with You", "duration_ms": 202000, "canonical_edition_flag": "original", "source_title": "Talk with You" },
+        { "global_position": 9, "side_label": "B", "side_position": 3, "canonical_title": "Like It This Way", "duration_ms": 225000, "canonical_edition_flag": "original", "source_title": "Like It This Way" },
+        { "global_position": 10, "side_label": "B", "side_position": 4, "canonical_title": "Someday Soon Baby", "duration_ms": 422000, "canonical_edition_flag": "original", "source_title": "Someday Soon Baby" },
+        { "global_position": 11, "side_label": "B", "side_position": 5, "canonical_title": "Hungry Country Girl", "duration_ms": 337000, "canonical_edition_flag": "original", "source_title": "Hungry Country Girl" },
+        { "global_position": 12, "side_label": "C", "side_position": 1, "canonical_title": "I'm Worried", "duration_ms": 202000, "canonical_edition_flag": "original" },
+        { "global_position": 13, "side_label": "C", "side_position": 2, "canonical_title": "I Held My Baby Last Night", "duration_ms": 244000, "canonical_edition_flag": "original" },
+        { "global_position": 14, "side_label": "C", "side_position": 3, "canonical_title": "Madison Blues", "duration_ms": 275000, "canonical_edition_flag": "original" },
+        { "global_position": 15, "side_label": "C", "side_position": 4, "canonical_title": "I Can't Hold Out", "duration_ms": 215000, "canonical_edition_flag": "original" },
+        { "global_position": 16, "side_label": "C", "side_position": 5, "canonical_title": "I Need Your Love", "duration_ms": 200000, "canonical_edition_flag": "original" },
+        { "global_position": 17, "side_label": "C", "side_position": 6, "canonical_title": "I Got the Blues", "duration_ms": 230000, "canonical_edition_flag": "original" },
+        { "global_position": 18, "side_label": "D", "side_position": 1, "canonical_title": "Black Jack Blues", "duration_ms": 289000, "canonical_edition_flag": "original", "source_title": "Black Jack Blues" },
+        { "global_position": 19, "side_label": "D", "side_position": 2, "canonical_title": "Everyday I Have the Blues", "duration_ms": 270000, "canonical_edition_flag": "original", "source_title": "Everyday I Have the Blues" },
+        { "global_position": 20, "side_label": "D", "side_position": 3, "canonical_title": "Rockin' Boogie", "duration_ms": 225000, "canonical_edition_flag": "original", "source_title": "Rockin' Boogie" },
+        { "global_position": 21, "side_label": "D", "side_position": 4, "canonical_title": "Sugar Mama", "duration_ms": 243000, "canonical_edition_flag": "original", "source_title": "Sugar Mama" },
+        { "global_position": 22, "side_label": "D", "side_position": 5, "canonical_title": "Homework", "duration_ms": 198000, "canonical_edition_flag": "original", "source_title": "Homework" }
+      ]
+    },
+    "RVAL000003": {
+      "album_id": "RVAL000003",
+      "artist": "Fleetwood Mac",
+      "album": "Rumours",
+      "source_label": "canonical_sequence_manual_seed",
+      "source_note": "Original LP sequence; non-LP source rows stay outside the main listening sequence.",
+      "canonical_edition": "original_major_listening_edition",
+      "tracks": [
+        { "global_position": 1, "side_label": "A", "side_position": 1, "canonical_title": "Second Hand News", "duration_ms": 176307, "canonical_edition_flag": "original", "source_title": "Second Hand News - 2004 Remaster" },
+        { "global_position": 2, "side_label": "A", "side_position": 2, "canonical_title": "Dreams", "duration_ms": 257800, "canonical_edition_flag": "original", "source_title": "Dreams - 2004 Remaster" },
+        { "global_position": 3, "side_label": "A", "side_position": 3, "canonical_title": "Never Going Back Again", "duration_ms": 134400, "canonical_edition_flag": "original", "source_title": "Never Going Back Again - 2004 Remaster" },
+        { "global_position": 4, "side_label": "A", "side_position": 4, "canonical_title": "Don't Stop", "duration_ms": 193347, "canonical_edition_flag": "original", "source_title": "Don't Stop - 2004 Remaster" },
+        { "global_position": 5, "side_label": "A", "side_position": 5, "canonical_title": "Go Your Own Way", "duration_ms": 223613, "canonical_edition_flag": "original", "source_title": "Go Your Own Way - 2004 Remaster" },
+        { "global_position": 6, "side_label": "A", "side_position": 6, "canonical_title": "Songbird", "duration_ms": 200813, "canonical_edition_flag": "original", "source_title": "Songbird - 2004 Remaster" },
+        { "global_position": 7, "side_label": "B", "side_position": 1, "canonical_title": "The Chain", "duration_ms": 270213, "canonical_edition_flag": "original", "source_title": "The Chain - 2004 Remaster" },
+        { "global_position": 8, "side_label": "B", "side_position": 2, "canonical_title": "You Make Loving Fun", "duration_ms": 216627, "canonical_edition_flag": "original", "source_title": "You Make Loving Fun" },
+        { "global_position": 9, "side_label": "B", "side_position": 3, "canonical_title": "I Don't Want to Know", "duration_ms": 196853, "canonical_edition_flag": "original", "source_title": "I Don't Want to Know - 2004 Remaster" },
+        { "global_position": 10, "side_label": "B", "side_position": 4, "canonical_title": "Oh Daddy", "duration_ms": 236240, "canonical_edition_flag": "original", "source_title": "Oh Daddy - 2004 Remaster" },
+        { "global_position": 11, "side_label": "B", "side_position": 5, "canonical_title": "Gold Dust Woman", "duration_ms": 295627, "canonical_edition_flag": "original", "source_title": "Gold Dust Woman - 2004 Remaster" }
+      ]
+    },
+    "RVAL205451": {
+      "album_id": "RVAL205451",
+      "artist": "The Beatles",
+      "album": "Abbey Road",
+      "source_label": "canonical_sequence_manual_seed",
+      "source_note": "Original LP sequence; local source durations are matched without rendering source edition labels.",
+      "canonical_edition": "original_major_listening_edition",
+      "tracks": [
+        { "global_position": 1, "side_label": "A", "side_position": 1, "canonical_title": "Come Together", "duration_ms": 259947, "canonical_edition_flag": "original", "source_title": "Come Together - Remastered 2009" },
+        { "global_position": 2, "side_label": "A", "side_position": 2, "canonical_title": "Something", "duration_ms": 182293, "canonical_edition_flag": "original", "source_title": "Something - Remastered 2009" },
+        { "global_position": 3, "side_label": "A", "side_position": 3, "canonical_title": "Maxwell's Silver Hammer", "duration_ms": 207920, "canonical_edition_flag": "original", "source_title": "Maxwell's Silver Hammer - Remastered 2009" },
+        { "global_position": 4, "side_label": "A", "side_position": 4, "canonical_title": "Oh! Darling", "duration_ms": 207240, "canonical_edition_flag": "original", "source_title": "Oh! Darling - Remastered 2009" },
+        { "global_position": 5, "side_label": "A", "side_position": 5, "canonical_title": "Octopus's Garden", "duration_ms": 170720, "canonical_edition_flag": "original", "source_title": "Octopus's Garden - Remastered 2009" },
+        { "global_position": 6, "side_label": "A", "side_position": 6, "canonical_title": "I Want You (She's So Heavy)", "duration_ms": 467320, "canonical_edition_flag": "original", "source_title": "I Want You (She's So Heavy) - Remastered 2009" },
+        { "global_position": 7, "side_label": "B", "side_position": 1, "canonical_title": "Here Comes The Sun", "duration_ms": 185733, "canonical_edition_flag": "original", "source_title": "Here Comes The Sun - Remastered 2009" },
+        { "global_position": 8, "side_label": "B", "side_position": 2, "canonical_title": "Because", "duration_ms": 165667, "canonical_edition_flag": "original", "source_title": "Because - Remastered 2009" },
+        { "global_position": 9, "side_label": "B", "side_position": 3, "canonical_title": "You Never Give Me Your Money", "duration_ms": 242973, "canonical_edition_flag": "original", "source_title": "You Never Give Me Your Money - Remastered 2009" },
+        { "global_position": 10, "side_label": "B", "side_position": 4, "canonical_title": "Sun King", "duration_ms": 146267, "canonical_edition_flag": "original", "source_title": "Sun King - Remastered 2009" },
+        { "global_position": 11, "side_label": "B", "side_position": 5, "canonical_title": "Mean Mr Mustard", "duration_ms": 66533, "canonical_edition_flag": "original", "source_title": "Mean Mr Mustard - Remastered 2009" },
+        { "global_position": 12, "side_label": "B", "side_position": 6, "canonical_title": "Polythene Pam", "duration_ms": 72640, "canonical_edition_flag": "original", "source_title": "Polythene Pam - Remastered 2009" },
+        { "global_position": 13, "side_label": "B", "side_position": 7, "canonical_title": "She Came In Through The Bathroom Window", "duration_ms": 118627, "canonical_edition_flag": "original", "source_title": "She Came In Through The Bathroom Window - Remastered 2009" },
+        { "global_position": 14, "side_label": "B", "side_position": 8, "canonical_title": "Golden Slumbers", "duration_ms": 91760, "canonical_edition_flag": "original", "source_title": "Golden Slumbers - Remastered 2009" },
+        { "global_position": 15, "side_label": "B", "side_position": 9, "canonical_title": "Carry That Weight", "duration_ms": 96467, "canonical_edition_flag": "original", "source_title": "Carry That Weight - Remastered 2009" },
+        { "global_position": 16, "side_label": "B", "side_position": 10, "canonical_title": "The End", "duration_ms": 141613, "canonical_edition_flag": "original", "source_title": "The End - Remastered 2009" },
+        { "global_position": 17, "side_label": "B", "side_position": 11, "canonical_title": "Her Majesty", "duration_ms": 25987, "canonical_edition_flag": "original", "source_title": "Her Majesty - Remastered 2009" }
+      ]
+    },
+    "RVAL695796": {
+      "album_id": "RVAL695796",
+      "artist": "Pink Floyd",
+      "album": "The Dark Side Of The Moon",
+      "source_label": "canonical_sequence_manual_seed",
+      "source_note": "Original LP sequence; local source rows are reordered into album listening order.",
+      "canonical_edition": "original_major_listening_edition",
+      "tracks": [
+        { "global_position": 1, "side_label": "A", "side_position": 1, "canonical_title": "Speak to Me", "duration_ms": 65314, "canonical_edition_flag": "original", "source_title": "Speak to Me" },
+        { "global_position": 2, "side_label": "A", "side_position": 2, "canonical_title": "Breathe (In the Air)", "duration_ms": 169535, "canonical_edition_flag": "original", "source_title": "Breathe (In the Air)" },
+        { "global_position": 3, "side_label": "A", "side_position": 3, "canonical_title": "On the Run", "duration_ms": 225385, "canonical_edition_flag": "original", "source_title": "On the Run" },
+        { "global_position": 4, "side_label": "A", "side_position": 4, "canonical_title": "Time", "duration_ms": 413947, "canonical_edition_flag": "original", "source_title": "Time" },
+        { "global_position": 5, "side_label": "A", "side_position": 5, "canonical_title": "The Great Gig in the Sky", "duration_ms": 283872, "canonical_edition_flag": "original", "source_title": "The Great Gig in the Sky" },
+        { "global_position": 6, "side_label": "B", "side_position": 1, "canonical_title": "Money", "duration_ms": 382834, "canonical_edition_flag": "original", "source_title": "Money" },
+        { "global_position": 7, "side_label": "B", "side_position": 2, "canonical_title": "Us and Them", "duration_ms": 469224, "canonical_edition_flag": "original", "source_title": "Us and Them" },
+        { "global_position": 8, "side_label": "B", "side_position": 3, "canonical_title": "Any Colour You Like", "duration_ms": 206429, "canonical_edition_flag": "original", "source_title": "Any Colour You Like" },
+        { "global_position": 9, "side_label": "B", "side_position": 4, "canonical_title": "Brain Damage", "duration_ms": 226667, "canonical_edition_flag": "original", "source_title": "Brain Damage" },
+        { "global_position": 10, "side_label": "B", "side_position": 5, "canonical_title": "Eclipse", "duration_ms": 130429, "canonical_edition_flag": "original", "source_title": "Eclipse" }
+      ]
+    },
+    "RVAL281995": {
+      "album_id": "RVAL281995",
+      "artist": "Eagles",
+      "album": "Hotel California",
+      "source_label": "canonical_sequence_manual_seed",
+      "source_note": "Original LP sequence; local source durations are matched without rendering source edition labels.",
+      "canonical_edition": "original_major_listening_edition",
+      "tracks": [
+        { "global_position": 1, "side_label": "A", "side_position": 1, "canonical_title": "Hotel California", "duration_ms": 391376, "canonical_edition_flag": "original", "source_title": "Hotel California - 2013 Remaster" },
+        { "global_position": 2, "side_label": "A", "side_position": 2, "canonical_title": "New Kid in Town", "duration_ms": 304926, "canonical_edition_flag": "original", "source_title": "New Kid in Town - 2013 Remaster" },
+        { "global_position": 3, "side_label": "A", "side_position": 3, "canonical_title": "Life in the Fast Lane", "duration_ms": 286220, "canonical_edition_flag": "original", "source_title": "Life in the Fast Lane - 2013 Remaster" },
+        { "global_position": 4, "side_label": "A", "side_position": 4, "canonical_title": "Wasted Time", "duration_ms": 296172, "canonical_edition_flag": "original", "source_title": "Wasted Time - Eagles 2013 Remaster" },
+        { "global_position": 5, "side_label": "B", "side_position": 1, "canonical_title": "Wasted Time (Reprise)", "duration_ms": 83427, "canonical_edition_flag": "original", "source_title": "Wasted Time - 2013 Remaster" },
+        { "global_position": 6, "side_label": "B", "side_position": 2, "canonical_title": "Victim of Love", "duration_ms": 250089, "canonical_edition_flag": "original", "source_title": "Victim of Love - 2013 Remaster" },
+        { "global_position": 7, "side_label": "B", "side_position": 3, "canonical_title": "Pretty Maids All in a Row", "duration_ms": 239494, "canonical_edition_flag": "original", "source_title": "Pretty Maids All in a Row - Eagles 2013 Remaster" },
+        { "global_position": 8, "side_label": "B", "side_position": 4, "canonical_title": "Try and Love Again", "duration_ms": 311069, "canonical_edition_flag": "original", "source_title": "Try and Love Again - Eagles 2013 Remaster" },
+        { "global_position": 9, "side_label": "B", "side_position": 5, "canonical_title": "The Last Resort", "duration_ms": 444912, "canonical_edition_flag": "original", "source_title": "The Last Resort - Eagles 2013 Remaster" }
+      ]
+    }
+  }
+}
