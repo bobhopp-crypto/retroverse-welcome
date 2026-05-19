@@ -245,7 +245,18 @@
 }
 
 .dossier-shell--trajectory {
-  max-width: min(62rem, 100%);
+  width: 100%;
+  box-sizing: border-box;
+  max-width: min(74rem, 100%);
+  padding-right: max(0.55rem, env(safe-area-inset-right, 8px));
+  padding-left: max(0.55rem, env(safe-area-inset-left, 8px));
+}
+
+@media (min-width: 720px) {
+  .dossier-shell--trajectory {
+    padding-right: 1rem;
+    padding-left: 1rem;
+  }
 }
 
 .dossier-top--nav {
@@ -1276,7 +1287,7 @@ a.dossier-track-name:hover {
 }
 
 .dossier-trajectory-readout {
-  margin-bottom: 1.15rem;
+  margin-bottom: 0.9rem;
 }
 
 .dossier-byline {
@@ -1333,17 +1344,32 @@ a.dossier-track-name:hover {
 }
 
 .dossier-trajectory-panel {
-  margin-bottom: 1.1rem;
-  overflow: hidden;
+  margin-right: -0.2rem;
+  margin-bottom: 1rem;
+  margin-left: -0.2rem;
+  padding: 0.55rem 0.2rem 0.45rem;
+  overflow: visible;
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.dossier-trajectory-panel::before,
+.dossier-trajectory-panel::after {
+  display: none;
 }
 
 .dossier-trajectory-scale {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin-bottom: 0.4rem;
+  grid-template-columns: 3.9rem 1fr 3.05rem;
+  gap: 0.35rem;
+  margin-bottom: 0.28rem;
+  padding: 0 0.12rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.55rem;
-  color: rgba(215, 220, 246, 0.44);
+  font-size: 0.48rem;
+  color: rgba(215, 220, 246, 0.36);
 }
 
 .dossier-trajectory-scale span:nth-child(2) {
@@ -1356,7 +1382,7 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-rail {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.06rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1364,16 +1390,19 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-week {
   display: grid;
-  grid-template-columns: minmax(5.6rem, 0.55fr) minmax(8rem, 1.25fr) minmax(4.25rem, 0.42fr);
-  gap: 0.55rem;
+  grid-template-columns: clamp(3.55rem, 14vw, 5rem) minmax(0, 1fr) clamp(2.9rem, 10vw, 4rem);
+  gap: clamp(0.28rem, 1.6vw, 0.55rem);
   align-items: center;
-  min-height: 2.15rem;
+  min-height: 2.02rem;
+  padding: 0.02rem 0.1rem;
 }
 
 @media (max-width: 520px) {
   .dossier-trajectory-week {
-    grid-template-columns: minmax(4.8rem, 0.55fr) minmax(7rem, 1.2fr) minmax(3.5rem, 0.4fr);
-    gap: 0.38rem;
+    grid-template-columns: 3.55rem minmax(0, 1fr) 2.9rem;
+    gap: 0.28rem;
+    padding-right: 0;
+    padding-left: 0;
   }
 }
 
@@ -1381,16 +1410,18 @@ a.dossier-track-name:hover {
 .dossier-trajectory-rank strong {
   display: block;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.64rem;
+  font-size: 0.56rem;
+  line-height: 1.05;
   color: rgba(244, 240, 255, 0.84);
 }
 
 .dossier-trajectory-date small,
 .dossier-trajectory-rank span {
   display: block;
-  margin-top: 0.1rem;
+  margin-top: 0.08rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.49rem;
+  font-size: 0.44rem;
+  line-height: 1.05;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(215, 220, 246, 0.42);
@@ -1402,11 +1433,11 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-track {
   position: relative;
-  height: 1.45rem;
+  height: 1.58rem;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgba(215, 220, 246, 0.05), rgba(125, 205, 210, 0.08), rgba(255, 214, 150, 0.11)),
-    rgba(0, 0, 0, 0.18);
+    linear-gradient(90deg, rgba(215, 220, 246, 0.04), rgba(125, 205, 210, 0.1), rgba(255, 214, 150, 0.15)),
+    rgba(0, 0, 0, 0.12);
 }
 
 .dossier-trajectory-track::before {
@@ -1414,7 +1445,7 @@ a.dossier-track-name:hover {
   position: absolute;
   inset: 50% 0 auto;
   height: 1px;
-  background: linear-gradient(90deg, rgba(215, 220, 246, 0.08), rgba(255, 214, 150, 0.18));
+  background: linear-gradient(90deg, rgba(215, 220, 246, 0.1), rgba(125, 205, 210, 0.18), rgba(255, 214, 150, 0.28));
 }
 
 .dossier-trajectory-connector {
@@ -1423,22 +1454,22 @@ a.dossier-track-name:hover {
   top: calc(50% - 1px);
   width: var(--move-width);
   min-width: 2px;
-  height: 2px;
+  height: 3px;
   border-radius: 999px;
-  background: rgba(125, 205, 210, 0.55);
-  box-shadow: 0 0 14px rgba(125, 205, 210, 0.2);
+  background: rgba(125, 205, 210, 0.62);
+  box-shadow: 0 0 16px rgba(125, 205, 210, 0.24);
 }
 
 .dossier-trajectory-marker {
   position: absolute;
   left: var(--rank-x);
   top: 50%;
-  width: 0.68rem;
-  height: 0.68rem;
-  border: 1px solid rgba(255, 214, 150, 0.72);
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 1px solid rgba(255, 214, 150, 0.82);
   border-radius: 999px;
-  background: rgba(255, 214, 150, 0.28);
-  box-shadow: 0 0 18px rgba(255, 214, 150, 0.26);
+  background: rgba(255, 214, 150, 0.34);
+  box-shadow: 0 0 18px rgba(255, 214, 150, 0.32);
   transform: translate(-50%, -50%);
 }
 
