@@ -48,7 +48,7 @@ export type DossierArtistExperience = {
     roleLabel: string | null;
     coverPath: string | null;
     artworkStatus: string | null;
-    chartPeak: null;
+    chartPeak: number | null;
     chartWeeks: number;
     chartingTrackCount: number;
     trackCount: number;
@@ -105,8 +105,8 @@ export function loadArtistExperienceFromDossierBundle(slug: string): DossierArti
         roleLabel: "Primary artist",
         coverPath: d.identity.canonical_cover_path?.trim() || null,
         artworkStatus: d.identity.trust_state ?? null,
-        chartPeak: null,
-        chartWeeks: 0,
+        chartPeak: d.chart.peak_rank ?? null,
+        chartWeeks: d.chart.weeks_on_chart ?? 0,
         chartingTrackCount: 0,
         trackCount: tracks.length,
         majorTracks: tracks.slice(0, 4),

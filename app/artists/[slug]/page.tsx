@@ -94,6 +94,12 @@ type AlbumTrackRow = {
   side_code: string | null;
 };
 
+type AlbumChartRunRow = {
+  retroverse_album_id: string;
+  chart_date: string | null;
+  chart_position: number | null;
+};
+
 type EraRow = {
   retroverse_era_id: string;
   slug: string;
@@ -153,6 +159,24 @@ function albumTypeLabel(albumType: string | null, soundtrackFlag: boolean): stri
   if (albumType === "compilation") return "Compilation";
   if (albumType === "studio") return "Studio album";
   return "Album";
+}
+
+async function fetchAlbumChartRunsForAlbumIds(
+  supabase: ReturnType<typeof createClient>,
+  albumIds: string[],
+): Promise<AlbumChartRunRow[]> {
+  if (albumIds.length === 0) return [];
+  const rows = await Promise.all(
+    chunkIds(albumIds).map(async (chunk) => {
+      const r = await supabase
+        .from("canonical_album_chart_runs")
+        .select("retroverse_album_id, chart_date, chart_position")
+        .in("retroverse_album_id", chunk);
+      throwSupabase(`loadArtistExperience:album_chart_runs(chunk ${chunk.length})`, r.error);
+      return (r.data ?? []) as AlbumChartRunRow[];
+    }),
+  );
+  return rows.flat();
 }
 
 function eraHref(era: EraRow): string {
@@ -314,7 +338,7 @@ async function loadArtistExperienceFromSupabase(slug: string) {
   const albumPrimaryEditionByAlbumId = new Map(primaryEditions.map((row) => [row.retroverse_album_id, row]));
   const albumById = new Map(albums.map((album) => [album.retroverse_album_id, album]));
 
-  const [charts, sequencingRows] = await Promise.all([
+  const [charts, sequencingRows, albumChartRuns] = await Promise.all([
     fetchChartAppearancesForTrackIds(supabase, trackIds),
     trackIds.length > 0 && primaryEditions.length > 0
       ? fetchAlbumTracksForEditionsAndTracks(
@@ -323,6 +347,7 @@ async function loadArtistExperienceFromSupabase(slug: string) {
           trackIds,
         )
       : Promise.resolve([] as AlbumTrackRow[]),
+    fetchAlbumChartRunsForAlbumIds(supabase, albumIds),
   ]);
 
   const eraIds = [
@@ -375,17 +400,20 @@ async function loadArtistExperienceFromSupabase(slug: string) {
   const chartWeeksByAlbumId = new Map<string, number>();
   const chartingTrackIdsByAlbumId = new Map<string, Set<string>>();
   const chartPeakByAlbumId = new Map<string, number>();
+  for (const chart of albumChartRuns) {
+    if (!chart.retroverse_album_id || chart.chart_position === null) continue;
+    chartWeeksByAlbumId.set(chart.retroverse_album_id, (chartWeeksByAlbumId.get(chart.retroverse_album_id) ?? 0) + 1);
+    const currentPeak = chartPeakByAlbumId.get(chart.retroverse_album_id);
+    if (currentPeak === undefined || chart.chart_position < currentPeak) {
+      chartPeakByAlbumId.set(chart.retroverse_album_id, chart.chart_position);
+    }
+  }
   for (const chart of charts) {
     const track = tracks.find((row) => row.retroverse_track_id === chart.retroverse_track_id);
     if (!track?.retroverse_album_id) continue;
-    chartWeeksByAlbumId.set(track.retroverse_album_id, (chartWeeksByAlbumId.get(track.retroverse_album_id) ?? 0) + 1);
     const chartingTrackIds = chartingTrackIdsByAlbumId.get(track.retroverse_album_id) ?? new Set<string>();
     chartingTrackIds.add(track.retroverse_track_id);
     chartingTrackIdsByAlbumId.set(track.retroverse_album_id, chartingTrackIds);
-    const currentPeak = chartPeakByAlbumId.get(track.retroverse_album_id);
-    if (currentPeak === undefined || chart.chart_position < currentPeak) {
-      chartPeakByAlbumId.set(track.retroverse_album_id, chart.chart_position);
-    }
   }
 
   const connectedAlbums: AlbumAppearance[] = albums
@@ -729,6 +757,11 @@ function chartWeeksStrength(weeks: number | null | undefined): number {
   return Math.max(12, Math.min(100, Math.round(Math.log2(weeks + 1) * 18)));
 }
 
+function chartPeakPlacement(peak: number | null | undefined): number {
+  if (!peak || peak <= 0) return 100;
+  return Math.max(2, Math.min(100, Math.round(((Math.min(200, peak) - 1) / 199) * 98 + 2)));
+}
+
 function chartPeakLabel(peak: number | null | undefined): string {
   return peak ? `Peak #${peak}` : "No chart peak";
 }
@@ -739,6 +772,11 @@ function chartMomentLabel(album: AlbumAppearance): string {
   if ((album.chartWeeks ?? 0) >= 20) return "Long chart life";
   if ((album.trackCount ?? 0) >= 8) return "Deep cut field";
   return "Catalog signal";
+}
+
+function trackCountLabel(count: number | null | undefined): string {
+  if (count && count > 0) return `${count} tracks`;
+  return "tracks resolving";
 }
 
 function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null {
@@ -951,14 +989,20 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                 const cover = albumCoverUrl(album);
                 const peakStrength = chartPeakStrength(album.chartPeak);
                 const weeksStrength = chartWeeksStrength(album.chartWeeks);
+                const peakPlacement = chartPeakPlacement(album.chartPeak);
                 const hasChartSignal = peakStrength > 0 || (album.chartWeeks ?? 0) > 0;
                 return (
                   <article
                     key={`discography-${album.id}`}
                     className="artist-uni-album-card"
+                    data-album-id={album.id}
+                    data-chart-peak={album.chartPeak ?? "unresolved"}
+                    data-track-count={album.trackCount ?? 0}
                     style={{
                       ["--au-peak-glow" as string]: `${peakStrength / 100}`,
                       ["--au-impact-hue" as string]: `${26 + Math.round(peakStrength * 0.24)}deg`,
+                      ["--au-chart-placement" as string]: `${peakPlacement}%`,
+                      ["--au-chart-weeks" as string]: `${weeksStrength}%`,
                     }}
                   >
                     <Link href={album.href} className="artist-uni-album-cover" aria-label={album.title}>
@@ -984,19 +1028,20 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                       <div className="artist-uni-chart-bar" aria-label={`${album.title} chart trajectory`}>
                         <span
                           className="artist-uni-chart-bar-fill"
-                          style={{ width: `${hasChartSignal ? weeksStrength : 5}%` }}
+                          style={{ width: `${hasChartSignal ? peakPlacement : 100}%` }}
                         />
                         {album.chartPeak ? (
                           <span
                             className="artist-uni-chart-peak-pin"
-                            style={{ left: `${Math.min(96, Math.max(4, peakStrength))}%` }}
+                            style={{ left: `${peakPlacement}%` }}
                           />
                         ) : null}
+                        <span className="artist-uni-chart-weeks-glow" style={{ width: `${weeksStrength}%` }} />
                       </div>
                       <div className="artist-uni-album-stats">
                         <span>{chartPeakLabel(album.chartPeak)}</span>
                         <span>{album.chartWeeks ?? 0} chart weeks</span>
-                        <span>{album.trackCount ?? 0} tracks</span>
+                        <span>{trackCountLabel(album.trackCount)}</span>
                         {album.roleLabel ? <span>{album.roleLabel}</span> : null}
                       </div>
                       {album.majorTracks && album.majorTracks.length > 0 ? (

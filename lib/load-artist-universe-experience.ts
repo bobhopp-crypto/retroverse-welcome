@@ -3,6 +3,7 @@ import {
   readCanonicalArtworkOverridesSync,
   resolveLocalFirstCanonicalCover,
 } from "@/lib/canonical-artwork-overrides";
+import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { getArtistUniverseBySlug } from "@/lib/load-artist-universe";
 import { hrefForArtist } from "@/lib/retroverse-routes";
 
@@ -100,12 +101,34 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
     },
     connectedAlbums: record.primary_albums.map((album) => {
       const albumTracks = tracksByAlbumId.get(album.album_id) ?? [];
-      const chartingAlbumTracks = albumTracks.filter((track) => track.peakChartPosition !== null);
       const artwork = resolveLocalFirstCanonicalCover(album.album_id, artworkOverrides, null);
-      const chartPeak =
-        chartingAlbumTracks.length > 0
-          ? Math.min(...chartingAlbumTracks.map((track) => track.peakChartPosition as number))
-          : null;
+      const dossier = getAlbumDossier(album.album_id);
+      const chartPeak = dossier?.chart.peak_rank ?? null;
+      const chartWeeks = dossier?.chart.weeks_on_chart ?? 0;
+      const dossierTracks = (dossier?.acoustic.tracks ?? [])
+        .map((track, index) => ({
+          id: `${album.album_id}:${index}`,
+          title: track.title?.trim() ?? "",
+          peakChartPosition: null,
+        }))
+        .filter((track) => track.title.length > 0);
+      const trackCount = Math.max(albumTracks.length, dossier?.acoustic.track_count ?? dossierTracks.length);
+      const majorTracks = albumTracks.length > 0
+        ? albumTracks
+            .slice()
+            .sort((a, b) => {
+              const aPeak = a.peakChartPosition ?? 999;
+              const bPeak = b.peakChartPosition ?? 999;
+              if (aPeak !== bPeak) return aPeak - bPeak;
+              return a.title.localeCompare(b.title);
+            })
+            .slice(0, 4)
+            .map((track) => ({
+              id: track.id,
+              title: track.title,
+              peakChartPosition: track.peakChartPosition,
+            }))
+        : dossierTracks.slice(0, 4);
       return {
         id: album.album_id,
         title: album.title,
@@ -116,23 +139,10 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
         coverPath: artwork.path,
         artworkStatus: artwork.trustState ?? null,
         chartPeak,
-        chartWeeks: chartingAlbumTracks.length,
-        chartingTrackCount: chartingAlbumTracks.length,
-        trackCount: albumTracks.length,
-        majorTracks: albumTracks
-          .slice()
-          .sort((a, b) => {
-            const aPeak = a.peakChartPosition ?? 999;
-            const bPeak = b.peakChartPosition ?? 999;
-            if (aPeak !== bPeak) return aPeak - bPeak;
-            return a.title.localeCompare(b.title);
-          })
-          .slice(0, 4)
-          .map((track) => ({
-            id: track.id,
-            title: track.title,
-            peakChartPosition: track.peakChartPosition,
-          })),
+        chartWeeks,
+        chartingTrackCount: chartingTracks.filter((track) => track.albumHref === album.href).length,
+        trackCount,
+        majorTracks,
       };
     }),
     chartingTracks,

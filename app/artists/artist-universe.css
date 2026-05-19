@@ -384,13 +384,29 @@
 }
 
 .artist-uni-discography-list {
+  position: relative;
   display: grid;
   gap: 0.82rem;
+}
+
+.artist-uni-discography-list::before {
+  content: "";
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  left: 4.8rem;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255, 191, 112, 0), rgba(255, 191, 112, 0.24), rgba(46, 232, 255, 0.16), rgba(255, 191, 112, 0));
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .artist-uni-album-card {
   --au-peak-glow: 0;
   --au-impact-hue: 34deg;
+  --au-chart-placement: 100%;
+  --au-chart-weeks: 5%;
+  position: relative;
   display: grid;
   grid-template-columns: minmax(7.2rem, 9.6rem) minmax(0, 1fr);
   gap: 0.95rem;
@@ -405,6 +421,22 @@
     0 0 38px hsl(var(--au-impact-hue) 95% 58% / calc(var(--au-peak-glow) * 0.16)),
     inset 0 1px 0 rgba(255, 244, 214, 0.06);
   padding: 0.72rem;
+}
+
+.artist-uni-album-card::before {
+  content: "";
+  position: absolute;
+  top: 1.25rem;
+  left: 4.8rem;
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 999px;
+  background: rgba(255, 244, 214, 0.9);
+  box-shadow:
+    0 0 0 3px rgba(12, 8, 18, 0.72),
+    0 0 18px hsl(var(--au-impact-hue) 95% 58% / calc(0.18 + var(--au-peak-glow) * 0.28));
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .artist-uni-album-cover {
@@ -503,7 +535,7 @@
   overflow: hidden;
   border-radius: 999px;
   background:
-    linear-gradient(90deg, rgba(255, 244, 214, 0.08), rgba(46, 232, 255, 0.08)),
+    linear-gradient(90deg, rgba(255, 191, 112, 0.18), rgba(255, 244, 214, 0.08) 18%, rgba(46, 232, 255, 0.08) 100%),
     rgba(5, 5, 12, 0.72);
   box-shadow:
     inset 0 0 0 1px rgba(255, 191, 112, 0.16),
@@ -511,20 +543,24 @@
 }
 
 .artist-uni-chart-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
   display: block;
   height: 100%;
   min-width: 0.35rem;
   border-radius: inherit;
   background:
-    linear-gradient(90deg, var(--rv-psychedelic-orange, #ff7b40), var(--rv-psychedelic-gold, #ffbf70)),
+    linear-gradient(90deg, rgba(255, 123, 64, 0.8), rgba(255, 191, 112, 0.52)),
     hsl(var(--au-impact-hue) 95% 58%);
   box-shadow:
     0 0 18px color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 42%, transparent),
     0 0 30px hsl(var(--au-impact-hue) 95% 58% / calc(0.12 + var(--au-peak-glow) * 0.42));
+  opacity: 0.66;
 }
 
 .artist-uni-chart-peak-pin {
   position: absolute;
+  z-index: 2;
   top: 50%;
   width: 0.42rem;
   height: 0.42rem;
@@ -534,6 +570,16 @@
     0 0 0 2px rgba(12, 8, 18, 0.72),
     0 0 16px hsl(var(--au-impact-hue) 95% 62% / 0.48);
   transform: translate(-50%, -50%);
+}
+
+.artist-uni-chart-weeks-glow {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(255, 244, 214, 0.16), rgba(46, 232, 255, 0.08));
+  opacity: calc(0.18 + var(--au-peak-glow) * 0.34);
+  pointer-events: none;
 }
 
 .artist-uni-album-stats,
@@ -589,6 +635,11 @@
 
   .artist-uni-album-cover {
     width: 100%;
+  }
+
+  .artist-uni-discography-list::before,
+  .artist-uni-album-card::before {
+    left: 1.15rem;
   }
 
   .artist-uni-hero-facts {
