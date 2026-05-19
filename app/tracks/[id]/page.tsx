@@ -562,6 +562,24 @@ function movementLabel(week: TrackTrajectory["weeks"][number]): string {
   return week.delta > 0 ? `up ${week.delta}` : `down ${Math.abs(week.delta)}`;
 }
 
+function trajectoryMomentClasses(weeks: TrackTrajectory["weeks"], index: number): string {
+  const week = weeks[index];
+  const previous = index > 0 ? weeks[index - 1] : null;
+  const twoBack = index > 1 ? weeks[index - 2] : null;
+  const classes: string[] = [];
+
+  if (week.rank === 1) classes.push("dossier-trajectory-week--number-one");
+  if (week.rank <= 10 && (!previous || previous.rank > 10)) classes.push("dossier-trajectory-week--top-ten");
+  if (week.rank <= 40 && (!previous || previous.rank > 40)) classes.push("dossier-trajectory-week--top-forty");
+  if (week.movement === "reentry") classes.push("dossier-trajectory-week--recurrence");
+  if ((week.weeksOnChart ?? 0) >= 20) classes.push("dossier-trajectory-week--long-run");
+  if (previous && twoBack && previous.rank > twoBack.rank && week.rank < previous.rank) {
+    classes.push("dossier-trajectory-week--rebound");
+  }
+
+  return classes.join(" ");
+}
+
 function renderTrajectoryPage(data: TrackTrajectory) {
   const primaryAlbum = data.connectedAlbums[0] ?? null;
   const integrityStates = data.integrityStates.length ? data.integrityStates : ["canonical Hot 100 linked"];
@@ -623,10 +641,11 @@ function renderTrajectoryPage(data: TrackTrajectory) {
             {data.weeks.map((week, index) => {
               const left = Math.min(week.previousX ?? week.x, week.x);
               const width = Math.abs((week.previousX ?? week.x) - week.x);
+              const momentClasses = trajectoryMomentClasses(data.weeks, index);
               return (
                 <li
                   key={`${week.issueDate}-${index}`}
-                  className={`dossier-trajectory-week dossier-trajectory-week--${week.movement}`}
+                  className={`dossier-trajectory-week dossier-trajectory-week--${week.movement} ${momentClasses}`.trim()}
                   style={
                     {
                       "--rank-x": `${week.x}%`,

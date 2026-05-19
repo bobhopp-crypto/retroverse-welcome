@@ -1287,13 +1287,35 @@ a.dossier-track-name:hover {
 }
 
 .dossier-trajectory-readout {
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.dossier-shell--trajectory .dossier-top {
+  margin-bottom: 0.26rem;
+  padding-bottom: 0.18rem;
+}
+
+.dossier-shell--trajectory .dossier-top--nav {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.dossier-trajectory-readout .dossier-provenance-label {
+  margin: 0 0 0.12rem;
+  font-size: 0.46rem;
+}
+
+.dossier-trajectory-readout .dossier-title {
+  margin-bottom: 0.08rem;
+  font-size: clamp(1.52rem, 5.5vw, 2.34rem);
+  line-height: 0.98;
 }
 
 .dossier-byline {
-  margin: 0.2rem 0 0;
+  margin: 0.06rem 0 0;
   font-family: var(--d-font-editorial);
-  font-size: clamp(1.08rem, 4vw, 1.42rem);
+  font-size: clamp(0.9rem, 3.1vw, 1.12rem);
   font-style: italic;
   color: rgba(215, 220, 246, 0.74);
 }
@@ -1308,38 +1330,39 @@ a.dossier-track-name:hover {
   text-underline-offset: 3px;
 }
 
-.dossier-trajectory-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin: 1rem 0 0;
+.dossier-trajectory-readout .dossier-provenance {
+  margin: 0.14rem 0 0;
+  font-size: 0.58rem;
+  line-height: 1.18;
 }
 
-@media (min-width: 680px) {
-  .dossier-trajectory-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+.dossier-trajectory-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.2rem;
+  margin: 0.32rem 0 0;
 }
 
 .dossier-trajectory-stats div {
-  border: 1px solid rgba(248, 250, 255, 0.08);
-  border-radius: 10px;
-  padding: 0.65rem;
-  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(248, 250, 255, 0.055);
+  border-radius: 7px;
+  padding: 0.3rem 0.28rem;
+  background: rgba(0, 0, 0, 0.13);
 }
 
 .dossier-trajectory-stats dt {
   font-family: var(--d-font-broadcast);
-  font-size: 0.48rem;
-  letter-spacing: 0.18em;
+  font-size: 0.34rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(125, 205, 210, 0.58);
 }
 
 .dossier-trajectory-stats dd {
-  margin: 0.25rem 0 0;
+  margin: 0.1rem 0 0;
   font-family: var(--d-font-editorial);
-  font-size: 1.05rem;
+  font-size: 0.72rem;
+  line-height: 1;
   color: rgba(244, 240, 255, 0.92);
 }
 
@@ -1347,7 +1370,7 @@ a.dossier-track-name:hover {
   margin-right: -0.2rem;
   margin-bottom: 1rem;
   margin-left: -0.2rem;
-  padding: 0.55rem 0.2rem 0.45rem;
+  padding: 0.12rem 0.2rem 0.45rem;
   overflow: visible;
   border-color: transparent;
   border-radius: 0;
@@ -1383,7 +1406,7 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-rail {
   display: grid;
-  gap: 0.52rem;
+  gap: 0.46rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1544,6 +1567,85 @@ a.dossier-track-name:hover {
 .dossier-trajectory-week--reentry .dossier-trajectory-track {
   outline: 1px dashed rgba(255, 214, 150, 0.18);
   outline-offset: -3px;
+}
+
+.dossier-trajectory-week--top-forty {
+  border-left-color: rgba(255, 190, 90, 0.28);
+}
+
+.dossier-trajectory-week--top-forty .dossier-trajectory-track {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 244, 214, 0.08),
+    inset 0 -7px 18px rgba(0, 0, 0, 0.22),
+    0 0 18px rgba(255, 170, 80, 0.08);
+}
+
+.dossier-trajectory-week--top-ten {
+  border-color: rgba(255, 214, 150, 0.14);
+  background:
+    radial-gradient(circle at var(--rank-x) 72%, rgba(255, 238, 170, 0.18), transparent 34%),
+    linear-gradient(100deg, rgba(255, 98, 82, 0.08), rgba(255, 214, 92, 0.08) 45%, rgba(105, 230, 170, 0.1)),
+    rgba(0, 0, 0, 0.22);
+}
+
+.dossier-trajectory-week--top-ten .dossier-trajectory-marker {
+  width: 0.9rem;
+  height: 0.9rem;
+  background: rgba(255, 220, 130, 0.42);
+  box-shadow:
+    0 0 20px rgba(255, 214, 150, 0.38),
+    0 0 36px rgba(125, 230, 170, 0.14);
+}
+
+.dossier-trajectory-week--number-one {
+  border-color: rgba(255, 242, 170, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.09),
+    0 0 0 1px rgba(255, 214, 150, 0.08),
+    0 18px 40px -28px rgba(255, 214, 150, 0.42);
+}
+
+.dossier-trajectory-week--number-one .dossier-trajectory-track {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 252, 190, 0.16),
+    inset 0 -7px 18px rgba(0, 0, 0, 0.18),
+    0 0 28px rgba(255, 214, 150, 0.22),
+    0 0 42px rgba(125, 235, 160, 0.1);
+}
+
+.dossier-trajectory-week--number-one .dossier-trajectory-track::after {
+  opacity: 1;
+  background:
+    linear-gradient(90deg, rgba(255, 132, 64, 0.82), rgba(255, 232, 98, 0.98) 48%, rgba(168, 255, 136, 1)),
+    radial-gradient(circle at 100% 50%, rgba(255, 255, 210, 0.58), transparent 42%);
+}
+
+.dossier-trajectory-week--number-one .dossier-trajectory-marker {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-color: rgba(255, 252, 210, 0.95);
+  background: rgba(255, 242, 170, 0.56);
+  box-shadow:
+    0 0 22px rgba(255, 244, 180, 0.48),
+    0 0 42px rgba(125, 240, 160, 0.16);
+}
+
+.dossier-trajectory-week--recurrence {
+  border-style: dashed;
+}
+
+.dossier-trajectory-week--rebound .dossier-trajectory-connector,
+.dossier-trajectory-week--recurrence .dossier-trajectory-connector {
+  height: 5px;
+  background: rgba(255, 222, 118, 0.72);
+}
+
+.dossier-trajectory-week--long-run {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 2px, transparent 2px 8px),
+    radial-gradient(circle at var(--rank-x) 72%, rgba(255, 214, 150, 0.15), transparent 34%),
+    linear-gradient(100deg, rgba(255, 98, 82, 0.065), rgba(255, 195, 90, 0.055) 45%, rgba(105, 230, 170, 0.08)),
+    rgba(0, 0, 0, 0.2);
 }
 
 .dossier-track-support {
