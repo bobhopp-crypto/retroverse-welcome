@@ -389,6 +389,13 @@ export default function PortalV2CurateClient({
     return `Restoration failed (HTTP ${httpStatus})${trace}`;
   }
 
+  function completeRestoration(savedAt: number, message: string) {
+    setSavedCacheBust(savedAt);
+    setRestoredAt(savedAt);
+    setSaveSuccess(message);
+    window.navigator.vibrate?.(18);
+  }
+
   useEffect(() => {
     if (loading || candidateFetchError) return;
     for (const c of grid) {
@@ -507,9 +514,8 @@ export default function PortalV2CurateClient({
       if (displayUrl) {
         setSavedDisplayUrl(displayUrl);
       }
-      setSavedCacheBust(savedAt);
-      setRestoredAt(savedAt);
-      setSaveSuccess(
+      completeRestoration(
+        savedAt,
         payload.storage === "local"
           ? "Restored identity held in the local archive."
           : "Restored identity applied to the archive.",
@@ -696,9 +702,7 @@ export default function PortalV2CurateClient({
       const canonicalCoverPath =
         savePayload.canonicalCoverPath ?? savePayload.canonicalPath ?? null;
       if (displayUrl) setSavedDisplayUrl(displayUrl);
-      setSavedCacheBust(savedAt);
-      setRestoredAt(savedAt);
-      setSaveSuccess("Restored identity applied to the archive.");
+      completeRestoration(savedAt, "Restored identity applied to the archive.");
       onSaved?.({
         albumId: row.albumId,
         canonicalCoverPath,
@@ -829,7 +833,11 @@ export default function PortalV2CurateClient({
             />
           </div>
           {saveSuccess ? (
-            <div className="mt-3 rounded-2xl border border-[#ffbf70]/35 bg-[radial-gradient(circle_at_20%_0%,rgba(255,191,112,0.20),transparent_44%),rgba(43,24,18,0.58)] px-4 py-3 text-center shadow-[0_0_30px_rgba(255,123,64,0.16)]">
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 rounded-2xl border border-[#ffbf70]/35 bg-[radial-gradient(circle_at_20%_0%,rgba(255,191,112,0.20),transparent_44%),rgba(43,24,18,0.58)] px-4 py-3 text-center shadow-[0_0_30px_rgba(255,123,64,0.16)]"
+            >
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ffbf70]">
                 Restoration complete
               </p>
@@ -849,9 +857,15 @@ export default function PortalV2CurateClient({
           {row.year != null ? <span className="tabular-nums text-[#8a7f6f]"> · {row.year}</span> : null}
         </p>
 
-        {/* 3-up candidate grid sits directly under the album metadata so the
-            user can scan alternates without scrolling past links. */}
         <div className="mt-5">
+          <div className="mb-3 text-center">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ffbf70]">
+              Archive Versions
+            </p>
+            <p className="mt-1 text-[13px] leading-snug text-[#b7aa95]">
+              Choose one strong sleeve to restore this album&apos;s public identity.
+            </p>
+          </div>
           {candidateFetchError ? (
             <div
               role="alert"
@@ -925,7 +939,7 @@ export default function PortalV2CurateClient({
            *   2. Else a selected tile → save via the candidate flow.
            *   3. Else the button is disabled.
            */}
-          <div className="flex items-stretch gap-2">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row">
             <input
               id="pv2-curator-paste-url"
               type="url"
@@ -945,7 +959,7 @@ export default function PortalV2CurateClient({
               type="submit"
               disabled={(pastePending || applyPending) || (pasteUrl.trim().length === 0 && !selected)}
               className={[
-                "shrink-0 touch-manipulation whitespace-nowrap rounded-xl px-5 py-3 text-[14px] font-semibold uppercase tracking-[0.18em] transition-opacity",
+                "w-full shrink-0 touch-manipulation whitespace-nowrap rounded-xl px-5 py-3 text-[13px] font-semibold uppercase tracking-[0.16em] transition-[opacity,transform] active:scale-[0.99] sm:w-auto sm:text-[14px]",
                 pasteUrl.trim().length === 0 && !selected
                   ? "cursor-not-allowed bg-[#08111d] text-[#5c554a] ring-1 ring-[rgba(200,169,107,0.18)]"
                   : "bg-[#c8a96b] text-[#05070b] ring-1 ring-[rgba(243,234,219,0.25)] hover:opacity-95 active:opacity-90",
