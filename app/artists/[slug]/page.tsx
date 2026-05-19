@@ -759,7 +759,7 @@ function chartWeeksStrength(weeks: number | null | undefined): number {
 
 function chartPeakPlacement(peak: number | null | undefined): number {
   if (!peak || peak <= 0) return 100;
-  return Math.max(2, Math.min(100, Math.round(((Math.min(200, peak) - 1) / 199) * 98 + 2)));
+  return Math.max(2, Math.min(100, Math.round(((200 - Math.min(200, peak)) / 199) * 98 + 2)));
 }
 
 function chartPeakLabel(peak: number | null | undefined): string {
