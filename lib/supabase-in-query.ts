@@ -51,6 +51,7 @@ export async function awaitSupabase<T>(
 type ChartAppearanceRow = {
   retroverse_track_id: string;
   chart_position: number;
+  weeks_on_chart: number | null;
 };
 
 export async function fetchChartAppearancesForTrackIds(
@@ -62,7 +63,7 @@ export async function fetchChartAppearancesForTrackIds(
     chunkIds(trackIds).map(async (chunk) => {
       const r = await supabase
         .from("retroverse_chart_appearances")
-        .select("retroverse_track_id, chart_position")
+        .select("retroverse_track_id, chart_position, weeks_on_chart")
         .in("retroverse_track_id", chunk);
       throwSupabase(`retroverse_chart_appearances(trackIds chunk ${chunk.length})`, r.error);
       return (r.data ?? []) as ChartAppearanceRow[];

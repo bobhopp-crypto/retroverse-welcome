@@ -135,6 +135,7 @@ type ArtistChartTrack = {
   albumHref: string;
   releaseYear: number | null;
   peakChartPosition: number;
+  chartWeeks?: number;
   contextLabel: string;
   eraId: string | null;
 };
@@ -375,11 +376,16 @@ async function loadArtistExperienceFromSupabase(slug: string) {
   const eraById = new Map(eras.map((era) => [era.retroverse_era_id, era]));
 
   const peakChartByTrackId = new Map<string, number>();
+  const chartWeeksByTrackId = new Map<string, number>();
   for (const chart of charts) {
     const current = peakChartByTrackId.get(chart.retroverse_track_id);
     if (current === undefined || chart.chart_position < current) {
       peakChartByTrackId.set(chart.retroverse_track_id, chart.chart_position);
     }
+    chartWeeksByTrackId.set(
+      chart.retroverse_track_id,
+      Math.max(chartWeeksByTrackId.get(chart.retroverse_track_id) ?? 0, chart.weeks_on_chart ?? 0),
+    );
   }
 
   const roleByAlbumId = new Map<string, AlbumRoleRow>();
@@ -481,6 +487,7 @@ async function loadArtistExperienceFromSupabase(slug: string) {
         albumHref: hrefForAlbum(album.retroverse_album_id, album.canonical_album_title),
         releaseYear: track.release_year,
         peakChartPosition: peak,
+        chartWeeks: chartWeeksByTrackId.get(track.retroverse_track_id) ?? 0,
         contextLabel,
         eraId: track.era_id,
       };
@@ -779,12 +786,21 @@ function trackCountLabel(count: number | null | undefined): string {
   return "tracks resolving";
 }
 
+function trackSignalLabel(track: Pick<ArtistChartTrack, "peakChartPosition" | "chartWeeks" | "contextLabel">): string {
+  if (track.peakChartPosition <= 1) return `No. 1 single · ${track.chartWeeks ?? 0} weeks`;
+  if (track.peakChartPosition <= 10) return `Top 10 single · ${track.chartWeeks ?? 0} weeks`;
+  if ((track.chartWeeks ?? 0) >= 20) return `Long Hot 100 run · ${track.chartWeeks ?? 0} weeks`;
+  return `${track.contextLabel} · ${track.chartWeeks ?? 0} weeks`;
+}
+
 function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null {
   return canonicalCoverPathToUrl(album.coverPath, {});
 }
 
-function trackHref(trackId: string): string {
-  return hrefForTrack(trackId);
+function trackHref(trackId: string, title?: string): string {
+  const canonicalHref = hrefForTrack(trackId);
+  if (canonicalHref !== "/tracks") return canonicalHref;
+  return title?.trim() ? `/tracks?q=${encodeURIComponent(title.trim())}` : canonicalHref;
 }
 
 function fallbackEraTitle(index: number): string {
@@ -843,7 +859,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
     data.chartingTracks.length > 0
       ? data.chartingTracks
           .slice()
-          .sort((a, b) => a.peakChartPosition - b.peakChartPosition)
+          .sort((a, b) => a.peakChartPosition - b.peakChartPosition || (b.chartWeeks ?? 0) - (a.chartWeeks ?? 0))
           .slice(0, densityTier === "minimal" ? 6 : 10)
       : data.connectedTrackRows
           .slice(0, densityTier === "minimal" ? 6 : 10)
@@ -854,9 +870,11 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             albumHref: row.albumHref,
             releaseYear: row.releaseYear,
             peakChartPosition: row.peakChartPosition ?? 999,
-            contextLabel: "Track",
+            chartWeeks: 0,
+            contextLabel: "Album track",
             eraId: null,
           }));
+  const hasChartedKeySongs = data.chartingTracks.length > 0;
   const visualDiscography = data.connectedAlbums.slice(0, densityTier === "minimal" ? 8 : densityTier === "standard" ? 16 : 28);
   const iconicAlbums = [...data.connectedAlbums]
     .sort((a, b) => {
@@ -1047,7 +1065,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                       {album.majorTracks && album.majorTracks.length > 0 ? (
                         <div className="artist-uni-album-tracks" aria-label={`Major tracks from ${album.title}`}>
                           {album.majorTracks.map((track) => (
-                            <Link key={`${album.id}-${track.id}`} href={trackHref(track.id)} className="artist-uni-track-chip">
+                            <Link key={`${album.id}-${track.id}`} href={trackHref(track.id, track.title)} className="artist-uni-track-chip">
                               {track.title}
                               {track.peakChartPosition ? <span>#{track.peakChartPosition}</span> : null}
                             </Link>
@@ -1106,7 +1124,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                           <div className="artist-uni-track-line">
                             <div className="min-w-0">
                               <p className="text-[0.96rem]">
-                                <Link href={trackHref(track.id)} className="artist-uni-inline-link">
+                                <Link href={trackHref(track.id, track.title)} className="artist-uni-inline-link">
                                   {track.title}
                                 </Link>{" "}
                                 ·{" "}
@@ -1131,7 +1149,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                       {chapter.representativeTracks.map((track, idx) => (
                         <span key={`${chapter.key}-rep-${track.id}`}>
                           {idx > 0 ? " · " : ""}
-                          <Link href={trackHref(track.id)} className="artist-uni-inline-link">
+                          <Link href={trackHref(track.id, track.title)} className="artist-uni-inline-link">
                             {track.title}
                           </Link>
                         </span>
@@ -1147,22 +1165,27 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
         {keySongs.length > 0 ? (
           <section className="artist-uni-major-tracks mb-10 space-y-3">
             <p className="artist-uni-section-label -mt-1 !mb-1">
-              {densityTier === "minimal" ? "Signals in heavy rotation" : "Track pathways through albums, charts, and Retroscope"}
+              {hasChartedKeySongs ? "Hot 100 public signal" : "Album landmarks"}
             </p>
             <h2 className="artist-uni-h2">Major tracks</h2>
             <div className="artist-uni-track-grid">
               {keySongs.map((track, index) => {
                 const trackStrength = chartPeakStrength(track.peakChartPosition);
+                const trackWeeksStrength = chartWeeksStrength(track.chartWeeks);
                 return (
                   <article
                     key={track.id}
                     className="artist-uni-track-card"
+                    data-track-id={track.id}
+                    data-track-peak={hasChartedKeySongs ? track.peakChartPosition : "fallback"}
+                    data-track-weeks={track.chartWeeks ?? 0}
                     style={{
                       ["--au-track-strength" as string]: `${trackStrength || 18}%`,
+                      ["--au-track-weeks" as string]: `${trackWeeksStrength}%`,
                       ["--au-track-hue" as string]: `${24 + index * 11}deg`,
                     }}
                   >
-                    <Link href={trackHref(track.id)} className="artist-uni-track-title">
+                    <Link href={trackHref(track.id, track.title)} className="artist-uni-track-title">
                       {track.title}
                     </Link>
                     <p>
@@ -1174,10 +1197,10 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                     <span className="artist-uni-track-mini-bar">
                       <span style={{ width: `${trackStrength || 18}%` }} />
                     </span>
-                    {track.peakChartPosition !== null && track.peakChartPosition !== 999 ? (
-                      <span className="artist-uni-track-peak">Peak #{track.peakChartPosition}</span>
+                    {hasChartedKeySongs ? (
+                      <span className="artist-uni-track-peak">{trackSignalLabel(track)}</span>
                     ) : (
-                      <span className="artist-uni-track-peak">Album cut</span>
+                      <span className="artist-uni-track-peak">Album landmark</span>
                     )}
                   </article>
                 );
@@ -1213,7 +1236,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0 pr-2">
                         <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
-                          <Link href={trackHref(track.id)} className="artist-uni-inline-link">
+                          <Link href={trackHref(track.id, track.title)} className="artist-uni-inline-link">
                             {track.title}
                           </Link>
                         </p>

@@ -788,6 +788,7 @@
 
 .artist-uni-track-card {
   --au-track-strength: 18%;
+  --au-track-weeks: 5%;
   --au-track-hue: 24deg;
   position: relative;
   overflow: hidden;
@@ -802,6 +803,16 @@
   padding: 0.82rem 0.9rem;
 }
 
+.artist-uni-track-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: var(--au-track-weeks);
+  background: linear-gradient(90deg, transparent, hsl(var(--au-track-hue) 95% 64% / 0.1));
+  opacity: 0.88;
+  pointer-events: none;
+}
+
 .artist-uni-track-card::after {
   content: "";
   position: absolute;
@@ -811,6 +822,11 @@
   border-radius: 0 999px 999px 0;
   background: linear-gradient(90deg, hsl(var(--au-track-hue) 95% 58%), var(--rv-psychedelic-gold, #ffbf70));
   box-shadow: 0 0 18px hsl(var(--au-track-hue) 95% 58% / 0.3);
+}
+
+.artist-uni-track-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .artist-uni-track-title {
