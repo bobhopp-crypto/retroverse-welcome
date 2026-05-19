@@ -12,6 +12,7 @@ import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage, type TrackLineageAppearance } from "@/lib/retroverse-lineage";
 import { generateTrackPathways } from "@/lib/retroverse-pathways";
 import { loadTrackTrajectory, type TrackTrajectory } from "@/lib/load-track-trajectory";
+import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
 import { EntityStatus } from "@/app/components/entity-status";
@@ -642,6 +643,7 @@ function renderTrajectoryPage(data: TrackTrajectory) {
               const left = Math.min(week.previousX ?? week.x, week.x);
               const width = Math.abs((week.previousX ?? week.x) - week.x);
               const momentClasses = trajectoryMomentClasses(data.weeks, index);
+              const heat = resolveTrajectoryHistoricalHeat(week, index, data.weeks, data.peak);
               return (
                 <li
                   key={`${week.issueDate}-${index}`}
@@ -651,6 +653,14 @@ function renderTrajectoryPage(data: TrackTrajectory) {
                       "--rank-x": `${week.x}%`,
                       "--move-left": `${left}%`,
                       "--move-width": `${width}%`,
+                      "--heat-intensity": String(heat.intensity),
+                      "--heat-bg": heat.atmosphereBg,
+                      "--heat-border": heat.atmosphereBorder,
+                      "--heat-glow": heat.atmosphereGlow,
+                      "--heat-rail": heat.railTint,
+                      "--heat-marker-fill": heat.markerFill,
+                      "--heat-marker-border": heat.markerBorder,
+                      "--heat-connector": heat.connector,
                     } as CSSProperties
                   }
                 >

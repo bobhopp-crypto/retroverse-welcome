@@ -1303,7 +1303,7 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-readout .dossier-provenance-label {
   margin: 0 0 0.12rem;
-  font-size: 0.46rem;
+  font-size: 0.54rem;
 }
 
 .dossier-trajectory-readout .dossier-title {
@@ -1332,8 +1332,8 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-readout .dossier-provenance {
   margin: 0.14rem 0 0;
-  font-size: 0.58rem;
-  line-height: 1.18;
+  font-size: 0.68rem;
+  line-height: 1.22;
 }
 
 .dossier-trajectory-stats {
@@ -1352,7 +1352,7 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-stats dt {
   font-family: var(--d-font-broadcast);
-  font-size: 0.34rem;
+  font-size: 0.44rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(125, 205, 210, 0.58);
@@ -1361,8 +1361,8 @@ a.dossier-track-name:hover {
 .dossier-trajectory-stats dd {
   margin: 0.1rem 0 0;
   font-family: var(--d-font-editorial);
-  font-size: 0.72rem;
-  line-height: 1;
+  font-size: 0.92rem;
+  line-height: 1.05;
   color: rgba(244, 240, 255, 0.92);
 }
 
@@ -1391,8 +1391,8 @@ a.dossier-track-name:hover {
   margin-bottom: 0.45rem;
   padding: 0 0.12rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.5rem;
-  color: rgba(215, 220, 246, 0.36);
+  font-size: 0.62rem;
+  color: rgba(215, 220, 246, 0.42);
 }
 
 .dossier-trajectory-scale span:nth-child(2) {
@@ -1413,6 +1413,14 @@ a.dossier-track-name:hover {
 }
 
 .dossier-trajectory-week {
+  --heat-intensity: 0.35;
+  --heat-bg: rgba(48, 128, 98, 0.12);
+  --heat-border: rgba(48, 128, 98, 0.2);
+  --heat-glow: rgba(48, 128, 98, 0.1);
+  --heat-rail: rgba(48, 128, 98, 0.16);
+  --heat-marker-fill: rgba(48, 128, 98, 0.42);
+  --heat-marker-border: rgba(48, 128, 98, 0.72);
+  --heat-connector: rgba(48, 128, 98, 0.45);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
@@ -1420,23 +1428,50 @@ a.dossier-track-name:hover {
     "rail rail";
   gap: 0.44rem 0.7rem;
   align-items: end;
-  min-height: 4.15rem;
-  padding: 0.62rem 0.68rem 0.7rem;
-  border: 1px solid rgba(248, 250, 255, 0.07);
+  min-height: 4.35rem;
+  padding: 0.68rem 0.72rem 0.74rem;
+  border: 1px solid var(--heat-border);
   border-radius: 14px 4px 16px 5px / 5px 15px 4px 15px;
-  background:
-    radial-gradient(circle at var(--rank-x) 72%, rgba(255, 214, 150, 0.13), transparent 34%),
-    linear-gradient(100deg, rgba(255, 98, 82, 0.07), rgba(255, 195, 90, 0.05) 45%, rgba(105, 230, 170, 0.07)),
-    rgba(0, 0, 0, 0.2);
+  background: var(--heat-bg);
   box-shadow:
     inset 0 1px 0 rgba(255, 244, 214, 0.04),
-    0 10px 28px -22px rgba(0, 0, 0, 0.8);
+    0 10px 28px -22px rgba(0, 0, 0, 0.8),
+    0 0 calc(8px + var(--heat-intensity) * 26px) var(--heat-glow);
 }
 
 @media (max-width: 520px) {
   .dossier-trajectory-week {
-    min-height: 4rem;
-    padding: 0.58rem 0.58rem 0.64rem;
+    min-height: 4.2rem;
+    padding: 0.62rem 0.62rem 0.68rem;
+  }
+
+  .dossier-trajectory-stats dt {
+    font-size: 0.48rem;
+  }
+
+  .dossier-trajectory-stats dd {
+    font-size: 0.98rem;
+  }
+
+  .dossier-trajectory-scale {
+    font-size: 0.66rem;
+  }
+
+  .dossier-trajectory-date span {
+    font-size: 0.96rem;
+  }
+
+  .dossier-trajectory-rank strong {
+    font-size: 1.16rem;
+  }
+
+  .dossier-trajectory-date small,
+  .dossier-trajectory-rank span {
+    font-size: 0.8rem;
+  }
+
+  .dossier-trajectory-readout .dossier-provenance {
+    font-size: 0.72rem;
   }
 }
 
@@ -1452,21 +1487,27 @@ a.dossier-track-name:hover {
 .dossier-trajectory-rank strong {
   display: block;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.72rem;
-  line-height: 1.08;
-  color: rgba(244, 240, 255, 0.84);
+  font-size: 0.9rem;
+  line-height: 1.1;
+  color: rgba(244, 240, 255, 0.9);
 }
 
 .dossier-trajectory-date small,
 .dossier-trajectory-rank span {
   display: block;
-  margin-top: 0.14rem;
+  margin-top: 0.16rem;
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.52rem;
-  line-height: 1.1;
-  letter-spacing: 0.08em;
+  font-size: 0.74rem;
+  line-height: 1.12;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(215, 220, 246, 0.42);
+  color: rgba(215, 220, 246, 0.56);
+}
+
+.dossier-trajectory-rank strong {
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .dossier-trajectory-rank {
@@ -1476,15 +1517,13 @@ a.dossier-track-name:hover {
 .dossier-trajectory-track {
   grid-area: rail;
   position: relative;
-  height: 1.78rem;
-  overflow: hidden;
+  height: 1.82rem;
+  overflow: visible;
   border-radius: 999px;
-  background:
-    linear-gradient(90deg, rgba(90, 25, 22, 0.62), rgba(150, 70, 34, 0.5), rgba(55, 118, 80, 0.38)),
-    rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.34);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 244, 214, 0.06),
-    inset 0 -7px 18px rgba(0, 0, 0, 0.22);
+    inset 0 0 0 1px var(--heat-rail),
+    inset 0 -6px 14px rgba(0, 0, 0, 0.24);
 }
 
 .dossier-trajectory-track::before {
@@ -1492,23 +1531,8 @@ a.dossier-track-name:hover {
   position: absolute;
   inset: 50% 0 auto;
   height: 1px;
-  background: linear-gradient(90deg, rgba(215, 220, 246, 0.1), rgba(125, 205, 210, 0.18), rgba(255, 214, 150, 0.28));
-  z-index: 2;
-}
-
-.dossier-trajectory-track::after {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: var(--rank-x);
-  border-radius: inherit;
-  background:
-    linear-gradient(90deg, rgba(255, 96, 64, 0.8), rgba(255, 180, 72, 0.88) 52%, rgba(150, 238, 130, 0.9)),
-    radial-gradient(circle at 100% 50%, rgba(255, 246, 170, 0.42), transparent 42%);
-  box-shadow:
-    0 0 20px rgba(255, 180, 78, 0.18),
-    inset 0 1px 0 rgba(255, 255, 220, 0.18);
-  opacity: 0.92;
+  background: rgba(215, 220, 246, 0.14);
+  z-index: 1;
 }
 
 .dossier-trajectory-connector {
@@ -1517,135 +1541,59 @@ a.dossier-track-name:hover {
   top: calc(50% - 1px);
   width: var(--move-width);
   min-width: 2px;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
-  background: rgba(125, 205, 210, 0.62);
-  box-shadow: 0 0 16px rgba(125, 205, 210, 0.24);
-  z-index: 3;
+  background: var(--heat-connector);
+  z-index: 2;
 }
 
 .dossier-trajectory-marker {
   position: absolute;
   left: var(--rank-x);
   top: 50%;
-  width: 0.78rem;
-  height: 0.78rem;
-  border: 1px solid rgba(255, 214, 150, 0.82);
+  width: 0.82rem;
+  height: 0.82rem;
+  border: 1.5px solid var(--heat-marker-border);
   border-radius: 999px;
-  background: rgba(255, 214, 150, 0.34);
-  box-shadow: 0 0 18px rgba(255, 214, 150, 0.32);
+  background: var(--heat-marker-fill);
+  box-shadow: 0 0 calc(6px + var(--heat-intensity) * 14px) var(--heat-glow);
   transform: translate(-50%, -50%);
-  z-index: 4;
+  z-index: 3;
 }
 
-.dossier-trajectory-week--up .dossier-trajectory-connector {
-  background: rgba(255, 214, 150, 0.64);
-}
-
-.dossier-trajectory-week--up .dossier-trajectory-track::after {
-  background:
-    linear-gradient(90deg, rgba(255, 120, 64, 0.78), rgba(255, 220, 92, 0.92) 54%, rgba(148, 245, 128, 0.95)),
-    radial-gradient(circle at 100% 50%, rgba(255, 250, 170, 0.48), transparent 42%);
-}
-
-.dossier-trajectory-week--down .dossier-trajectory-connector {
-  background: rgba(255, 120, 78, 0.56);
-}
-
-.dossier-trajectory-week--down .dossier-trajectory-track::after {
-  background:
-    linear-gradient(90deg, rgba(140, 45, 40, 0.82), rgba(232, 104, 58, 0.82) 58%, rgba(255, 178, 80, 0.7)),
-    radial-gradient(circle at 100% 50%, rgba(255, 150, 90, 0.36), transparent 44%);
-}
-
-.dossier-trajectory-week--same .dossier-trajectory-track::after {
-  background:
-    linear-gradient(90deg, rgba(145, 82, 52, 0.76), rgba(255, 190, 86, 0.84), rgba(255, 220, 130, 0.78)),
-    radial-gradient(circle at 100% 50%, rgba(255, 225, 150, 0.34), transparent 42%);
-}
-
-.dossier-trajectory-week--reentry .dossier-trajectory-track {
-  outline: 1px dashed rgba(255, 214, 150, 0.18);
-  outline-offset: -3px;
-}
-
-.dossier-trajectory-week--top-forty {
-  border-left-color: rgba(255, 190, 90, 0.28);
-}
-
-.dossier-trajectory-week--top-forty .dossier-trajectory-track {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 244, 214, 0.08),
-    inset 0 -7px 18px rgba(0, 0, 0, 0.22),
-    0 0 18px rgba(255, 170, 80, 0.08);
-}
-
-.dossier-trajectory-week--top-ten {
-  border-color: rgba(255, 214, 150, 0.14);
-  background:
-    radial-gradient(circle at var(--rank-x) 72%, rgba(255, 238, 170, 0.18), transparent 34%),
-    linear-gradient(100deg, rgba(255, 98, 82, 0.08), rgba(255, 214, 92, 0.08) 45%, rgba(105, 230, 170, 0.1)),
-    rgba(0, 0, 0, 0.22);
-}
-
-.dossier-trajectory-week--top-ten .dossier-trajectory-marker {
-  width: 0.9rem;
-  height: 0.9rem;
-  background: rgba(255, 220, 130, 0.42);
-  box-shadow:
-    0 0 20px rgba(255, 214, 150, 0.38),
-    0 0 36px rgba(125, 230, 170, 0.14);
-}
-
-.dossier-trajectory-week--number-one {
-  border-color: rgba(255, 242, 170, 0.28);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 244, 214, 0.09),
-    0 0 0 1px rgba(255, 214, 150, 0.08),
-    0 18px 40px -28px rgba(255, 214, 150, 0.42);
-}
-
-.dossier-trajectory-week--number-one .dossier-trajectory-track {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 252, 190, 0.16),
-    inset 0 -7px 18px rgba(0, 0, 0, 0.18),
-    0 0 28px rgba(255, 214, 150, 0.22),
-    0 0 42px rgba(125, 235, 160, 0.1);
-}
-
-.dossier-trajectory-week--number-one .dossier-trajectory-track::after {
-  opacity: 1;
-  background:
-    linear-gradient(90deg, rgba(255, 132, 64, 0.82), rgba(255, 232, 98, 0.98) 48%, rgba(168, 255, 136, 1)),
-    radial-gradient(circle at 100% 50%, rgba(255, 255, 210, 0.58), transparent 42%);
-}
-
-.dossier-trajectory-week--number-one .dossier-trajectory-marker {
-  width: 1.05rem;
-  height: 1.05rem;
-  border-color: rgba(255, 252, 210, 0.95);
-  background: rgba(255, 242, 170, 0.56);
-  box-shadow:
-    0 0 22px rgba(255, 244, 180, 0.48),
-    0 0 42px rgba(125, 240, 160, 0.16);
-}
-
-.dossier-trajectory-week--recurrence {
+.dossier-trajectory-week--reentry {
   border-style: dashed;
 }
 
 .dossier-trajectory-week--rebound .dossier-trajectory-connector,
 .dossier-trajectory-week--recurrence .dossier-trajectory-connector {
-  height: 5px;
-  background: rgba(255, 222, 118, 0.72);
+  height: 4px;
+}
+
+.dossier-trajectory-week--top-ten .dossier-trajectory-marker {
+  width: 0.92rem;
+  height: 0.92rem;
+}
+
+.dossier-trajectory-week--number-one .dossier-trajectory-marker {
+  width: 1.02rem;
+  height: 1.02rem;
+}
+
+.dossier-trajectory-week--number-one {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.06),
+    0 10px 28px -22px rgba(0, 0, 0, 0.8),
+    0 0 calc(16px + var(--heat-intensity) * 34px) var(--heat-glow);
 }
 
 .dossier-trajectory-week--long-run {
-  background:
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.028) 0 2px, transparent 2px 8px),
-    radial-gradient(circle at var(--rank-x) 72%, rgba(255, 214, 150, 0.15), transparent 34%),
-    linear-gradient(100deg, rgba(255, 98, 82, 0.065), rgba(255, 195, 90, 0.055) 45%, rgba(105, 230, 170, 0.08)),
-    rgba(0, 0, 0, 0.2);
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0 2px,
+    transparent 2px 9px
+  );
+  background-color: var(--heat-bg);
 }
 
 .dossier-track-support {
