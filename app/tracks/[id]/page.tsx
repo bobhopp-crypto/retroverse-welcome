@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
+import { BodyClassName } from "@/app/components/body-class-name";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { relationshipWorkspaceHref } from "@/lib/retroverse-nav";
 import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
@@ -9,10 +11,13 @@ import { getEraBySlug } from "@/lib/eras";
 import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage, type TrackLineageAppearance } from "@/lib/retroverse-lineage";
 import { generateTrackPathways } from "@/lib/retroverse-pathways";
+import { loadTrackTrajectory, type TrackTrajectory } from "@/lib/load-track-trajectory";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
 import { EntityStatus } from "@/app/components/entity-status";
 import { ArtworkFrame } from "@/app/components/artwork-frame";
+
+import "@/app/albums/album-dossier.css";
 
 export const metadata: Metadata = {
   title: "Track - Retroverse",
@@ -543,8 +548,162 @@ async function loadTrackGraph(idParam: string) {
   };
 }
 
+function formatChartDate(value: string | null): string {
+  if (!value) return "—";
+  const date = new Date(`${value}T00:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
+function movementLabel(week: TrackTrajectory["weeks"][number]): string {
+  if (week.movement === "debut") return "debut";
+  if (week.movement === "reentry") return "re-entry";
+  if (week.movement === "same") return "hold";
+  if (week.delta === null) return week.movement;
+  return week.delta > 0 ? `up ${week.delta}` : `down ${Math.abs(week.delta)}`;
+}
+
+function renderTrajectoryPage(data: TrackTrajectory) {
+  const primaryAlbum = data.connectedAlbums[0] ?? null;
+  const integrityStates = data.integrityStates.length ? data.integrityStates : ["canonical Hot 100 linked"];
+
+  return (
+    <>
+      <BodyClassName className="dossier-body" />
+      <main className="dossier-shell dossier-shell--trajectory">
+        <header className="dossier-top dossier-top--nav">
+          <Link href="/tracks" className="dossier-a dossier-a--quiet">
+            Tracks
+          </Link>
+          <Link href="/track-deck" className="dossier-a dossier-a--quiet">
+            Hot 100 deck
+          </Link>
+        </header>
+
+        <section className="dossier-readout dossier-trajectory-readout">
+          <p className="dossier-provenance-label">Hot 100 trajectory</p>
+          <h1 className="dossier-title">{data.canonicalTitle}</h1>
+          <p className="dossier-byline">
+            <Link href={data.artistHref}>{data.canonicalArtist}</Link>
+          </p>
+          {primaryAlbum ? (
+            <p className="dossier-provenance">
+              Album link: <Link href={`/albums/${primaryAlbum.albumId}`}>{primaryAlbum.albumTitle}</Link>
+            </p>
+          ) : (
+            <p className="dossier-provenance">Canonical album unresolved</p>
+          )}
+
+          <dl className="dossier-trajectory-stats">
+            <div>
+              <dt>Peak</dt>
+              <dd>{data.peak != null ? `#${data.peak}` : "—"}</dd>
+            </div>
+            <div>
+              <dt>Weeks</dt>
+              <dd>{data.weeksCharted ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>First week</dt>
+              <dd>{formatChartDate(data.firstChartWeek)}</dd>
+            </div>
+            <div>
+              <dt>Final week</dt>
+              <dd>{formatChartDate(data.finalChartWeek)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel" aria-label="Weekly Hot 100 trajectory">
+          <div className="dossier-trajectory-scale" aria-hidden>
+            <span>#100</span>
+            <span>#50</span>
+            <span>#1</span>
+          </div>
+          <ol className="dossier-trajectory-rail">
+            {data.weeks.map((week, index) => {
+              const left = Math.min(week.previousX ?? week.x, week.x);
+              const width = Math.abs((week.previousX ?? week.x) - week.x);
+              return (
+                <li
+                  key={`${week.issueDate}-${index}`}
+                  className={`dossier-trajectory-week dossier-trajectory-week--${week.movement}`}
+                  style={
+                    {
+                      "--rank-x": `${week.x}%`,
+                      "--move-left": `${left}%`,
+                      "--move-width": `${width}%`,
+                    } as CSSProperties
+                  }
+                >
+                  <div className="dossier-trajectory-date">
+                    <span>{formatChartDate(week.issueDate)}</span>
+                    <small>week {week.weeksOnChart ?? index + 1}</small>
+                  </div>
+                  <div className="dossier-trajectory-track" aria-hidden>
+                    {index > 0 ? <span className="dossier-trajectory-connector" /> : null}
+                    <span className="dossier-trajectory-marker" />
+                  </div>
+                  <div className="dossier-trajectory-rank">
+                    <strong>#{week.rank}</strong>
+                    <span>{movementLabel(week)}</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section className="dossier-track-support">
+          <article className="dossier-panel dossier-panel--band-plank">
+            <h2 className="dossier-panel-label">Connected albums</h2>
+            {data.connectedAlbums.length ? (
+              <ul className="dossier-support-list">
+                {data.connectedAlbums.map((album) => (
+                  <li key={album.albumId}>
+                    <Link href={`/albums/${album.albumId}`}>{album.albumTitle}</Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="dossier-provenance">Unresolved canonical album</p>
+            )}
+          </article>
+
+          <article className="dossier-panel dossier-panel--band-gold">
+            <h2 className="dossier-panel-label">Related canonical tracks</h2>
+            <ul className="dossier-support-list">
+              {data.relatedTracks.map((track) => (
+                <li key={track.href}>
+                  <Link href={track.href}>{track.title}</Link>
+                  <span>{track.peak != null ? `#${track.peak}` : "—"} · {track.weeks ?? "—"} weeks</span>
+                </li>
+              ))}
+            </ul>
+          </article>
+
+          <article className="dossier-panel dossier-panel--band-teal">
+            <h2 className="dossier-panel-label">Integrity</h2>
+            <div className="dossier-track-integrity dossier-track-integrity--support">
+              {integrityStates.map((state) => (
+                <span key={state}>{state}</span>
+              ))}
+              {data.reentryCount > 0 ? <span>{data.reentryCount} recurrence gap{data.reentryCount === 1 ? "" : "s"}</span> : null}
+            </div>
+            {data.pairedAliases.length ? (
+              <p className="dossier-provenance">Paired alias parts: {data.pairedAliases.join(" / ")}</p>
+            ) : null}
+          </article>
+        </section>
+      </main>
+    </>
+  );
+}
+
 export default async function TrackDetailPage({ params }: TrackPageProps) {
   const { id } = await params;
+  const trajectory = loadTrackTrajectory(id);
+  if (trajectory) return renderTrajectoryPage(trajectory);
+
   let data: Awaited<ReturnType<typeof loadTrackGraph>> = null;
   try {
     data = await loadTrackGraph(id);

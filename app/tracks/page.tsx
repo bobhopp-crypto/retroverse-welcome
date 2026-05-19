@@ -98,7 +98,13 @@ export default async function TracksIndexPage({ searchParams }: TracksPageProps)
           {index.rows.map((row) => (
             <article key={row.identityId} className="dossier-track-row">
               <div className="dossier-track-main">
-                <span className="dossier-track-name">{row.canonicalTitle}</span>
+                {row.hot100WorkId ? (
+                  <Link href={`/tracks/hot100-${row.hot100WorkId}`} className="dossier-track-name">
+                    {row.canonicalTitle}
+                  </Link>
+                ) : (
+                  <span className="dossier-track-name">{row.canonicalTitle}</span>
+                )}
                 <Link href={artistRoute(row.canonicalArtist)} className="dossier-track-artist">
                   {row.canonicalArtist}
                 </Link>
