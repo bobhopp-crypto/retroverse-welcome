@@ -833,6 +833,20 @@ body.arv-body-lock main {
     0 0 20px color-mix(in srgb, var(--arv-electric) 10%, transparent);
 }
 
+.arv-viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(105deg, transparent 0%, color-mix(in srgb, var(--arv-amber-hot) 8%, transparent) 48%, transparent 72%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--arv-electric) 8%, transparent), transparent 48%);
+  mix-blend-mode: screen;
+  opacity: 0.44;
+  animation: arv-signal-drift 7.5s ease-in-out infinite alternate;
+}
+
 .arv-viewport-label {
   position: absolute;
   top: 0.38rem;
@@ -869,6 +883,11 @@ body.arv-body-lock main {
     0 0 5px 1px rgba(255, 174, 56, 0.85),
     0 0 18px color-mix(in srgb, var(--arv-electric) 22%, transparent);
   opacity: 0.92;
+  transition:
+    left 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 420ms ease,
+    opacity 420ms ease;
 }
 
 .arv-grid {
@@ -880,6 +899,9 @@ body.arv-body-lock main {
   max-height: 100%;
   box-sizing: border-box;
   padding-top: 0.4rem;
+  position: relative;
+  z-index: 2;
+  transition: filter 520ms ease;
 }
 
 .arv-cell {
@@ -900,6 +922,13 @@ body.arv-body-lock main {
   box-shadow:
     inset 0 3px 8px rgba(0, 0, 0, 0.85),
     inset 0 0 0 1px rgba(20, 16, 12, 0.9);
+  transform: translateZ(0);
+  transition:
+    border-color 440ms ease,
+    box-shadow 440ms ease,
+    filter 520ms ease,
+    opacity 440ms ease,
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .arv-cell::before {
@@ -941,6 +970,7 @@ body.arv-body-lock main {
 .arv-cell--explored:not(.arv-cell--active) {
   opacity: 0.78;
   border-color: rgba(196, 104, 20, 0.3);
+  filter: saturate(0.92) brightness(0.92);
 }
 
 .arv-cell--explored:not(.arv-cell--active)::before {
@@ -951,6 +981,8 @@ body.arv-body-lock main {
 .arv-cell--active {
   opacity: 1;
   border-color: rgba(255, 174, 56, 0.9);
+  transform: scale(1.018);
+  filter: saturate(1.12) brightness(1.05);
   box-shadow:
     inset 0 0 10px rgba(232, 136, 24, 0.2),
     0 0 10px -2px rgba(255, 174, 56, 0.5),
@@ -979,11 +1011,20 @@ body.arv-body-lock main {
   object-fit: cover;
   opacity: 0.12;
   z-index: 1;
+  transition:
+    opacity 520ms ease,
+    filter 520ms ease,
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .arv-cell--explored .arv-cell-thumb,
 .arv-cell--active .arv-cell-thumb {
   opacity: 0.88;
+}
+
+.arv-cell--active .arv-cell-thumb {
+  filter: saturate(1.08) contrast(1.04);
+  transform: scale(1.025);
 }
 
 .arv-cell-reveal {
@@ -1012,6 +1053,7 @@ body.arv-body-lock main {
     ),
     linear-gradient(165deg, rgba(2, 2, 1, 0.96), rgba(10, 8, 6, 0.98));
   pointer-events: none;
+  transition: opacity 520ms ease;
 }
 
 .arv-cell-meta {
@@ -1027,6 +1069,31 @@ body.arv-body-lock main {
 
 .arv-cell--active .arv-cell-meta {
   color: var(--arv-amber-hot);
+}
+
+@keyframes arv-signal-drift {
+  from {
+    transform: translateX(-3%) translateY(0);
+    opacity: 0.32;
+  }
+  to {
+    transform: translateX(3%) translateY(-1%);
+    opacity: 0.54;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arv-viewport::after {
+    animation: none;
+  }
+
+  .arv-viewport-reticle::before,
+  .arv-grid,
+  .arv-cell,
+  .arv-cell-thumb,
+  .arv-cell-mask {
+    transition: none;
+  }
 }
 
 @media (max-width: 767px) {
