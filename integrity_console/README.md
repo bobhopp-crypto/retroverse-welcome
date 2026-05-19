@@ -62,6 +62,17 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 | `sql/505_billboard_200_readiness_report.sql` | Post-ingestion coverage report | No |
 | `sql/506_album_timeline_preview.sql` | Album timeline / B200 preview | No |
 
+### Phase 6 — Canonical album population
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/601_canonical_album_population_candidates.sql` | B200 → proposed album keys | No |
+| `sql/602_album_edition_detection.sql` | Edition type detection from staging titles | No |
+| `sql/603_album_population_preview.sql` | Population preview (candidates + editions) | No |
+| `sql/604_canonical_album_population_execute.sql` | Populate `albums`, `album_editions`, registry | **Yes** (additive DML) |
+| `sql/605_album_chart_linkage_population.sql` | B200 `chart_appearances` via registry | **Yes** (additive DML) |
+| `sql/606_album_population_readiness_report.sql` | Post-population coverage report | No |
+
 ## Run order
 
 ### Artists
@@ -115,6 +126,19 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 8. `506_album_timeline_preview.sql` — timeline inspection
 
 **Integrity viewer** (`/integrity`): Albums, Billboard 200, Album Tracklists sections (read-only).
+
+### Canonical albums (Phase 6)
+
+1. `601_canonical_album_population_candidates.sql` — review proposed keys + confidence
+2. `602_album_edition_detection.sql` — edition variants per base title
+3. `603_album_population_preview.sql` — read-only population preview
+4. `604_canonical_album_population_execute.sql` — create albums + editions + registry
+5. `605_album_chart_linkage_population.sql` — linkage candidates + B200 chart rows (`review_flag = ok` only)
+6. `606_album_population_readiness_report.sql` — coverage + unresolved queue
+
+**Phase 6 does not merge albums, delete staging, or rewrite Hot 100 chart history.**
+
+**Integrity viewer** (`/integrity`): Album Families, Editions, Billboard 200 timelines, album lineage (read-only).
 
 ## Retroverse Album Identity Model
 

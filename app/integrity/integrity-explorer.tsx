@@ -12,11 +12,19 @@ const VIEWS: { id: IntegrityView; label: string }[] = [
   { id: "variants", label: "Variants" },
   { id: "relationships", label: "Relationships" },
   { id: "albums", label: "Albums" },
+  { id: "album-families", label: "Album Families" },
+  { id: "editions", label: "Editions" },
   { id: "b200", label: "Billboard 200" },
   { id: "tracklists", label: "Album Tracklists" },
 ];
 
-const ALBUM_VIEWS = new Set<IntegrityView>(["albums", "b200", "tracklists"]);
+const ALBUM_VIEWS = new Set<IntegrityView>([
+  "albums",
+  "album-families",
+  "editions",
+  "b200",
+  "tracklists",
+]);
 
 function memberRowClass(variant: string, isPrimary: boolean): string {
   if (isPrimary) return "ic-row-primary";
@@ -305,6 +313,124 @@ function AlbumPanels({
   pending: boolean;
   pushParams: (patch: Record<string, string | null>) => void;
 }) {
+  if (data.view === "album-families") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Album families
+            <span className="ic-readonly">read-only</span>
+          </h1>
+          <div className="ic-stats">
+            <span>
+              registry <strong>{data.albumPopulationRows.length}</strong>
+            </span>
+          </div>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">album_population_registry</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Album</th>
+                  <th>Artist</th>
+                  <th>ID</th>
+                  <th>Staging</th>
+                  <th>Editions</th>
+                  <th>First</th>
+                  <th>Last</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.albumPopulationRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8}>No registry — run 604</td>
+                  </tr>
+                ) : (
+                  data.albumPopulationRows.map((r) => (
+                    <tr
+                      key={r.proposed_album_key}
+                      role={r.album_id ? "button" : undefined}
+                      onClick={() =>
+                        r.album_id
+                          ? pushParams({ view: "albums", album: String(r.album_id) })
+                          : undefined
+                      }
+                    >
+                      <td title={r.proposed_album_key}>
+                        {r.proposed_album_key.length > 36
+                          ? `${r.proposed_album_key.slice(0, 36)}…`
+                          : r.proposed_album_key}
+                      </td>
+                      <td>{r.canonical_album_name}</td>
+                      <td>{r.artist_name}</td>
+                      <td>{r.album_id ?? "—"}</td>
+                      <td>{r.staging_row_count ?? "—"}</td>
+                      <td>{r.edition_count}</td>
+                      <td>{r.first_chart_date ?? "—"}</td>
+                      <td>{r.last_chart_date ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "editions") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Album editions
+            <span className="ic-readonly">read-only</span>
+          </h1>
+          <div className="ic-stats">
+            <span>
+              rows <strong>{data.editionRows.length}</strong>
+            </span>
+          </div>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">album_editions</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Artist</th>
+                  <th>Album</th>
+                  <th>Edition</th>
+                  <th>Year</th>
+                  <th>Canonical</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.editionRows.map((e) => (
+                  <tr
+                    key={e.edition_id}
+                    role="button"
+                    onClick={() => pushParams({ view: "albums", album: String(e.album_id) })}
+                  >
+                    <td>{e.artist_name}</td>
+                    <td>{e.album_title}</td>
+                    <td>{e.edition_name}</td>
+                    <td>{e.release_year ?? "—"}</td>
+                    <td>{e.is_canonical ? "yes" : ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (data.view === "b200") {
     return (
       <>
@@ -321,7 +447,45 @@ function AlbumPanels({
           </div>
         </header>
         <div className="ic-body">
-          <p className="ic-section-label">Chart appearances (album-anchored)</p>
+          <p className="ic-section-label">Album timelines</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Artist</th>
+                  <th>Album</th>
+                  <th>Weeks</th>
+                  <th>Peak</th>
+                  <th>First</th>
+                  <th>Last</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.b200Timelines.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>No timelines — run 604/605</td>
+                  </tr>
+                ) : (
+                  data.b200Timelines.map((t) => (
+                    <tr
+                      key={t.album_id}
+                      role="button"
+                      onClick={() => pushParams({ view: "albums", album: String(t.album_id) })}
+                    >
+                      <td>{t.artist_name}</td>
+                      <td>{t.album_title}</td>
+                      <td>{t.chart_weeks}</td>
+                      <td>{t.peak_position ?? "—"}</td>
+                      <td>{t.first_chart_date ?? "—"}</td>
+                      <td>{t.last_chart_date ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="ic-section-label">Recent chart appearances (album-anchored)</p>
           <div className="ic-table-wrap">
             <table className="ic-table">
               <thead>

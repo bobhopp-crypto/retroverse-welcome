@@ -2,8 +2,11 @@ import { integrityQuery } from "./pg";
 import type {
   AlbumB200Row,
   AlbumDetail,
+  AlbumEditionRow,
   AlbumListItem,
+  AlbumPopulationRow,
   AlbumTracklistRow,
+  B200TimelineRow,
   ExplorerData,
   IntegrityView,
 } from "./types";
@@ -126,6 +129,81 @@ export async function loadAlbumDetail(albumId: number): Promise<AlbumDetail | nu
   return { ...h, editions, lineage, b200, families };
 }
 
+export async function loadAlbumPopulation(): Promise<AlbumPopulationRow[]> {
+  try {
+    return integrityQuery<AlbumPopulationRow>(
+      `
+      SELECT
+        r.proposed_album_key,
+        r.canonical_album_name,
+        a.canonical_name AS artist_name,
+        r.album_id,
+        r.staging_row_count,
+        count(DISTINCT ae.id)::int AS edition_count,
+        r.first_chart_date::text,
+        r.last_chart_date::text
+      FROM album_population_registry r
+      JOIN artists a ON a.id = r.canonical_artist_id
+      LEFT JOIN album_editions ae ON ae.album_id = r.album_id
+      GROUP BY
+        r.proposed_album_key,
+        r.canonical_album_name,
+        a.canonical_name,
+        r.album_id,
+        r.staging_row_count,
+        r.first_chart_date,
+        r.last_chart_date
+      ORDER BY r.staging_row_count DESC NULLS LAST, a.canonical_name, r.canonical_album_name
+      LIMIT 500
+      `,
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function loadAllEditions(): Promise<AlbumEditionRow[]> {
+  return integrityQuery<AlbumEditionRow>(
+    `
+    SELECT
+      ae.id AS edition_id,
+      al.id AS album_id,
+      al.title AS album_title,
+      a.canonical_name AS artist_name,
+      ae.edition_name,
+      ae.release_year,
+      ae.is_canonical
+    FROM album_editions ae
+    JOIN albums al ON al.id = ae.album_id
+    JOIN artists a ON a.id = al.artist_id
+    ORDER BY a.canonical_name, al.title, ae.is_canonical DESC, ae.edition_name
+    LIMIT 500
+    `,
+  );
+}
+
+export async function loadB200Timelines(): Promise<B200TimelineRow[]> {
+  return integrityQuery<B200TimelineRow>(
+    `
+    SELECT
+      al.id AS album_id,
+      al.title AS album_title,
+      a.canonical_name AS artist_name,
+      count(*)::int AS chart_weeks,
+      min(ca.chart_position) AS peak_position,
+      min(ca.chart_date)::text AS first_chart_date,
+      max(ca.chart_date)::text AS last_chart_date
+    FROM chart_appearances ca
+    JOIN albums al ON al.id = ca.album_id
+    JOIN artists a ON a.id = al.artist_id
+    WHERE ca.chart_name = 'Billboard 200'
+    GROUP BY al.id, al.title, a.canonical_name
+    ORDER BY chart_weeks DESC, peak_position
+    LIMIT 200
+    `,
+  );
+}
+
 export async function loadB200Summary(): Promise<AlbumB200Row[]> {
   return integrityQuery<AlbumB200Row>(
     `
@@ -189,7 +267,11 @@ export async function loadExplorerDataWithAlbums(opts: {
     familyId: opts.familyId,
     searchQ: opts.searchQ,
     view:
-      opts.view === "albums" || opts.view === "b200" || opts.view === "tracklists"
+      opts.view === "albums" ||
+      opts.view === "album-families" ||
+      opts.view === "editions" ||
+      opts.view === "b200" ||
+      opts.view === "tracklists"
         ? "artists"
         : opts.view,
   });
@@ -198,6 +280,10 @@ export async function loadExplorerDataWithAlbums(opts: {
   const selectedAlbumId = opts.albumId ?? albums[0]?.id ?? null;
   const albumDetail = selectedAlbumId ? await loadAlbumDetail(selectedAlbumId) : null;
   const b200Rows = opts.view === "b200" ? await loadB200Summary() : [];
+  const b200Timelines = opts.view === "b200" ? await loadB200Timelines() : [];
+  const albumPopulationRows =
+    opts.view === "album-families" ? await loadAlbumPopulation() : [];
+  const editionRows = opts.view === "editions" ? await loadAllEditions() : [];
   const tracklistRows = opts.view === "tracklists" ? await loadTracklistLinkage() : [];
 
   return {
@@ -207,6 +293,9 @@ export async function loadExplorerDataWithAlbums(opts: {
     selectedAlbumId,
     albumDetail,
     b200Rows,
+    b200Timelines,
+    albumPopulationRows,
+    editionRows,
     tracklistRows,
   };
 }

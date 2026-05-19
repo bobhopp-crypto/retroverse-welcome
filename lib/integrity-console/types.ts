@@ -4,6 +4,8 @@ export type IntegrityView =
   | "variants"
   | "relationships"
   | "albums"
+  | "album-families"
+  | "editions"
   | "b200"
   | "tracklists";
 
@@ -44,6 +46,37 @@ export type AlbumB200Row = {
   weeks_on_chart: number | null;
   album_title?: string;
   artist_name?: string;
+};
+
+export type AlbumPopulationRow = {
+  proposed_album_key: string;
+  canonical_album_name: string;
+  artist_name: string;
+  album_id: number | null;
+  staging_row_count: number | null;
+  edition_count: number;
+  first_chart_date: string | null;
+  last_chart_date: string | null;
+};
+
+export type AlbumEditionRow = {
+  edition_id: number;
+  album_id: number;
+  album_title: string;
+  artist_name: string;
+  edition_name: string;
+  release_year: number | null;
+  is_canonical: boolean;
+};
+
+export type B200TimelineRow = {
+  album_id: number;
+  album_title: string;
+  artist_name: string;
+  chart_weeks: number;
+  peak_position: number | null;
+  first_chart_date: string | null;
+  last_chart_date: string | null;
 };
 
 export type AlbumTracklistRow = {
@@ -119,6 +152,9 @@ export type ExplorerData = {
   albums: AlbumListItem[];
   albumDetail: AlbumDetail | null;
   b200Rows: AlbumB200Row[];
+  b200Timelines: B200TimelineRow[];
+  albumPopulationRows: AlbumPopulationRow[];
+  editionRows: AlbumEditionRow[];
   tracklistRows: AlbumTracklistRow[];
   selectedArtistId: number | null;
   selectedFamilyId: number | null;
