@@ -13,8 +13,26 @@ export type ArtistUniverseExperience = {
     roleLabel: string | null;
     coverPath: null;
     artworkStatus: null;
+    chartPeak: number | null;
+    chartWeeks: number;
+    chartingTrackCount: number;
+    trackCount: number;
+    majorTracks: Array<{
+      id: string;
+      title: string;
+      peakChartPosition: number | null;
+    }>;
   }>;
-  chartingTracks: [];
+  chartingTracks: Array<{
+    id: string;
+    title: string;
+    albumTitle: string;
+    albumHref: string;
+    releaseYear: number | null;
+    peakChartPosition: number;
+    contextLabel: string;
+    eraId: null;
+  }>;
   connectedTrackRows: Array<{
     id: string;
     title: string;
@@ -38,36 +56,84 @@ export type ArtistUniverseExperience = {
 };
 
 function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperience {
-  const numberOneYears = record.yearly_rankings.filter((r) => r.retroverse_artist_rank === 1).length;
+  const trackRows = record.primary_tracks.map((track) => ({
+    id: track.id,
+    title: track.title,
+    albumTitle: track.album_title,
+    albumHref: track.album_href,
+    releaseYear: track.release_year,
+    peakChartPosition: track.peak_chart_position,
+  }));
+  const tracksByAlbumId = new Map<string, typeof trackRows>();
+  for (const track of trackRows) {
+    const source = record.primary_tracks.find((row) => row.id === track.id);
+    if (!source?.album_id) continue;
+    const rows = tracksByAlbumId.get(source.album_id) ?? [];
+    rows.push(track);
+    tracksByAlbumId.set(source.album_id, rows);
+  }
+  const chartingTracks = record.primary_tracks
+    .filter((track) => track.peak_chart_position !== null)
+    .map((track) => ({
+      id: track.id,
+      title: track.title,
+      albumTitle: track.album_title,
+      albumHref: track.album_href,
+      releaseYear: track.release_year,
+      peakChartPosition: track.peak_chart_position as number,
+      contextLabel: "Artist track",
+      eraId: null,
+    }))
+    .sort((a, b) => a.peakChartPosition - b.peakChartPosition || a.title.localeCompare(b.title));
+  const numberOneTracks = chartingTracks.filter((track) => track.peakChartPosition === 1).length;
 
   return {
     artist: {
       retroverse_artist_id: record.artist_id,
       canonical_artist_name: record.display_name,
     },
-    connectedAlbums: record.primary_albums.map((album) => ({
-      id: album.album_id,
-      title: album.title,
-      href: album.href,
-      albumTypeLabel: "Album",
-      releaseYear: album.release_year,
-      roleLabel: "Primary artist",
-      coverPath: null,
-      artworkStatus: null,
-    })),
-    chartingTracks: [],
-    connectedTrackRows: record.primary_tracks.map((track) => ({
-      id: track.id,
-      title: track.title,
-      albumTitle: track.album_title,
-      albumHref: track.album_href,
-      releaseYear: track.release_year,
-      peakChartPosition: track.peak_chart_position,
-    })),
+    connectedAlbums: record.primary_albums.map((album) => {
+      const albumTracks = tracksByAlbumId.get(album.album_id) ?? [];
+      const chartingAlbumTracks = albumTracks.filter((track) => track.peakChartPosition !== null);
+      const chartPeak =
+        chartingAlbumTracks.length > 0
+          ? Math.min(...chartingAlbumTracks.map((track) => track.peakChartPosition as number))
+          : null;
+      return {
+        id: album.album_id,
+        title: album.title,
+        href: album.href,
+        albumTypeLabel: "Album",
+        releaseYear: album.release_year,
+        roleLabel: "Primary artist",
+        coverPath: null,
+        artworkStatus: null,
+        chartPeak,
+        chartWeeks: chartingAlbumTracks.length,
+        chartingTrackCount: chartingAlbumTracks.length,
+        trackCount: albumTracks.length,
+        majorTracks: albumTracks
+          .slice()
+          .sort((a, b) => {
+            const aPeak = a.peakChartPosition ?? 999;
+            const bPeak = b.peakChartPosition ?? 999;
+            if (aPeak !== bPeak) return aPeak - bPeak;
+            return a.title.localeCompare(b.title);
+          })
+          .slice(0, 4)
+          .map((track) => ({
+            id: track.id,
+            title: track.title,
+            peakChartPosition: track.peakChartPosition,
+          })),
+      };
+    }),
+    chartingTracks,
+    connectedTrackRows: trackRows,
     eraConnections: [],
     primaryEra: null,
     metrics: {
-      numberOneCount: numberOneYears,
+      numberOneCount: numberOneTracks,
       soundtrackLinkedSinglesCount: 0,
       soundtrackAlbumAppearances: 0,
       sequencingTrackCount: record.primary_tracks.length,

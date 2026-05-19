@@ -6,7 +6,7 @@ import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildArtistContextLine } from "@/lib/retroverse-editorial";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
-import { hrefForAlbum, normalizeEntitySlug } from "@/lib/retroverse-routes";
+import { hrefForAlbum, hrefForTrack, normalizeEntitySlug } from "@/lib/retroverse-routes";
 import { createClient } from "@/lib/supabase";
 import { loadArtistExperienceFromDossierBundle } from "@/lib/load-artist-dossier-fallback";
 import {
@@ -733,6 +733,10 @@ function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null
   return canonicalCoverPathToUrl(album.coverPath, {});
 }
 
+function trackHref(trackId: string): string {
+  return hrefForTrack(trackId);
+}
+
 function fallbackEraTitle(index: number): string {
   if (index === 0) return "Early Recordings";
   if (index === 1) return "Breakthrough Years";
@@ -983,7 +987,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                       {album.majorTracks && album.majorTracks.length > 0 ? (
                         <div className="artist-uni-album-tracks" aria-label={`Major tracks from ${album.title}`}>
                           {album.majorTracks.map((track) => (
-                            <Link key={`${album.id}-${track.id}`} href={`/tracks/${track.id}`} className="artist-uni-track-chip">
+                            <Link key={`${album.id}-${track.id}`} href={trackHref(track.id)} className="artist-uni-track-chip">
                               {track.title}
                               {track.peakChartPosition ? <span>#{track.peakChartPosition}</span> : null}
                             </Link>
@@ -1037,7 +1041,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                           <div className="artist-uni-track-line">
                             <div className="min-w-0">
                               <p className="text-[0.96rem]">
-                                <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                                <Link href={trackHref(track.id)} className="artist-uni-inline-link">
                                   {track.title}
                                 </Link>{" "}
                                 ·{" "}
@@ -1062,7 +1066,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                       {chapter.representativeTracks.map((track, idx) => (
                         <span key={`${chapter.key}-rep-${track.id}`}>
                           {idx > 0 ? " · " : ""}
-                          <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                          <Link href={trackHref(track.id)} className="artist-uni-inline-link">
                             {track.title}
                           </Link>
                         </span>
@@ -1087,7 +1091,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                   <div className="artist-uni-track-line">
                     <div className="min-w-0 pr-2">
                       <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
-                        <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                        <Link href={trackHref(track.id)} className="artist-uni-inline-link">
                           {track.title}
                         </Link>
                       </p>
@@ -1111,7 +1115,17 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
               ))}
             </ul>
           </section>
-        ) : null}
+        ) : (
+          <section className="artist-uni-plate mb-10 max-w-[36rem] px-5 py-5">
+            <h2 className="artist-uni-h2 !mb-1">Track relationships</h2>
+            <p className="artist-uni-muted text-[0.9rem] leading-relaxed">
+              Track-level links for this artist are still resolving. Album relationships remain available above, and the canonical track index stays reachable through the archive.
+            </p>
+            <Link href="/tracks" className="artist-uni-inline-link mt-3 inline-block">
+              Open track index
+            </Link>
+          </section>
+        )}
 
         {densityTier !== "minimal" && data.chartingTracks.length > 0 ? (
           <section className="mb-10 space-y-3">
@@ -1130,7 +1144,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0 pr-2">
                         <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
-                          <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                          <Link href={trackHref(track.id)} className="artist-uni-inline-link">
                             {track.title}
                           </Link>
                         </p>

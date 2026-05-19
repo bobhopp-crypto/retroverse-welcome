@@ -48,6 +48,15 @@ export type DossierArtistExperience = {
     roleLabel: string | null;
     coverPath: string | null;
     artworkStatus: string | null;
+    chartPeak: null;
+    chartWeeks: number;
+    chartingTrackCount: number;
+    trackCount: number;
+    majorTracks: Array<{
+      id: string;
+      title: string;
+      peakChartPosition: null;
+    }>;
   }>;
   chartingTracks: [];
   connectedTrackRows: Array<{
@@ -83,16 +92,26 @@ export function loadArtistExperienceFromDossierBundle(slug: string): DossierArti
   if (dossiers.length === 0) return null;
 
   const connectedAlbums = dossiers
-    .map((d) => ({
-      id: d.albumId,
-      title: d.identity.album.trim() || "—",
-      href: hrefForAlbum(d.albumId, d.identity.album),
-      albumTypeLabel: "Album",
-      releaseYear: d.identity.chart_year ?? null,
-      roleLabel: "Primary artist",
-      coverPath: d.identity.canonical_cover_path?.trim() || null,
-      artworkStatus: d.identity.trust_state ?? null,
-    }))
+    .map((d) => {
+      const tracks = d.acoustic.tracks
+        .map((track, i) => ({ id: `${d.albumId}:${i}`, title: track.title?.trim() ?? "", peakChartPosition: null }))
+        .filter((track) => track.title.length > 0);
+      return {
+        id: d.albumId,
+        title: d.identity.album.trim() || "—",
+        href: hrefForAlbum(d.albumId, d.identity.album),
+        albumTypeLabel: "Album",
+        releaseYear: d.identity.chart_year ?? null,
+        roleLabel: "Primary artist",
+        coverPath: d.identity.canonical_cover_path?.trim() || null,
+        artworkStatus: d.identity.trust_state ?? null,
+        chartPeak: null,
+        chartWeeks: 0,
+        chartingTrackCount: 0,
+        trackCount: tracks.length,
+        majorTracks: tracks.slice(0, 4),
+      };
+    })
     .sort((a, b) => {
       if (a.releaseYear === null && b.releaseYear === null) return a.title.localeCompare(b.title);
       if (a.releaseYear === null) return 1;
