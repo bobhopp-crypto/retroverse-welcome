@@ -12,6 +12,8 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 
 ## File guide
 
+### Phase 1 — Artist integrity
+
 | File | Purpose | Modifies data? |
 |------|---------|----------------|
 | `sql/001_artist_case_duplicate_candidates.sql` | List case/whitespace duplicate artist groups | No |
@@ -20,7 +22,18 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 | `sql/004_artist_lowercase_bulk_merge_dry_run.sql` | Preview all safe bulk case merges | No |
 | `sql/005_artist_lowercase_bulk_merge_execute.sql` | Execute safe bulk case merges | **Yes** |
 
+### Phase 2 — Track canonical identity (analysis only)
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/201_track_normalization_candidates.sql` | Per-track normalization fields and version flags | No |
+| `sql/202_track_duplicate_candidate_groups.sql` | Duplicate groups with confidence scoring | No |
+| `sql/203_track_version_analysis.sql` | Version classification and preservation guidance | No |
+| `sql/204_track_merge_readiness_report.sql` | Merge readiness metrics + top 100 groups | No |
+
 ## Run order
+
+### Artists
 
 1. **Discover** — `001_artist_case_duplicate_candidates.sql`
 2. **Preview one** — `002` with IDs from step 1
@@ -29,6 +42,46 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 5. **Execute bulk** (optional) — `005` only after reviewing step 4
 
 **Always run dry-run (`002` or `004`) immediately before execute (`003` or `005`).**
+
+### Tracks (Phase 2 — no mutations yet)
+
+1. `201_track_normalization_candidates.sql` — inspect normalization output
+2. `202_track_duplicate_candidate_groups.sql` — review duplicate pairs and confidence
+3. `203_track_version_analysis.sql` — classify live/remix/remaster variants
+4. `204_track_merge_readiness_report.sql` — summary metrics and top groups
+
+Future Phase 2b will add `302`/`303`-style dry-run and execute scripts for tracks. **Do not merge tracks until those exist and are reviewed.**
+
+## Track normalization philosophy
+
+Retroverse is building a **music identity graph**, not a flat deduped song list.
+
+The same cultural work appears under many release identities:
+
+- `Hotel California`
+- `Hotel California - Remastered`
+- `Hotel California (Live)`
+- `Hotel California [Explicit]`
+
+These are related but not interchangeable. A remaster is not a live performance. A radio edit is not an album cut. Chart history attaches to specific appearances.
+
+### Why live / remix / remaster variants matter
+
+Billboard and DJ history preserve **what charted, when, and as what listing**. Collapsing variants too early destroys lineage and makes chart inspection wrong.
+
+### Why Retroverse preserves lineage
+
+`chart_appearances` links through `tracks`. Merging the wrong rows rewrites chart history silently. Phase 2 analysis keeps variants visible until confidence and preservation rules are explicit.
+
+### Three identity layers
+
+| Layer | Meaning | Example |
+|-------|---------|---------|
+| **Canonical identity** | The underlying musical work for an artist | `Hotel California` by Eagles |
+| **Release / version identity** | A specific edition or cut | `2013 Remaster`, `Live at Forum 1976` |
+| **Chart identity** | A chart-week fact tied to a track row | Hot 100 #1, 1977-05-07 |
+
+Phase 2 SQL separates these layers in analysis. Phase 2b merge tooling (not yet built) will only collapse rows when confidence and preservation rules allow.
 
 ## Example: Eagles / eagles
 
@@ -99,4 +152,5 @@ Take a `pg_dump` snapshot before first production bulk merge on a large database
 - No schema changes
 - No CSV cleanup
 - No writes to `staging_music_imports`
-- No automatic promotion to canonical beyond FK reassignment
+- No track merges, track deletes, or track updates (Phase 2)
+- No automatic promotion to canonical beyond FK reassignment (artist execute scripts only)
