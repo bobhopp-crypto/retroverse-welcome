@@ -3,34 +3,37 @@
  * with brass + warm cream. Previously a cold near-black (#03070a / #020405)
  * that clashed with the manila body of the rest of the app. */
 .pv2-root {
-  --pv2-bg: #160e08;
-  --pv2-panel: #1f1610;
-  --pv2-brass: rgba(205, 164, 90, 0.86);
-  --pv2-brass-soft: rgba(205, 164, 90, 0.78);
-  --pv2-warm: #f0e6d2;
-  --pv2-soft: #c9bda7;
+  --pv2-bg: #130833;
+  --pv2-panel: #1d0f24;
+  --pv2-brass: color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 84%, #ffffff 16%);
+  --pv2-brass-soft: color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 68%, transparent);
+  --pv2-warm: var(--rv-psychedelic-cream, #f8ead4);
+  --pv2-soft: color-mix(in srgb, var(--rv-psychedelic-cream, #f8ead4) 72%, var(--rv-psychedelic-orange, #ff7b40) 28%);
   --pv2-muted: #8f8574;
-  --pv2-gold: #cda45a;
-  --pv2-ink: #f0e6d2;
-  --pv2-border: rgba(205, 164, 90, 0.32);
+  --pv2-gold: var(--rv-psychedelic-gold, #ffbf70);
+  --pv2-ink: var(--rv-psychedelic-cream, #f8ead4);
+  --pv2-border: color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 34%, transparent);
 }
 
 .pv2-atmo-base {
   background:
-    radial-gradient(circle at 50% 42%, rgba(205, 164, 90, 0.16), transparent 30%),
-    radial-gradient(circle at 50% 58%, rgba(110, 70, 38, 0.4), transparent 46%),
-    linear-gradient(180deg, #110c06 0%, #1a1209 52%, #110c06 100%);
+    radial-gradient(circle at 18% 4%, color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 30%, transparent), transparent 36%),
+    radial-gradient(circle at 84% 12%, color-mix(in srgb, var(--rv-psychedelic-blue, #2ee8ff) 13%, transparent), transparent 34%),
+    radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--pv2-gold) 18%, transparent), transparent 30%),
+    radial-gradient(circle at 50% 62%, rgba(109, 59, 255, 0.22), transparent 50%),
+    linear-gradient(180deg, #090511 0%, #180b24 48%, #120805 100%);
 }
 
 .pv2-atmo-vignette {
-  background: radial-gradient(circle at center, transparent 36%, rgba(0, 0, 0, 0.62) 100%);
+  background: radial-gradient(circle at center, transparent 38%, rgba(0, 0, 0, 0.66) 100%);
 }
 
 .pv2-atmo-grid {
-  opacity: 0.18;
+  opacity: 0.23;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.11'/%3E%3C/svg%3E"),
+    linear-gradient(rgba(255, 191, 112, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(46, 232, 255, 0.025) 1px, transparent 1px);
   background-size: 3px 3px;
   mix-blend-mode: overlay;
 }
@@ -87,11 +90,13 @@
   display: flex;
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.075), transparent 20%),
-    linear-gradient(315deg, rgba(205, 164, 90, 0.18), transparent 30%),
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 20%, transparent), transparent 34%),
+    linear-gradient(315deg, color-mix(in srgb, var(--pv2-gold) 22%, transparent), transparent 30%),
     var(--pv2-panel);
-  border: 1px solid rgba(205, 164, 90, 0.32);
+  border: 1px solid var(--pv2-border);
   box-shadow:
     0 34px 76px rgba(0, 0, 0, 0.82),
+    0 0 44px color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 16%, transparent),
     0 0 0 1px rgba(255, 255, 255, 0.035),
     inset 0 0 0 1px rgba(255, 255, 255, 0.045),
     inset 0 0 34px rgba(0, 0, 0, 0.72);
