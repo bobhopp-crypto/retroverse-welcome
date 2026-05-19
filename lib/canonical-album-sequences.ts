@@ -89,3 +89,7 @@ export function getCanonicalAlbumSequence(albumId: string): CanonicalAlbumSequen
   if (!id || !/^RVAL\d{6}$/.test(id)) return null;
   return loadBundle()?.sequences[id] ?? null;
 }
+
+export function getCanonicalAlbumSequencesBundleOrNull(): CanonicalAlbumSequenceBundle | null {
+  return loadBundle();
+}

@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ArtworkFrame } from "@/app/components/artwork-frame";
-import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
-import { hrefForArtist, hrefForAlbum } from "@/lib/retroverse-routes";
-import { createClient } from "@/lib/supabase";
+import { BodyClassName } from "@/app/components/body-class-name";
+import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+import { getCanonicalAlbumSequencesBundleOrNull } from "@/lib/canonical-album-sequences";
+import { getAlbumDossiersBundleOrNull } from "@/lib/load-album-dossier";
+import type { AlbumDossier } from "@/lib/album-dossier-schema";
+import { artistRoute } from "@/lib/retroverse-routes";
+
+import "./album-dossier.css";
 
 export const metadata: Metadata = {
   title: "Albums - Retroverse",
@@ -12,182 +16,183 @@ export const metadata: Metadata = {
 };
 export const dynamic = "force-dynamic";
 
-type AlbumRow = {
-  retroverse_album_id: string;
-  canonical_album_title: string;
-  retroverse_artist_id: string;
-  era_id: string | null;
-  album_type: string | null;
-  release_year: number | null;
-};
-
-type ArtistRow = {
-  retroverse_artist_id: string;
-  canonical_artist_name: string;
-};
-
-type EraRow = {
-  retroverse_era_id: string;
-  slug: string;
-  display_name: string;
-};
-
-type EditionRow = {
-  retroverse_album_edition_id: string;
-  retroverse_album_id: string;
-};
-
 type AlbumsPageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; year?: string; artist?: string; offset?: string }>;
 };
+
+const PAGE_SIZE = 60;
+
+function norm(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function parseYear(value: string | null | undefined): number | null {
+  const n = Number.parseInt((value ?? "").trim(), 10);
+  return Number.isFinite(n) && n > 1900 && n < 2100 ? n : null;
+}
+
+function parseOffset(value: string | null | undefined): number {
+  const n = Number.parseInt((value ?? "").trim(), 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 600) : 0;
+}
+
+function chartPeakLabel(album: AlbumDossier): string {
+  return album.chart.peak_rank != null ? `#${album.chart.peak_rank}` : "—";
+}
+
+function albumYear(album: AlbumDossier): number | null {
+  return album.identity.chart_year ?? album.chart.retroscope_snapshot_year ?? null;
+}
+
+function searchMatches(album: AlbumDossier, query: string, artist: string, year: number | null): boolean {
+  if (query) {
+    const haystack = `${album.identity.album} ${album.identity.artist} ${album.albumId}`.toLowerCase();
+    if (!haystack.includes(query)) return false;
+  }
+  if (artist && !album.identity.artist.toLowerCase().includes(artist)) return false;
+  if (year != null && albumYear(album) !== year) return false;
+  return true;
+}
+
+function integrityFlags(album: AlbumDossier, sequenceIds: Set<string>): string[] {
+  const flags: string[] = [];
+  if (!album.identity.canonical_cover_path) flags.push("missing artwork");
+  if (!sequenceIds.has(album.albumId)) flags.push("sequence unresolved");
+  if (album.chart.peak_rank == null || album.chart.weeks_on_chart == null) flags.push("chart unresolved");
+  return flags;
+}
+
+function albumSort(a: AlbumDossier, b: AlbumDossier): number {
+  const peakA = a.chart.peak_rank ?? 999;
+  const peakB = b.chart.peak_rank ?? 999;
+  if (peakA !== peakB) return peakA - peakB;
+  const weeksA = a.chart.weeks_on_chart ?? -1;
+  const weeksB = b.chart.weeks_on_chart ?? -1;
+  if (weeksA !== weeksB) return weeksB - weeksA;
+  return a.identity.album.localeCompare(b.identity.album);
+}
+
+function withParams(searchParams: Awaited<AlbumsPageProps["searchParams"]>, offset: number): string {
+  const params = new URLSearchParams();
+  if (searchParams.q?.trim()) params.set("q", searchParams.q.trim());
+  if (searchParams.year?.trim()) params.set("year", searchParams.year.trim());
+  if (searchParams.artist?.trim()) params.set("artist", searchParams.artist.trim());
+  params.set("offset", String(offset));
+  return `/albums?${params.toString()}`;
+}
 
 export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps) {
-  const { q } = await searchParams;
-  const query = (q ?? "").trim().toLowerCase();
-  const supabase = createClient();
+  const params = await searchParams;
+  const query = norm(params.q);
+  const artist = norm(params.artist);
+  const year = parseYear(params.year);
+  const offset = parseOffset(params.offset);
 
-  const albumsResult = await supabase
-    .from("retroverse_albums")
-    .select("retroverse_album_id, canonical_album_title, retroverse_artist_id, era_id, album_type, release_year")
-    .order("canonical_album_title", { ascending: true })
-    .range(0, 5000);
-  if (albumsResult.error) throw albumsResult.error;
+  const bundle = getAlbumDossiersBundleOrNull();
+  const sequenceBundle = getCanonicalAlbumSequencesBundleOrNull();
+  const sequenceIds = new Set(Object.keys(sequenceBundle?.sequences ?? {}));
+  const allAlbums = Object.values(bundle?.dossiers ?? {});
+  const filteredAlbums = allAlbums.filter((album) => searchMatches(album, query, artist, year)).sort(albumSort);
+  const visibleAlbums = filteredAlbums.slice(0, offset + PAGE_SIZE);
+  const hasMore = visibleAlbums.length < filteredAlbums.length;
 
-  const allAlbums = (albumsResult.data ?? []) as AlbumRow[];
-  const artistIds = [...new Set(allAlbums.map((row) => row.retroverse_artist_id))];
-  const eraIds = [...new Set(allAlbums.map((row) => row.era_id).filter((row): row is string => Boolean(row)))];
-  const albumIds = allAlbums.map((row) => row.retroverse_album_id);
-
-  const [artistResult, eraResult, editionsResult, artworkRows] = await Promise.all([
-    artistIds.length > 0
-      ? supabase.from("retroverse_artists").select("retroverse_artist_id, canonical_artist_name").in("retroverse_artist_id", artistIds)
-      : Promise.resolve({ data: [], error: null }),
-    eraIds.length > 0
-      ? supabase.from("retroverse_eras").select("retroverse_era_id, slug, display_name").in("retroverse_era_id", eraIds)
-      : Promise.resolve({ data: [], error: null }),
-    albumIds.length > 0
-      ? supabase
-          .from("retroverse_album_editions")
-          .select("retroverse_album_edition_id, retroverse_album_id")
-          .in("retroverse_album_id", albumIds)
-          .eq("is_primary", true)
-      : Promise.resolve({ data: [], error: null }),
-    loadAlbumArtworkRows(supabase, albumIds),
-  ]);
-  if (artistResult.error) throw artistResult.error;
-  if (eraResult.error) throw eraResult.error;
-  if (editionsResult.error) throw editionsResult.error;
-
-  const artistById = new Map(((artistResult.data ?? []) as ArtistRow[]).map((row) => [row.retroverse_artist_id, row]));
-  const eraById = new Map(((eraResult.data ?? []) as EraRow[]).map((row) => [row.retroverse_era_id, row]));
-  const editionByAlbumId = new Map(((editionsResult.data ?? []) as EditionRow[]).map((row) => [row.retroverse_album_id, row]));
-
-  const albums = allAlbums.filter((row) => {
-    if (query.length === 0) return true;
-    const artist = artistById.get(row.retroverse_artist_id);
-    return (
-      row.canonical_album_title.toLowerCase().includes(query) ||
-      (artist?.canonical_artist_name ?? "").toLowerCase().includes(query)
-    );
-  });
+  const visibleMissingArtwork = visibleAlbums.filter((album) => !album.identity.canonical_cover_path).length;
+  const visibleUnresolvedSequence = visibleAlbums.filter((album) => !sequenceIds.has(album.albumId)).length;
+  const visibleMissingChart = visibleAlbums.filter((album) => album.chart.peak_rank == null || album.chart.weeks_on_chart == null).length;
 
   return (
-    <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="mx-auto max-w-[72rem] px-4 py-8 pb-12 sm:px-6 sm:py-10">
-        <header className="mb-6 space-y-2 sm:mb-7">
-          <p className="text-[0.82rem] tracking-[0.06em] text-[var(--text-secondary)]/82">Retroverse archive</p>
-          <h1 className="font-serif text-[2rem] leading-[1.04] tracking-tight text-[var(--text-primary)] sm:text-[2.55rem]">
-            Albums
-          </h1>
-          <form action="/albums" method="get" className="pt-0.5">
-            <input
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search title or artist"
-              className="w-full rounded-lg border border-[var(--card-border)] bg-[var(--surface-raised)] px-3 py-2 text-[0.94rem] text-[var(--text-primary)] outline-none placeholder:text-[var(--text-secondary)]/70 focus:border-[var(--text-secondary)]"
-            />
-          </form>
+    <>
+      <BodyClassName className="dossier-body" />
+      <main className="dossier-shell dossier-shell--album-index">
+        <header className="dossier-top dossier-top--nav">
+          <Link href="/" className="dossier-a dossier-a--quiet">
+            Home
+          </Link>
         </header>
 
-        <ul className="grid grid-cols-2 gap-x-3 gap-y-4 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-5 lg:grid-cols-4">
-          {albums.map((album) => {
-            const artist = artistById.get(album.retroverse_artist_id);
-            const era = album.era_id ? eraById.get(album.era_id) : null;
-            const primaryEdition = editionByAlbumId.get(album.retroverse_album_id);
-            const selectedArtwork = selectCanonicalArtwork(
-              artworkRows,
-              album.retroverse_album_id,
-              primaryEdition?.retroverse_album_edition_id ?? null,
-            );
+        <section className="dossier-readout dossier-index-readout">
+          <p className="dossier-provenance-label">Canonical album archive</p>
+          <h1 className="dossier-title">Albums</h1>
+        </section>
 
-            const traversalHref = hrefForAlbum(album.retroverse_album_id, album.canonical_album_title);
-            const artistProfileHref = artist ? hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name) : null;
+        <form action="/albums" method="get" className="dossier-panel dossier-panel--band-teal dossier-index-search">
+          <label>
+            <span>Search</span>
+            <input name="q" defaultValue={params.q ?? ""} placeholder="Album, artist, or RVAL" />
+          </label>
+          <label>
+            <span>Year</span>
+            <input name="year" defaultValue={params.year ?? ""} inputMode="numeric" placeholder="1977" />
+          </label>
+          <label>
+            <span>Artist</span>
+            <input name="artist" defaultValue={params.artist ?? ""} placeholder="Fleetwood Mac" />
+          </label>
+          <button type="submit">Search archive</button>
+        </form>
 
+        <section className="dossier-index-status" aria-label="Album archive integrity">
+          <span>{filteredAlbums.length.toLocaleString()} canonical album identities</span>
+          <span>{visibleUnresolvedSequence} sequence unresolved</span>
+          <span>{visibleMissingArtwork} missing artwork</span>
+          <span>{visibleMissingChart} chart unresolved</span>
+        </section>
+
+        <section className="dossier-index-grid" aria-label="Canonical album index">
+          {visibleAlbums.map((album) => {
+            const coverUrl = canonicalCoverPathToUrl(album.identity.canonical_cover_path);
+            const flags = integrityFlags(album, sequenceIds);
+            const yearLabel = albumYear(album) ?? "Year ?";
             return (
-              <li key={album.retroverse_album_id} className="min-w-0">
-                <Link href={traversalHref} className="group block space-y-1.5">
-                  <div className="transition-transform duration-200 group-hover:scale-[1.02]">
-                    <ArtworkFrame
-                      title={album.canonical_album_title}
-                      canonicalCoverPath={selectedArtwork?.canonical_cover_path ?? null}
-                      albumId={album.retroverse_album_id}
-                      artist={artist?.canonical_artist_name}
-                      year={album.release_year}
-                      artworkStatus={selectedArtwork?.artwork_status ?? null}
-                    />
-                  </div>
-
-                  <h2 className="font-serif text-[1rem] leading-tight tracking-tight text-[var(--text-primary)] group-hover:underline sm:text-[1.03rem]">
-                    {album.canonical_album_title}
-                  </h2>
-                </Link>
-
-                {artist ? (
-                  artistProfileHref ? (
-                    <p className="text-[0.84rem] leading-tight text-[var(--text-secondary)]">
-                      <Link href={artistProfileHref} className="underline-offset-2 hover:underline">
-                        {artist.canonical_artist_name}
-                      </Link>
-                    </p>
+              <article key={album.albumId} className="dossier-index-card">
+                <Link href={`/albums/${album.albumId}`} className="dossier-index-cover-link" aria-label={`${album.identity.album} by ${album.identity.artist}`}>
+                  {coverUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- canonical archive URLs are already resolved for browser use
+                    <img src={coverUrl} alt="" loading="lazy" decoding="async" />
                   ) : (
-                    <p className="text-[0.84rem] leading-tight text-[var(--text-secondary)]">
-                      <Link
-                        href={`/artists?q=${encodeURIComponent(artist.canonical_artist_name)}`}
-                        className="underline-offset-2 hover:underline"
-                      >
-                        {artist.canonical_artist_name}
-                      </Link>
-                    </p>
-                  )
-                ) : (
-                  <p className="text-[0.84rem] leading-tight text-[var(--text-secondary)]">Unknown artist</p>
-                )}
-
-                <p className="text-[0.76rem] leading-tight text-[var(--text-secondary)]/75">
-                  {[album.release_year ?? "Year ?", album.album_type ?? "album", era?.display_name].filter(Boolean).join(" • ")}
-                </p>
-                <p className="text-[0.74rem] leading-tight text-[var(--text-secondary)]/76">
-                  <Link href={traversalHref} className="underline-offset-2 hover:underline">
-                    Album
-                  </Link>
-                  {" · "}
-                  <Link href={`/tracks?q=${encodeURIComponent(album.canonical_album_title)}`} className="underline-offset-2 hover:underline">
-                    Tracks
-                  </Link>
-                  {era ? (
-                    <>
-                      {" · "}
-                      <Link href={`/eras/${era.slug}`} className="underline-offset-2 hover:underline">
-                        Era
-                      </Link>
-                    </>
-                  ) : null}
-                </p>
-              </li>
+                    <span className="dossier-index-cover-missing">No cover</span>
+                  )}
+                </Link>
+                <div className="dossier-index-card-copy">
+                  <h2>
+                    <Link href={`/albums/${album.albumId}`}>{album.identity.album}</Link>
+                  </h2>
+                  <p>
+                    <Link href={artistRoute(album.identity.artist)}>{album.identity.artist}</Link>
+                  </p>
+                  <dl>
+                    <div>
+                      <dt>Year</dt>
+                      <dd>{yearLabel}</dd>
+                    </div>
+                    <div>
+                      <dt>Peak</dt>
+                      <dd>{chartPeakLabel(album)}</dd>
+                    </div>
+                    <div>
+                      <dt>Weeks</dt>
+                      <dd>{album.chart.weeks_on_chart ?? "—"}</dd>
+                    </div>
+                  </dl>
+                  {flags.length ? (
+                    <p className="dossier-index-flags">{flags.join(" · ")}</p>
+                  ) : (
+                    <p className="dossier-index-flags dossier-index-flags--clear">identity linked</p>
+                  )}
+                </div>
+              </article>
             );
           })}
-        </ul>
-      </article>
-    </div>
+        </section>
+
+        {hasMore ? (
+          <p className="dossier-index-more">
+            <Link href={withParams(params, visibleAlbums.length)} className="dossier-a">
+              Load next {Math.min(PAGE_SIZE, filteredAlbums.length - visibleAlbums.length)} albums
+            </Link>
+          </p>
+        ) : null}
+      </main>
+    </>
   );
 }
