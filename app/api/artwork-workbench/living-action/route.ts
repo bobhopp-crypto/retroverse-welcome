@@ -50,6 +50,8 @@ type Action =
   | "mark_verified"
   | "mark_needs_review";
 
+type CuratorTimings = Record<string, number>;
+
 function statusForState(state: LivingArtworkState): "missing" | "pending" | "verified" | "rejected" {
   if (state === "canonical_verified" || state === "manually_corrected") return "verified";
   if (state === "low_confidence") return "rejected";
@@ -95,9 +97,12 @@ async function deployStagedCover(
   stagedPath: string,
   traceId: string,
   allowUsableQuality: boolean,
+  timings: CuratorTimings,
 ): ReturnType<typeof persistCoverBytes> {
   const extension = (path.extname(stagedPath) || ".jpg").toLowerCase();
+  const fetchStart = performance.now();
   const bytes = await readCoverBytesFromStaged(stagedPath);
+  timings.image_fetch = elapsedMs(fetchStart);
   return persistCoverBytes({
     albumId,
     bytes,
@@ -113,8 +118,11 @@ async function deployRemoteCover(
   remote: URL,
   traceId: string,
   allowUsableQuality: boolean,
+  timings: CuratorTimings,
 ): ReturnType<typeof persistCoverBytes> {
+  const fetchStart = performance.now();
   const bytes = await fetchRemoteCoverBytes(remote, traceId);
+  timings.image_fetch = elapsedMs(fetchStart);
   const ext = path.extname(remote.pathname).toLowerCase();
   const extension = ext === ".png" || ext === ".webp" || ext === ".jpg" || ext === ".jpeg" ? ext : ".jpg";
   return persistCoverBytes({
@@ -141,6 +149,10 @@ function curatorDebug(event: string, payload: Record<string, unknown>): void {
   if (process.env.NODE_ENV !== "production") {
     console.log(event, payload);
   }
+}
+
+function elapsedMs(start: number): number {
+  return Math.round((performance.now() - start) * 10) / 10;
 }
 
 function runRevalidate(traceId: string, albumId: string): void {
@@ -181,6 +193,16 @@ function runRevalidate(traceId: string, albumId: string): void {
 export async function POST(request: Request) {
   const traceId = randomUUID().slice(0, 8);
   const ts = () => new Date().toISOString();
+  const requestStart = performance.now();
+  const timings: CuratorTimings = {};
+  const timed = async <T,>(name: string, fn: () => Promise<T> | T): Promise<T> => {
+    const start = performance.now();
+    try {
+      return await fn();
+    } finally {
+      timings[name] = elapsedMs(start);
+    }
+  };
 
   logCuratorR2EnvPresence(traceId);
 
@@ -248,7 +270,7 @@ export async function POST(request: Request) {
 
   if (localCanonicalDbEnabled) {
     try {
-      preflightCanonicalArtworkLocalWrite(albumId, traceId);
+      await timed("local_db_preflight", () => preflightCanonicalArtworkLocalWrite(albumId, traceId));
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       return saveFail(traceId, "local_db_preflight", msg, msg);
@@ -265,14 +287,7 @@ export async function POST(request: Request) {
 
   try {
 
-  let registry: Awaited<ReturnType<typeof loadArtworkStateRegistry>> | null = null;
-  try {
-    registry = await loadArtworkStateRegistry();
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.warn("[CURATOR/API] artwork_state_registry_load_failed_nonfatal", { traceId, error: msg });
-  }
-  const beforePath = await pickCanonicalCoverPathForAlbum(albumId);
+  const beforePath = await timed("before_cover_read", () => pickCanonicalCoverPathForAlbum(albumId));
   const beforeSnapshot = {
     retroverse_album_id: body.albumId,
     canonical_cover_path: beforePath,
@@ -321,8 +336,12 @@ export async function POST(request: Request) {
     let deployed;
     try {
       deployed = stagedPath
-        ? await deployStagedCover(body.albumId, stagedPath, traceId, body.qualityOverride === true)
-        : await deployRemoteCover(body.albumId, remote as URL, traceId, body.qualityOverride === true);
+        ? await timed("critical_cover_persist_total", () =>
+            deployStagedCover(body.albumId, stagedPath, traceId, body.qualityOverride === true, timings),
+          )
+        : await timed("critical_cover_persist_total", () =>
+            deployRemoteCover(body.albumId, remote as URL, traceId, body.qualityOverride === true, timings),
+          );
     } catch (e) {
       if (e instanceof ArtworkQualityWarning) {
         return NextResponse.json(
@@ -352,6 +371,7 @@ export async function POST(request: Request) {
     canonicalPath = deployed.canonicalPath;
     coverStorage = deployed.storage;
     artworkQuality = deployed.quality;
+    Object.assign(timings, deployed.timings);
     curatorDebug("[CURATOR/API] cover_persisted", {
       traceId,
       canonicalPath,
@@ -379,36 +399,38 @@ export async function POST(request: Request) {
   let localDbVerified = false;
   if (localCanonicalDbEnabled) {
     try {
-      insertCuratorActionLocal({
-        albumId,
-        actionType: body.action,
-        previousValue: beforeSnapshot,
-        newValue: {
-          canonical_cover_path: canonicalPath,
-          artwork_status: status,
-          next_state: nextState,
-        },
-        clientInfo: JSON.stringify({
+      await timed("local_db_write_verify", () => {
+        insertCuratorActionLocal({
+          albumId,
+          actionType: body.action,
+          previousValue: beforeSnapshot,
+          newValue: {
+            canonical_cover_path: canonicalPath,
+            artwork_status: status,
+            next_state: nextState,
+          },
+          clientInfo: JSON.stringify({
+            traceId,
+            replaceSource: body.replaceSource ?? null,
+            userAgent: request.headers.get("user-agent"),
+          }),
           traceId,
-          replaceSource: body.replaceSource ?? null,
-          userAgent: request.headers.get("user-agent"),
-        }),
-        traceId,
+        });
+        upsertCanonicalArtworkLocal({
+          albumId,
+          canonicalCoverPath: canonicalPath,
+          sourceUrl,
+          sourceType: body.replaceSource ?? sourceTag,
+          curatorNotes: notes,
+          approvedAt,
+          traceId,
+        });
+        const localVerify = verifyCanonicalArtworkLocal(albumId, canonicalPath, traceId);
+        if (!localVerify.ok) {
+          throw new Error(localVerify.error);
+        }
+        localDbVerified = true;
       });
-      upsertCanonicalArtworkLocal({
-        albumId,
-        canonicalCoverPath: canonicalPath,
-        sourceUrl,
-        sourceType: body.replaceSource ?? sourceTag,
-        curatorNotes: notes,
-        approvedAt,
-        traceId,
-      });
-      const localVerify = verifyCanonicalArtworkLocal(albumId, canonicalPath, traceId);
-      if (!localVerify.ok) {
-        return saveFail(traceId, "local_db_verify", localVerify.error, localVerify.error);
-      }
-      localDbVerified = true;
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/API] local_db_write_failed", { traceId, error: msg });
@@ -436,96 +458,140 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    await writeCanonicalArtworkOverride(
-      body.albumId,
-      {
-        canonical_cover_path: canonicalPath,
-        artwork_status: status,
-        trust_state: discoverTrustForLivingState(nextState),
-        cover_source: sourceTag,
-      },
-      traceId,
-    );
-    curatorPipelineLog("overrides_write", { traceId, ok: true, albumId, canonicalPath });
-    curatorDebug("[CURATOR/API] canonical_overrides_written", {
-      traceId,
-      canonicalPath,
-      artwork_status: status,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.warn("[CURATOR/API] override_write_failed_nonfatal", { traceId, error: msg });
-  }
-
-  try {
-    const mirror = await mirrorCanonicalArtworkToSupabase({
-      traceId,
-      albumId,
-      canonicalCoverPath: canonicalPath,
-      artworkStatus: status,
-      coverSource: sourceTag,
-      notes,
-    });
-    if (!mirror.ok && !("skipped" in mirror && mirror.skipped)) {
-      console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", {
-        traceId,
-        albumId,
-        error: mirror.error,
-      });
-    }
-  } catch (e) {
-    const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-    console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", { traceId, albumId, error: msg });
-  }
-
-  try {
-    runRevalidate(traceId, body.albumId);
-    curatorPipelineLog("cache_invalidate", { traceId, ok: true, albumId });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn("[CURATOR/API] revalidate_failed_nonfatal", { traceId, error: msg });
-  }
-
   const afterSnapshot = {
     retroverse_album_id: body.albumId,
     /** Authoritative in-process value after write — do not re-pick here (would hit stale per-request memo). */
     canonical_cover_path: canonicalPath,
     artwork_status: statusForState(nextState),
   };
-  if (registry) {
+
+  const runDeferredSync = async () => {
+    const backgroundStart = performance.now();
+    const backgroundTimings: CuratorTimings = {};
+    const backgroundTimed = async <T,>(name: string, fn: () => Promise<T> | T): Promise<T> => {
+      const start = performance.now();
+      try {
+        return await fn();
+      } finally {
+        backgroundTimings[name] = elapsedMs(start);
+      }
+    };
+
     try {
-      upsertArtworkState(registry, {
-        albumId: body.albumId,
-        nextState,
-        confidenceScore: body.confidence ?? null,
-        provisional: nextState !== "canonical_verified" && nextState !== "manually_corrected",
-        provenanceSource: sourceTag,
-        provenanceRunId: body.runId ?? null,
-        candidateArtist: body.sourceArtist ?? null,
-        candidateCollection: body.sourceCollection ?? null,
-        candidateReleaseDate: body.sourceReleaseDate ?? null,
-        candidateArtworkUrl: body.candidateSource ?? null,
-        stagedFile: body.stagedFilePath ?? null,
-        queryUsed: body.queryUsed ?? null,
-        normalizedQuery: body.normalizedQuery ?? null,
-        appliedAt: new Date().toISOString(),
-        action: body.action,
-        actor: "curator",
-        notes: `${notes}; storage=${coverStorage ?? "n/a"}`,
-        dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
-        dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
-      });
-      await saveArtworkStateRegistry(registry);
-      curatorDebug("[CURATOR/API] artwork_state_registry_saved", {
+      await backgroundTimed("overrides_projection_write", () =>
+        writeCanonicalArtworkOverride(
+          body.albumId,
+          {
+            canonical_cover_path: canonicalPath,
+            artwork_status: status,
+            trust_state: discoverTrustForLivingState(nextState),
+            cover_source: sourceTag,
+          },
+          traceId,
+        ),
+      );
+      curatorPipelineLog("overrides_write", { traceId, ok: true, albumId, canonicalPath });
+      curatorDebug("[CURATOR/API] canonical_overrides_written", {
         traceId,
-        skippedInProduction: process.env.NODE_ENV === "production",
+        canonicalPath,
+        artwork_status: status,
       });
     } catch (e) {
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
-      console.warn("[CURATOR/API] artwork_state_registry_failed_nonfatal", { traceId, error: msg });
+      console.warn("[CURATOR/API] override_write_failed_nonfatal", { traceId, error: msg });
     }
-  }
+
+    try {
+      const mirror = await backgroundTimed("supabase_mirror", () =>
+        mirrorCanonicalArtworkToSupabase({
+          traceId,
+          albumId,
+          canonicalCoverPath: canonicalPath,
+          artworkStatus: status,
+          coverSource: sourceTag,
+          notes,
+        }),
+      );
+      if (!mirror.ok && !("skipped" in mirror && mirror.skipped)) {
+        console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", {
+          traceId,
+          albumId,
+          error: mirror.error,
+        });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.warn("[CURATOR/API] supabase_mirror_failed_nonfatal", { traceId, albumId, error: msg });
+    }
+
+    try {
+      await backgroundTimed("revalidate_cache", () => runRevalidate(traceId, body.albumId));
+      curatorPipelineLog("cache_invalidate", { traceId, ok: true, albumId });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("[CURATOR/API] revalidate_failed_nonfatal", { traceId, error: msg });
+    }
+
+    let registry: Awaited<ReturnType<typeof loadArtworkStateRegistry>> | null = null;
+    try {
+      registry = await backgroundTimed("registry_load", () => loadArtworkStateRegistry());
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.warn("[CURATOR/API] artwork_state_registry_load_failed_nonfatal", { traceId, error: msg });
+    }
+
+    if (registry) {
+      try {
+        await backgroundTimed("registry_update_save", async () => {
+        upsertArtworkState(registry, {
+          albumId: body.albumId,
+          nextState,
+          confidenceScore: body.confidence ?? null,
+          provisional: nextState !== "canonical_verified" && nextState !== "manually_corrected",
+          provenanceSource: sourceTag,
+          provenanceRunId: body.runId ?? null,
+          candidateArtist: body.sourceArtist ?? null,
+          candidateCollection: body.sourceCollection ?? null,
+          candidateReleaseDate: body.sourceReleaseDate ?? null,
+          candidateArtworkUrl: body.candidateSource ?? null,
+          stagedFile: body.stagedFilePath ?? null,
+          queryUsed: body.queryUsed ?? null,
+          normalizedQuery: body.normalizedQuery ?? null,
+          appliedAt: new Date().toISOString(),
+          action: body.action,
+          actor: "curator",
+          notes: `${notes}; storage=${coverStorage ?? "n/a"}`,
+          dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
+          dbSnapshotAfter: afterSnapshot as Record<string, unknown> | null,
+        });
+        await saveArtworkStateRegistry(registry);
+      });
+        curatorDebug("[CURATOR/API] artwork_state_registry_saved", {
+          traceId,
+          skippedInProduction: process.env.NODE_ENV === "production",
+        });
+      } catch (e) {
+        const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        console.warn("[CURATOR/API] artwork_state_registry_failed_nonfatal", { traceId, error: msg });
+      }
+    }
+
+    console.info("[CURATOR/TIMING/BACKGROUND]", {
+      traceId,
+      albumId,
+      timings: {
+        ...backgroundTimings,
+        backgroundTotal: elapsedMs(backgroundStart),
+      },
+    });
+  };
+
+  setTimeout(() => {
+    void runDeferredSync().catch((e) => {
+      const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.warn("[CURATOR/API] deferred_sync_failed_nonfatal", { traceId, albumId, error: msg });
+    });
+  }, 0);
 
   const payload = {
     ok: true as const,
@@ -541,6 +607,11 @@ export async function POST(request: Request) {
     localDbVerified,
     localCanonicalDbEnabled,
     runtimeStrategy,
+    backgroundSyncQueued: true,
+    timings: {
+      ...timings,
+      responseTotal: elapsedMs(requestStart),
+    },
     savedAt,
     traceId,
   };
@@ -554,6 +625,7 @@ export async function POST(request: Request) {
     afterCanonicalPath: afterSnapshot.canonical_cover_path ?? null,
     payload,
   });
+  console.info("[CURATOR/TIMING]", { traceId, albumId, timings: payload.timings });
 
   return NextResponse.json(payload);
   } catch (e) {

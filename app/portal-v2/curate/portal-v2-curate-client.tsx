@@ -69,6 +69,8 @@ type QualityWarningState = {
   quality: ArtworkQualityReport | null;
 };
 
+type RestorationTimings = Record<string, number>;
+
 function HeroCover({ src, fallbackLabel, remixKey }: { src: string | null; fallbackLabel: string; remixKey: string }) {
   if (src) {
     return (
@@ -165,6 +167,7 @@ function RestorationPanel({
   remixKey,
   active = false,
   restored = false,
+  pending = false,
 }: {
   label: string;
   eyebrow: string;
@@ -173,6 +176,7 @@ function RestorationPanel({
   remixKey: string;
   active?: boolean;
   restored?: boolean;
+  pending?: boolean;
 }) {
   return (
     <section
@@ -202,6 +206,13 @@ function RestorationPanel({
           }}
         >
           <HeroCover src={src} fallbackLabel={fallbackLabel} remixKey={remixKey} />
+          {pending ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_center,rgba(255,191,112,0.20),rgba(5,7,11,0.58))]">
+              <span className="rounded-full border border-[#ffbf70]/45 bg-[#05070b]/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbf70] shadow-[0_0_24px_rgba(255,191,112,0.22)] animate-pulse">
+                Restoring
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -398,6 +409,11 @@ export default function PortalV2CurateClient({
     : `restored-${normalizeCandidateArtworkUrl(savedDisplayUrl) ?? "empty"}-${savedCacheBust ?? 0}`;
 
   const hasSelection = Boolean(selected);
+  const restorationPending = applyPending || pastePending;
+
+  function clientElapsedMs(start: number): number {
+    return Math.round((performance.now() - start) * 10) / 10;
+  }
 
   function formatSaveFailure(
     httpStatus: number,
@@ -424,11 +440,21 @@ export default function PortalV2CurateClient({
     return `Restoration failed (HTTP ${httpStatus})${trace}`;
   }
 
-  function completeRestoration(savedAt: number, message: string) {
+  function completeRestoration(savedAt: number, message: string, requestStartedAt?: number) {
     setSavedCacheBust(savedAt);
     setRestoredAt(savedAt);
     setSaveSuccess(message);
     window.navigator.vibrate?.(18);
+    if (typeof requestStartedAt === "number") {
+      window.requestAnimationFrame(() => {
+        console.log("[CURATOR/CLIENT/TIMING]", {
+          albumId: row.albumId,
+          timings: {
+            client_visible_update: clientElapsedMs(requestStartedAt),
+          },
+        });
+      });
+    }
   }
 
   function isQualityWarningPayload(payload: {
@@ -447,17 +473,22 @@ export default function PortalV2CurateClient({
     requestBody: RestorationRequestBody,
   ): Promise<{
     ok: boolean;
+    requestStartedAt?: number;
     savedAt?: number;
     displayUrl?: string | null;
     canonicalCoverPath?: string | null;
     storage?: string;
+    timings?: RestorationTimings;
   }> {
     const saveUrl = "/api/artwork-workbench/living-action";
+    const requestStartedAt = performance.now();
     const res = await fetch(saveUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestBody),
     });
+    const fetchRoundTrip = clientElapsedMs(requestStartedAt);
+    const parseStartedAt = performance.now();
     const rawBody = await res.text();
     let payload: {
       ok?: boolean;
@@ -474,6 +505,7 @@ export default function PortalV2CurateClient({
       storage?: string;
       artworkQuality?: ArtworkQualityReport | null;
       retryWithQualityOverride?: boolean;
+      timings?: RestorationTimings;
     } = {};
     try {
       payload = JSON.parse(rawBody || "{}") as typeof payload;
@@ -500,6 +532,15 @@ export default function PortalV2CurateClient({
       artworkQuality: payload.artworkQuality ?? null,
       bodyPreview: rawBody.slice(0, 500),
     });
+    console.log("[CURATOR/CLIENT/TIMING]", {
+      albumId: row.albumId,
+      traceId: payload.traceId ?? null,
+      timings: {
+        client_fetch_round_trip: fetchRoundTrip,
+        client_response_parse: clientElapsedMs(parseStartedAt),
+      },
+      serverTimings: payload.timings ?? null,
+    });
 
     if (isQualityWarningPayload(payload)) {
       setQualityWarning({
@@ -519,10 +560,12 @@ export default function PortalV2CurateClient({
 
     return {
       ok: true,
+      requestStartedAt,
       savedAt: typeof payload.savedAt === "number" ? payload.savedAt : Date.now(),
       displayUrl: payload.displayUrl ?? payload.publicCoverUrl ?? null,
       canonicalCoverPath: payload.canonicalCoverPath ?? payload.canonicalPath ?? null,
       storage: payload.storage,
+      timings: payload.timings,
     };
   }
 
@@ -535,7 +578,11 @@ export default function PortalV2CurateClient({
       const result = await postRestorationRequest(requestBody);
       if (!result.ok) return;
       if (result.displayUrl) setSavedDisplayUrl(result.displayUrl);
-      completeRestoration(result.savedAt ?? Date.now(), "Lower-resolution archive source restored by curator choice.");
+      completeRestoration(
+        result.savedAt ?? Date.now(),
+        "Lower-resolution archive source restored by curator choice.",
+        result.requestStartedAt,
+      );
       onSaved?.({
         albumId: row.albumId,
         canonicalCoverPath: result.canonicalCoverPath ?? null,
@@ -625,6 +672,7 @@ export default function PortalV2CurateClient({
         result.storage === "local"
           ? "Restored identity held in the local archive."
           : "Restored identity applied to the archive.",
+        result.requestStartedAt,
       );
 
       onSaved?.({
@@ -767,7 +815,11 @@ export default function PortalV2CurateClient({
       const result = await postRestorationRequest(requestBody);
       if (!result.ok) return;
       if (result.displayUrl) setSavedDisplayUrl(result.displayUrl);
-      completeRestoration(result.savedAt ?? Date.now(), "Restored identity applied to the archive.");
+      completeRestoration(
+        result.savedAt ?? Date.now(),
+        "Restored identity applied to the archive.",
+        result.requestStartedAt,
+      );
       onSaved?.({
         albumId: row.albumId,
         canonicalCoverPath: result.canonicalCoverPath ?? null,
@@ -895,8 +947,23 @@ export default function PortalV2CurateClient({
               remixKey={restoredRemixKey}
               active={Boolean(selected)}
               restored={Boolean(restoredAt && savedDisplayUrl && !selected)}
+              pending={restorationPending}
             />
           </div>
+          {restorationPending ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mt-3 overflow-hidden rounded-2xl border border-[#ffbf70]/30 bg-[rgba(255,191,112,0.08)] px-4 py-3 text-center shadow-[0_0_28px_rgba(255,191,112,0.10)]"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#ffbf70] animate-pulse">
+                Restoring archive edition…
+              </p>
+              <div className="mt-2 h-1 overflow-hidden rounded-full bg-[#05070b]">
+                <div className="h-full w-2/3 rounded-full bg-[linear-gradient(90deg,#ffbf70,#ff7b40,#6d3bff)] animate-pulse" />
+              </div>
+            </div>
+          ) : null}
           {saveSuccess ? (
             <div
               role="status"
@@ -1024,7 +1091,7 @@ export default function PortalV2CurateClient({
             />
             <button
               type="submit"
-              disabled={(pastePending || applyPending) || (pasteUrl.trim().length === 0 && !selected)}
+              disabled={restorationPending || (pasteUrl.trim().length === 0 && !selected)}
               className={[
                 "w-full shrink-0 touch-manipulation whitespace-nowrap rounded-xl px-5 py-3 text-[13px] font-semibold uppercase tracking-[0.16em] transition-[opacity,transform] active:scale-[0.99] sm:w-auto sm:text-[14px]",
                 pasteUrl.trim().length === 0 && !selected
@@ -1032,7 +1099,7 @@ export default function PortalV2CurateClient({
                   : "bg-[#c8a96b] text-[#05070b] ring-1 ring-[rgba(243,234,219,0.25)] hover:opacity-95 active:opacity-90",
               ].join(" ")}
             >
-              {pastePending || applyPending ? "Restoring…" : "Apply Restoration"}
+              {restorationPending ? "Restoring archive edition…" : "Apply Restoration"}
             </button>
           </div>
           {saveError ? (

@@ -2,12 +2,28 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
 
+const SUPABASE_MIRROR_TIMEOUT_MS = Number.parseInt(
+  process.env.CURATOR_SUPABASE_MIRROR_TIMEOUT_MS ?? "10000",
+  10,
+);
+
 function tryServiceSupabase() {
   const supabaseUrl = process.env.SUPABASE_URL?.trim() ?? process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!supabaseUrl || !serviceRoleKey) return null;
   return createSupabaseClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: async (input, init) => {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), SUPABASE_MIRROR_TIMEOUT_MS);
+        try {
+          return await fetch(input, { ...init, signal: init?.signal ?? controller.signal });
+        } finally {
+          clearTimeout(timeout);
+        }
+      },
+    },
   });
 }
 

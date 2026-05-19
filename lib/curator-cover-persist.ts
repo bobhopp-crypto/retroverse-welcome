@@ -13,10 +13,12 @@ import { isServerlessPublicRuntime } from "@/lib/curator-runtime-strategy";
 import { canonicalCoverKey, getR2Client, headR2Object, r2Bucket } from "@/lib/r2-client";
 
 export type CoverStorage = "local" | "r2";
+export type CoverPersistTimings = Record<string, number>;
 export type CoverPersistResult = {
   canonicalPath: string;
   storage: CoverStorage;
   quality: ArtworkQualityReport;
+  timings: CoverPersistTimings;
 };
 
 export class ArtworkQualityWarning extends Error {
@@ -32,6 +34,10 @@ export function isValidRvalAlbumId(albumId: string): boolean {
 
 export function normalizeRvalAlbumId(albumId: string): string {
   return albumId.trim().toUpperCase();
+}
+
+function elapsedMs(start: number): number {
+  return Math.round((performance.now() - start) * 10) / 10;
 }
 
 /** Browser path served from `public/` (leading slash). */
@@ -100,7 +106,10 @@ export async function persistCoverBytes(opts: {
   allowUsableQuality?: boolean;
 }): Promise<CoverPersistResult> {
   const albumId = normalizeRvalAlbumId(opts.albumId);
+  const timings: CoverPersistTimings = {};
+  const qualityStart = performance.now();
   const quality = await assessArtworkQuality(opts.bytes, opts.sourceUrl ?? null);
+  timings.quality_assessment = elapsedMs(qualityStart);
   curatorPipelineLog("artwork_quality", {
     traceId: opts.traceId,
     ok: quality.tier !== "unusable",
@@ -126,20 +135,24 @@ export async function persistCoverBytes(opts: {
 
   if (isR2Configured()) {
     try {
+      const uploadStart = performance.now();
       const r2 = await uploadCoverBytesToR2({
         albumId,
         bytes: opts.bytes,
         contentType: opts.contentType,
         traceId: opts.traceId,
       });
+      timings.r2_upload = elapsedMs(uploadStart);
+      const verifyStart = performance.now();
       const head = await headR2Object({ key: r2.canonicalKey, traceId: opts.traceId });
+      timings.r2_verify = elapsedMs(verifyStart);
       curatorPipelineLog("r2_verify", {
         traceId: opts.traceId,
         ok: head.ok,
         key: r2.canonicalKey,
         error: head.ok ? undefined : head.error,
       });
-      return { canonicalPath: r2.canonicalKey, storage: "r2", quality };
+      return { canonicalPath: r2.canonicalKey, storage: "r2", quality, timings };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       curatorPipelineLog("r2_upload", { traceId: opts.traceId, ok: false, error: msg });
@@ -149,8 +162,10 @@ export async function persistCoverBytes(opts: {
     }
   }
 
+  const localPersistStart = performance.now();
   const webPath = await writeCanonicalCoverToPublicDir(albumId, opts.bytes);
-  return { canonicalPath: webPath, storage: "local", quality };
+  timings.local_persistence = elapsedMs(localPersistStart);
+  return { canonicalPath: webPath, storage: "local", quality, timings };
 }
 
 export function buildDisplayUrl(
