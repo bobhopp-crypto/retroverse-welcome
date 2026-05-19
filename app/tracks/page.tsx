@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
-import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
-import { albumRoute } from "@/lib/retroverse-routes";
-import { createClient } from "@/lib/supabase";
+import { BodyClassName } from "@/app/components/body-class-name";
+import { loadCanonicalTrackIndex } from "@/lib/load-canonical-track-index";
+import { artistRoute } from "@/lib/retroverse-routes";
+
+import "@/app/albums/album-dossier.css";
 
 export const metadata: Metadata = {
   title: "Tracks - Retroverse",
@@ -12,147 +13,132 @@ export const metadata: Metadata = {
 };
 export const dynamic = "force-dynamic";
 
-type TrackRow = {
-  retroverse_track_id: string;
-  canonical_title: string;
-  retroverse_album_id: string | null;
-  release_year: number | null;
-};
-
-type AlbumRow = {
-  retroverse_album_id: string;
-  canonical_album_title: string;
-  retroverse_artist_id: string;
-  release_year: number | null;
-};
-type ArtistRow = {
-  retroverse_artist_id: string;
-  canonical_artist_name: string;
-};
-
-type EditionRow = {
-  retroverse_album_edition_id: string;
-  retroverse_album_id: string;
-};
-
 type TracksPageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; artist?: string; offset?: string }>;
 };
+
+const PAGE_SIZE = 90;
+
+function parseOffset(value: string | null | undefined): number {
+  const n = Number.parseInt((value ?? "").trim(), 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 900) : 0;
+}
+
+function withParams(searchParams: Awaited<TracksPageProps["searchParams"]>, offset: number): string {
+  const params = new URLSearchParams();
+  if (searchParams.q?.trim()) params.set("q", searchParams.q.trim());
+  if (searchParams.artist?.trim()) params.set("artist", searchParams.artist.trim());
+  params.set("offset", String(offset));
+  return `/tracks?${params.toString()}`;
+}
+
+function confidenceLabel(value: "high" | "medium" | "low"): string {
+  if (value === "high") return "identity high";
+  if (value === "medium") return "identity review";
+  return "identity weak";
+}
 
 export default async function TracksIndexPage({ searchParams }: TracksPageProps) {
-  const { q } = await searchParams;
-  const query = (q ?? "").trim().toLowerCase();
-  const supabase = createClient();
-
-  const tracksResult = await supabase
-    .from("retroverse_tracks")
-    .select("retroverse_track_id, canonical_title, retroverse_album_id, release_year")
-    .order("canonical_title", { ascending: true })
-    .range(0, 5000);
-  if (tracksResult.error) throw tracksResult.error;
-
-  const tracks = ((tracksResult.data ?? []) as TrackRow[]).filter((row) =>
-    query.length > 0 ? row.canonical_title.toLowerCase().includes(query) : true,
-  );
-  const albumIds = [...new Set(tracks.map((row) => row.retroverse_album_id).filter((row): row is string => Boolean(row)))];
-  const [albumsResult, editionsResult, artworkRows] = await Promise.all([
-    albumIds.length > 0
-      ? supabase
-          .from("retroverse_albums")
-          .select("retroverse_album_id, canonical_album_title, retroverse_artist_id, release_year")
-          .in("retroverse_album_id", albumIds)
-      : Promise.resolve({ data: [], error: null }),
-    albumIds.length > 0
-      ? supabase
-          .from("retroverse_album_editions")
-          .select("retroverse_album_edition_id, retroverse_album_id")
-          .in("retroverse_album_id", albumIds)
-          .eq("is_primary", true)
-      : Promise.resolve({ data: [], error: null }),
-    loadAlbumArtworkRows(supabase, albumIds),
-  ]);
-  if (albumsResult.error) throw albumsResult.error;
-  if (editionsResult.error) throw editionsResult.error;
-  const albums = (albumsResult.data ?? []) as AlbumRow[];
-  const artistIds = [...new Set(albums.map((row) => row.retroverse_artist_id))];
-  const artistsResult =
-    artistIds.length > 0
-      ? await supabase
-          .from("retroverse_artists")
-          .select("retroverse_artist_id, canonical_artist_name")
-          .in("retroverse_artist_id", artistIds)
-      : { data: [], error: null };
-  if (artistsResult.error) throw artistsResult.error;
-  const artistById = new Map(((artistsResult.data ?? []) as ArtistRow[]).map((row) => [row.retroverse_artist_id, row.canonical_artist_name]));
-  const albumById = new Map(albums.map((row) => [row.retroverse_album_id, row]));
-  const primaryEditionByAlbumId = new Map(
-    ((editionsResult.data ?? []) as EditionRow[]).map((row) => [row.retroverse_album_id, row.retroverse_album_edition_id]),
-  );
+  const params = await searchParams;
+  const offset = parseOffset(params.offset);
+  const index = loadCanonicalTrackIndex({
+    query: params.q,
+    artist: params.artist,
+    offset,
+    limit: PAGE_SIZE,
+  });
+  const hasMore = index.rows.length < index.totalRows;
 
   return (
-    <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="mx-auto max-w-[46rem] px-4 py-10 pb-14 sm:px-6 sm:py-14">
-        <header className="mb-8 space-y-3">
-          <p className="text-base font-medium uppercase tracking-[0.1em] text-[var(--text-secondary)]">Retroverse archive</p>
-          <h1 className="font-serif text-[2.2rem] leading-[1.07] tracking-tight text-[var(--text-primary)] sm:text-[2.8rem]">
-            Tracks
-          </h1>
-          <form action="/tracks" method="get" className="pt-1">
-            <input
-              name="q"
-              defaultValue={q ?? ""}
-              placeholder="Search tracks"
-              className="w-full rounded-xl border border-[var(--card-border)] bg-[var(--surface-raised)] px-3 py-2 text-[0.96rem] text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
-            />
-          </form>
+    <>
+      <BodyClassName className="dossier-body" />
+      <main className="dossier-shell dossier-shell--track-index">
+        <header className="dossier-top dossier-top--nav">
+          <Link href="/" className="dossier-a dossier-a--quiet">
+            Home
+          </Link>
         </header>
 
-        <ul className="border-y border-[var(--card-border)]/50">
-          {tracks.map((track) => (
-            <li key={track.retroverse_track_id} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-              {(() => {
-                const album = track.retroverse_album_id ? albumById.get(track.retroverse_album_id) ?? null : null;
-                const artwork =
-                  track.retroverse_album_id && album
-                    ? selectCanonicalArtwork(
-                        artworkRows,
-                        track.retroverse_album_id,
-                        primaryEditionByAlbumId.get(track.retroverse_album_id) ?? null,
-                      )
-                    : null;
-                return (
-                  <div className="flex items-start gap-2.5">
-                    <CompactArtworkThumb
-                      title={album?.canonical_album_title ?? track.canonical_title}
-                      canonicalCoverPath={artwork?.canonical_cover_path ?? null}
-                      albumId={track.retroverse_album_id ?? undefined}
-                      artist={album ? artistById.get(album.retroverse_artist_id) ?? undefined : undefined}
-                      year={album?.release_year ?? track.release_year}
-                      artworkStatus={artwork?.artwork_status ?? null}
-                    />
-                    <div className="min-w-0">
-                      <Link href={`/tracks/${track.retroverse_track_id}`} className="text-[0.98rem] text-[var(--text-primary)] underline-offset-2 hover:underline">
-                        {track.canonical_title}
-                      </Link>
-                      <p className="truncate text-[0.82rem] text-[var(--text-secondary)]/84">
-                        {track.release_year !== null ? track.release_year : "Year unknown"}
-                        {album ? (
-                          <>
-                            {" · "}
-                            <Link href={albumRoute(album.canonical_album_title)} className="underline-offset-2 hover:underline">
-                              {album.canonical_album_title}
-                            </Link>
-                          </>
-                        ) : null}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()}
-            </li>
+        <section className="dossier-readout dossier-index-readout">
+          <p className="dossier-provenance-label">Canonical track archive</p>
+          <h1 className="dossier-title">Tracks</h1>
+        </section>
+
+        <form action="/tracks" method="get" className="dossier-panel dossier-panel--band-teal dossier-track-search">
+          <label>
+            <span>Search</span>
+            <input name="q" defaultValue={params.q ?? ""} placeholder="Track, artist, album, or work id" />
+          </label>
+          <label>
+            <span>Artist</span>
+            <input name="artist" defaultValue={params.artist ?? ""} placeholder="Creedence Clearwater Revival" />
+          </label>
+          <button type="submit">Inspect tracks</button>
+        </form>
+
+        <section className="dossier-index-status" aria-label="Track identity integrity">
+          <span>{index.totalRows.toLocaleString()} canonical track candidates</span>
+          <span>{index.unresolvedAlbumCount} unresolved album</span>
+          <span>{index.duplicateCandidateCount} duplicate candidate</span>
+          <span>{index.unresolvedChartCount} chart unresolved</span>
+          <span>{index.unresolvedVdjCount} VDJ unresolved</span>
+          <span>{index.pairedAliasCount} paired alias</span>
+          <span>{index.liveAmbiguityCount} live/studio</span>
+          <span>{index.soundtrackContaminationCount} soundtrack</span>
+        </section>
+
+        <section className="dossier-track-table" aria-label="Canonical track identity index">
+          <div className="dossier-track-head" aria-hidden>
+            <span>Track identity</span>
+            <span>Album</span>
+            <span>Hot 100</span>
+            <span>Links</span>
+            <span>Integrity</span>
+          </div>
+          {index.rows.map((row) => (
+            <article key={row.identityId} className="dossier-track-row">
+              <div className="dossier-track-main">
+                <span className="dossier-track-name">{row.canonicalTitle}</span>
+                <Link href={artistRoute(row.canonicalArtist)} className="dossier-track-artist">
+                  {row.canonicalArtist}
+                </Link>
+              </div>
+              <div className="dossier-track-album">
+                {row.connectedAlbumId && row.connectedAlbumTitle ? (
+                  <Link href={`/albums/${row.connectedAlbumId}`}>{row.connectedAlbumTitle}</Link>
+                ) : (
+                  <span>album unresolved</span>
+                )}
+                {row.connectedAlbumYear != null ? <small>{row.connectedAlbumYear}</small> : null}
+              </div>
+              <div className="dossier-track-chart">
+                <span>{row.hot100Peak != null ? `#${row.hot100Peak}` : "—"}</span>
+                <small>{row.hot100Weeks != null ? `${row.hot100Weeks} weeks` : "chart unresolved"}</small>
+              </div>
+              <div className="dossier-track-links">
+                <span>{row.linkedAlbumCount} album</span>
+                <span>{row.linkedVdjCount} VDJ</span>
+              </div>
+              <div className="dossier-track-integrity">
+                <span className={`dossier-track-confidence dossier-track-confidence--${row.identityConfidence}`}>
+                  {confidenceLabel(row.identityConfidence)}
+                </span>
+                {(row.integrityStates.length ? row.integrityStates : ["linked"]).slice(0, 4).map((state) => (
+                  <span key={state}>{state}</span>
+                ))}
+              </div>
+            </article>
           ))}
-        </ul>
-      </article>
-    </div>
+        </section>
+
+        {hasMore ? (
+          <p className="dossier-index-more">
+            <Link href={withParams(params, index.rows.length)} className="dossier-a">
+              Load next {Math.min(PAGE_SIZE, index.totalRows - index.rows.length)} tracks
+            </Link>
+          </p>
+        ) : null}
+      </main>
+    </>
   );
 }
