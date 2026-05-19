@@ -63,11 +63,12 @@ body.arv-body-lock main {
   --arv-deck: #161310;
   --arv-deck-mid: #211c16;
   --arv-deck-light: #2e2820;
-  --arv-screen: #030302;
-  --arv-screen-bezel: #0c0a08;
-  --arv-amber: #e88818;
-  --arv-amber-hot: #ffae38;
+  --arv-screen: #080512;
+  --arv-screen-bezel: #110817;
+  --arv-amber: var(--rv-psychedelic-orange, #ff7b40);
+  --arv-amber-hot: var(--rv-psychedelic-gold, #ffbf70);
   --arv-amber-dim: #a85e10;
+  --arv-electric: var(--rv-psychedelic-blue, #2ee8ff);
   --arv-cream: #f0e0bc;
   --arv-cream-dim: rgba(240, 224, 188, 0.5);
   --arv-trim: #c46814;
@@ -86,7 +87,8 @@ body.arv-body-lock main {
   color: var(--arv-cream);
   font-family: var(--font-geist-sans), "Trebuchet MS", system-ui, sans-serif;
   background:
-    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255, 248, 230, 0.12), transparent 50%),
+    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255, 248, 230, 0.14), transparent 50%),
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--arv-amber) 15%, transparent), transparent 32%),
     linear-gradient(168deg, var(--arv-plastic) 0%, var(--arv-plastic-mid) 55%, var(--arv-plastic-dark) 100%);
 }
 
@@ -821,11 +823,14 @@ body.arv-body-lock main {
   border-radius: 10px;
   border: 2px solid #0a0908;
   background:
-    linear-gradient(180deg, #0a0908 0%, #030302 100%);
+    radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--arv-electric) 10%, transparent), transparent 32%),
+    radial-gradient(circle at 82% 10%, color-mix(in srgb, var(--arv-amber) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, #100817 0%, var(--arv-screen) 100%);
   box-shadow:
     inset 0 5px 16px rgba(0, 0, 0, 0.9),
-    inset 0 0 0 1px rgba(196, 104, 20, 0.18),
-    inset 0 0 0 3px #14110e;
+    inset 0 0 0 1px color-mix(in srgb, var(--arv-amber) 24%, transparent),
+    inset 0 0 0 3px #14110e,
+    0 0 20px color-mix(in srgb, var(--arv-electric) 10%, transparent);
 }
 
 .arv-viewport-label {
@@ -860,7 +865,9 @@ body.arv-body-lock main {
   transform: translate(-50%, -50%);
   border-radius: 1px;
   background: var(--arv-amber-hot);
-  box-shadow: 0 0 5px 1px rgba(255, 174, 56, 0.85);
+  box-shadow:
+    0 0 5px 1px rgba(255, 174, 56, 0.85),
+    0 0 18px color-mix(in srgb, var(--arv-electric) 22%, transparent);
   opacity: 0.92;
 }
 
@@ -882,7 +889,9 @@ body.arv-body-lock main {
   border-radius: 2px;
   border: 1px solid #020201;
   border-top-color: rgba(60, 52, 44, 0.8);
-  background: #050403;
+  background:
+    radial-gradient(circle at 30% 12%, color-mix(in srgb, var(--arv-electric) 7%, transparent), transparent 45%),
+    #050403;
   padding: 0;
   cursor: default;
   overflow: hidden;
@@ -909,7 +918,7 @@ body.arv-body-lock main {
 
 .arv-cell--void {
   opacity: 0.28;
-  background: #030302;
+  background: #070410;
 }
 
 .arv-cell--void::before {
@@ -918,7 +927,9 @@ body.arv-body-lock main {
 
 .arv-cell--unexplored:not(.arv-cell--void) {
   /* Avoid cell-level opacity — it dims ::before notch squares below visibility. */
-  background: #040302;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--arv-amber) 8%, transparent), transparent 44%),
+    #05030a;
   border-top-color: rgba(48, 40, 32, 0.55);
 }
 
@@ -942,7 +953,8 @@ body.arv-body-lock main {
   border-color: rgba(255, 174, 56, 0.9);
   box-shadow:
     inset 0 0 10px rgba(232, 136, 24, 0.2),
-    0 0 10px -2px rgba(255, 174, 56, 0.5);
+    0 0 10px -2px rgba(255, 174, 56, 0.5),
+    0 0 24px -8px color-mix(in srgb, var(--arv-electric) 72%, transparent);
   z-index: 1;
 }
 
