@@ -1,0 +1,79 @@
+import sharp from "sharp";
+
+export type ArtworkQualityTier = "archive" | "usable" | "unusable";
+
+export type ArtworkQualityReport = {
+  tier: ArtworkQualityTier;
+  width: number;
+  height: number;
+  format: string;
+  byteSize: number;
+  sourceUrl: string | null;
+  thresholds: {
+    archiveMinDimension: number;
+    usableMinDimension: number;
+    unusableMinDimension: number;
+    minByteSize: number;
+  };
+  message: string;
+};
+
+export const ARTWORK_QUALITY_THRESHOLDS = {
+  archiveMinDimension: 800,
+  usableMinDimension: 450,
+  unusableMinDimension: 300,
+  minByteSize: 1024,
+} as const;
+
+const SUPPORTED_FORMATS = new Set(["jpeg", "jpg", "png", "webp", "avif", "tiff"]);
+
+export async function assessArtworkQuality(
+  bytes: Buffer,
+  sourceUrl: string | null,
+): Promise<ArtworkQualityReport> {
+  let metadata: sharp.Metadata;
+  try {
+    metadata = await sharp(bytes).metadata();
+  } catch {
+    throw new Error("image_unreadable_or_corrupt");
+  }
+
+  const width = metadata.width ?? 0;
+  const height = metadata.height ?? 0;
+  const format = (metadata.format ?? "unknown").toLowerCase();
+  const minDimension = Math.min(width, height);
+  const byteSize = bytes.length;
+  const thresholds = ARTWORK_QUALITY_THRESHOLDS;
+
+  if (!SUPPORTED_FORMATS.has(format)) {
+    throw new Error(`unsupported_image_format:${format}`);
+  }
+  if (byteSize < thresholds.minByteSize || width <= 0 || height <= 0) {
+    throw new Error(`image_unusable_thumbnail:${width}x${height}:${byteSize}`);
+  }
+
+  const tier: ArtworkQualityTier =
+    minDimension >= thresholds.archiveMinDimension
+      ? "archive"
+      : minDimension >= thresholds.usableMinDimension
+        ? "usable"
+        : "unusable";
+
+  const message =
+    tier === "archive"
+      ? "Archive-quality artwork."
+      : tier === "usable"
+        ? "Archive source is lower resolution than preferred."
+        : "Artwork source is too small for restoration.";
+
+  return {
+    tier,
+    width,
+    height,
+    format,
+    byteSize,
+    sourceUrl,
+    thresholds,
+    message,
+  };
+}

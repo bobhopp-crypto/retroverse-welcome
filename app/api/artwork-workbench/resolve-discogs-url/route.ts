@@ -38,7 +38,13 @@ function parseDiscogsPageUrl(raw: string): { kind: "release" | "master"; id: num
   return { kind: m[1]!.toLowerCase() as "release" | "master", id: Number(m[2]) };
 }
 
-type DiscogsImage = { uri?: string | null; uri150?: string | null; width?: number | null; type?: string | null };
+type DiscogsImage = {
+  uri?: string | null;
+  uri150?: string | null;
+  width?: number | null;
+  height?: number | null;
+  type?: string | null;
+};
 
 function pickLargestImage(images?: DiscogsImage[]): string | null {
   if (!images?.length) return null;
@@ -46,7 +52,7 @@ function pickLargestImage(images?: DiscogsImage[]): string | null {
   if (!withUri.length) return null;
   const primary = withUri.filter((i) => String(i.type ?? "").toLowerCase() === "primary");
   const pool = primary.length ? primary : withUri;
-  pool.sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  pool.sort((a, b) => ((b.width ?? 0) * (b.height ?? 0)) - ((a.width ?? 0) * (a.height ?? 0)));
   const best = pool[0]!;
   return best.uri ?? best.uri150 ?? null;
 }

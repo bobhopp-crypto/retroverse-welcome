@@ -17,6 +17,7 @@ import {
 } from "@/lib/artwork-living-archive";
 import { ARTWORK_DEPLOY_ROOT, ARTWORK_ITUNES_PASS_ROOT } from "@/lib/artwork-storage-model";
 import {
+  ArtworkQualityWarning,
   buildDisplayUrl,
   fetchRemoteCoverBytes,
   isValidRvalAlbumId,
@@ -93,7 +94,8 @@ async function deployStagedCover(
   albumId: string,
   stagedPath: string,
   traceId: string,
-): Promise<{ canonicalPath: string; storage: "local" | "r2" }> {
+  allowUsableQuality: boolean,
+): ReturnType<typeof persistCoverBytes> {
   const extension = (path.extname(stagedPath) || ".jpg").toLowerCase();
   const bytes = await readCoverBytesFromStaged(stagedPath);
   return persistCoverBytes({
@@ -101,6 +103,8 @@ async function deployStagedCover(
     bytes,
     contentType: contentTypeForExtension(extension),
     traceId,
+    sourceUrl: stagedPath,
+    allowUsableQuality,
   });
 }
 
@@ -108,7 +112,8 @@ async function deployRemoteCover(
   albumId: string,
   remote: URL,
   traceId: string,
-): Promise<{ canonicalPath: string; storage: "local" | "r2" }> {
+  allowUsableQuality: boolean,
+): ReturnType<typeof persistCoverBytes> {
   const bytes = await fetchRemoteCoverBytes(remote, traceId);
   const ext = path.extname(remote.pathname).toLowerCase();
   const extension = ext === ".png" || ext === ".webp" || ext === ".jpg" || ext === ".jpeg" ? ext : ".jpg";
@@ -117,6 +122,8 @@ async function deployRemoteCover(
     bytes,
     contentType: contentTypeForExtension(extension),
     traceId,
+    sourceUrl: remote.toString(),
+    allowUsableQuality,
   });
 }
 
@@ -201,6 +208,7 @@ export async function POST(request: Request) {
     candidateSource?: string | null;
     candidateImageUrl?: string | null;
     replaceSource?: "discogs" | "staged" | null;
+    qualityOverride?: boolean | null;
   };
 
   try {
@@ -291,6 +299,7 @@ export async function POST(request: Request) {
   if (body.action === "mark_needs_review" && (body.confidence ?? 0) > 0) nextState = "provisional";
 
   let coverStorage: "local" | "r2" | null = null;
+  let artworkQuality: Awaited<ReturnType<typeof persistCoverBytes>>["quality"] | null = null;
   if (body.action === "approve" || body.action === "replace_artwork") {
     const stagedPath = allowedStagedPath(body.stagedFilePath);
     const remote = allowedRemoteImage(body.candidateImageUrl ?? null);
@@ -312,15 +321,37 @@ export async function POST(request: Request) {
     let deployed;
     try {
       deployed = stagedPath
-        ? await deployStagedCover(body.albumId, stagedPath, traceId)
-        : await deployRemoteCover(body.albumId, remote as URL, traceId);
+        ? await deployStagedCover(body.albumId, stagedPath, traceId, body.qualityOverride === true)
+        : await deployRemoteCover(body.albumId, remote as URL, traceId, body.qualityOverride === true);
     } catch (e) {
+      if (e instanceof ArtworkQualityWarning) {
+        return NextResponse.json(
+          {
+            ok: false,
+            stage: "artwork_quality_warning",
+            message: e.quality.message,
+            detail: `${e.quality.width}x${e.quality.height}, ${e.quality.byteSize} bytes. Preferred minimum is ${e.quality.thresholds.archiveMinDimension}px; usable minimum is ${e.quality.thresholds.usableMinDimension}px.`,
+            traceId,
+            artworkQuality: e.quality,
+            retryWithQualityOverride: true,
+          },
+          { status: 409 },
+        );
+      }
       const msg = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
       console.error("[CURATOR/API] image_persist_failed", { traceId, error: msg });
+      if (
+        msg.includes("image_unusable_thumbnail") ||
+        msg.includes("image_unreadable_or_corrupt") ||
+        msg.includes("unsupported_image_format")
+      ) {
+        return saveFail(traceId, "artwork_quality", msg, msg, 400);
+      }
       return saveFail(traceId, "image_persist", msg, msg);
     }
     canonicalPath = deployed.canonicalPath;
     coverStorage = deployed.storage;
+    artworkQuality = deployed.quality;
     curatorDebug("[CURATOR/API] cover_persisted", {
       traceId,
       canonicalPath,
@@ -506,6 +537,7 @@ export async function POST(request: Request) {
     displayUrl,
     publicCoverUrl: displayUrl,
     storage: coverStorage,
+    artworkQuality,
     localDbVerified,
     localCanonicalDbEnabled,
     runtimeStrategy,

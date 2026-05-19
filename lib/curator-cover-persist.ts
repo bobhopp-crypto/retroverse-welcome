@@ -3,12 +3,28 @@ import path from "node:path";
 
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
+import {
+  assessArtworkQuality,
+  type ArtworkQualityReport,
+} from "@/lib/curator-artwork-quality";
 import { canonicalCoverPathToUrl, getRetroverseCoverBaseUrl } from "@/lib/canonical-cover-url";
 import { curatorPipelineLog } from "@/lib/curator-pipeline-log";
 import { isServerlessPublicRuntime } from "@/lib/curator-runtime-strategy";
 import { canonicalCoverKey, getR2Client, headR2Object, r2Bucket } from "@/lib/r2-client";
 
 export type CoverStorage = "local" | "r2";
+export type CoverPersistResult = {
+  canonicalPath: string;
+  storage: CoverStorage;
+  quality: ArtworkQualityReport;
+};
+
+export class ArtworkQualityWarning extends Error {
+  constructor(public readonly quality: ArtworkQualityReport) {
+    super("artwork_quality_warning");
+    this.name = "ArtworkQualityWarning";
+  }
+}
 
 export function isValidRvalAlbumId(albumId: string): boolean {
   return /^RVAL\d{6}$/i.test(albumId.trim());
@@ -80,11 +96,27 @@ export async function persistCoverBytes(opts: {
   bytes: Buffer;
   contentType: string;
   traceId: string;
-}): Promise<{ canonicalPath: string; storage: CoverStorage }> {
+  sourceUrl?: string | null;
+  allowUsableQuality?: boolean;
+}): Promise<CoverPersistResult> {
   const albumId = normalizeRvalAlbumId(opts.albumId);
-  const minBytes = 8_000;
-  if (opts.bytes.length < minBytes) {
-    throw new Error(`image_too_small:${opts.bytes.length}`);
+  const quality = await assessArtworkQuality(opts.bytes, opts.sourceUrl ?? null);
+  curatorPipelineLog("artwork_quality", {
+    traceId: opts.traceId,
+    ok: quality.tier !== "unusable",
+    tier: quality.tier,
+    width: quality.width,
+    height: quality.height,
+    format: quality.format,
+    byteSize: quality.byteSize,
+    sourceUrl: quality.sourceUrl,
+    thresholds: quality.thresholds,
+  });
+  if (quality.tier === "unusable") {
+    throw new Error(`image_unusable_thumbnail:${quality.width}x${quality.height}:${quality.byteSize}`);
+  }
+  if (quality.tier === "usable" && !opts.allowUsableQuality) {
+    throw new ArtworkQualityWarning(quality);
   }
 
   const serverlessPublic = isServerlessPublicRuntime();
@@ -107,7 +139,7 @@ export async function persistCoverBytes(opts: {
         key: r2.canonicalKey,
         error: head.ok ? undefined : head.error,
       });
-      return { canonicalPath: r2.canonicalKey, storage: "r2" };
+      return { canonicalPath: r2.canonicalKey, storage: "r2", quality };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       curatorPipelineLog("r2_upload", { traceId: opts.traceId, ok: false, error: msg });
@@ -118,7 +150,7 @@ export async function persistCoverBytes(opts: {
   }
 
   const webPath = await writeCanonicalCoverToPublicDir(albumId, opts.bytes);
-  return { canonicalPath: webPath, storage: "local" };
+  return { canonicalPath: webPath, storage: "local", quality };
 }
 
 export function buildDisplayUrl(

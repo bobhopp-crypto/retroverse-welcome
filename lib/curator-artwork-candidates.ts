@@ -428,7 +428,7 @@ function pickLargestDiscogsImage(images?: DiscogsMasterDetail["images"]): string
   if (!withUri.length) return null;
   const primary = withUri.filter((i) => String(i.type ?? "").toLowerCase() === "primary");
   const pool = primary.length ? primary : withUri;
-  pool.sort((a, b) => (b.width ?? 0) - (a.width ?? 0));
+  pool.sort((a, b) => ((b.width ?? 0) * (b.height ?? 0)) - ((a.width ?? 0) * (a.height ?? 0)));
   const best = pool[0];
   return normalizeCandidateArtworkUrl(best?.uri ?? best?.uri150 ?? null);
 }

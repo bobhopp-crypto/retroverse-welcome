@@ -1,6 +1,7 @@
 import { diagLog } from "@/lib/diag-log";
 
 export type CuratorPipelineStep =
+  | "artwork_quality"
   | "local_db_write"
   | "local_db_preflight"
   | "local_db_verify"
