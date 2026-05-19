@@ -5,6 +5,7 @@ import {
 } from "@/lib/canonical-artwork-overrides";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { getArtistUniverseBySlug } from "@/lib/load-artist-universe";
+import { curateTrackSignals, type SignalTier } from "@/lib/signal-curation";
 import { HOT100_SOURCE_SYSTEM } from "@/lib/track-deck/constants";
 import { getHot100Db } from "@/lib/track-deck/db";
 import { hrefForArtist } from "@/lib/retroverse-routes";
@@ -48,6 +49,8 @@ export type ArtistUniverseExperience = {
     releaseYear: number | null;
     peakChartPosition: number;
     chartWeeks: number;
+    signalTier?: SignalTier;
+    signalReason?: string;
     contextLabel: string;
     eraId: null;
   }>;
@@ -95,7 +98,7 @@ function normalizeTrackTitle(value: string): string {
     .trim();
 }
 
-function loadArtistHot100Tracks(artistName: string, limit = 18): ArtistHot100Track[] {
+function loadArtistHot100Tracks(artistName: string, limit = 40): ArtistHot100Track[] {
   try {
     const db = getHot100Db();
     const artistExact = artistName.trim().toLowerCase();
@@ -172,7 +175,7 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
     if (key && !albumTrackByTitle.has(key)) albumTrackByTitle.set(key, track);
   }
   const hot100Tracks = loadArtistHot100Tracks(record.display_name);
-  const chartingTracks = hot100Tracks
+  const chartingTracks = curateTrackSignals(hot100Tracks)
     .map((track) => {
       const albumTrack = albumTrackByTitle.get(normalizeTrackTitle(track.title));
       return {
@@ -183,11 +186,25 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
         releaseYear: track.releaseYear,
         peakChartPosition: track.peakChartPosition,
         chartWeeks: track.chartWeeks,
-        contextLabel: track.peakChartPosition <= 10 ? "Top 10 single" : "Hot 100 signal",
+        signalTier: track.signalTier,
+        signalReason: track.signalReason,
+        contextLabel:
+          track.signalTier === "primary"
+            ? track.peakChartPosition <= 10
+              ? "Top 10 single"
+              : "Hot 100 signal"
+            : track.signalTier === "related"
+            ? "Related chart signal"
+            : "Archive chart variant",
         eraId: null,
       };
     })
-    .sort((a, b) => a.peakChartPosition - b.peakChartPosition || a.title.localeCompare(b.title));
+    .sort((a, b) => {
+      const tierOrder = { primary: 0, related: 1, archive: 2 };
+      const tierDelta = tierOrder[a.signalTier] - tierOrder[b.signalTier];
+      if (tierDelta !== 0) return tierDelta;
+      return a.peakChartPosition - b.peakChartPosition || b.chartWeeks - a.chartWeeks || a.title.localeCompare(b.title);
+    });
   const numberOneTracks = chartingTracks.filter((track) => track.peakChartPosition === 1).length;
 
   return {

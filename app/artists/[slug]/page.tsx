@@ -6,6 +6,7 @@ import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
 import { hrefForAlbum, hrefForTrack, normalizeEntitySlug } from "@/lib/retroverse-routes";
+import type { SignalTier } from "@/lib/signal-curation";
 import { createClient } from "@/lib/supabase";
 import { loadArtistExperienceFromDossierBundle } from "@/lib/load-artist-dossier-fallback";
 import {
@@ -136,6 +137,8 @@ type ArtistChartTrack = {
   releaseYear: number | null;
   peakChartPosition: number;
   chartWeeks?: number;
+  signalTier?: SignalTier;
+  signalReason?: string;
   contextLabel: string;
   eraId: string | null;
 };
@@ -488,6 +491,8 @@ async function loadArtistExperienceFromSupabase(slug: string) {
         releaseYear: track.release_year,
         peakChartPosition: peak,
         chartWeeks: chartWeeksByTrackId.get(track.retroverse_track_id) ?? 0,
+        signalTier: "primary",
+        signalReason: "canonical chart signal",
         contextLabel,
         eraId: track.era_id,
       };
@@ -793,6 +798,13 @@ function trackSignalLabel(track: Pick<ArtistChartTrack, "peakChartPosition" | "c
   return `${track.contextLabel} · ${track.chartWeeks ?? 0} weeks`;
 }
 
+function sortTrackSignals(a: ArtistChartTrack, b: ArtistChartTrack): number {
+  const tierOrder: Record<SignalTier, number> = { primary: 0, related: 1, archive: 2 };
+  const tierDelta = tierOrder[a.signalTier ?? "primary"] - tierOrder[b.signalTier ?? "primary"];
+  if (tierDelta !== 0) return tierDelta;
+  return a.peakChartPosition - b.peakChartPosition || (b.chartWeeks ?? 0) - (a.chartWeeks ?? 0) || a.title.localeCompare(b.title);
+}
+
 function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null {
   return canonicalCoverPathToUrl(album.coverPath, {});
 }
@@ -855,11 +867,13 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
     activeYears,
   });
   const showChapters = densityTier === "expansive" && chapters.length >= 3;
+  const primaryChartTracks = data.chartingTracks
+    .filter((track) => (track.signalTier ?? "primary") === "primary")
+    .sort(sortTrackSignals);
+  const relatedSignalCount = data.chartingTracks.filter((track) => (track.signalTier ?? "primary") !== "primary").length;
   const keySongs =
-    data.chartingTracks.length > 0
-      ? data.chartingTracks
-          .slice()
-          .sort((a, b) => a.peakChartPosition - b.peakChartPosition || (b.chartWeeks ?? 0) - (a.chartWeeks ?? 0))
+    primaryChartTracks.length > 0
+      ? primaryChartTracks
           .slice(0, densityTier === "minimal" ? 6 : 10)
       : data.connectedTrackRows
           .slice(0, densityTier === "minimal" ? 6 : 10)
@@ -872,9 +886,11 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             peakChartPosition: row.peakChartPosition ?? 999,
             chartWeeks: 0,
             contextLabel: "Album track",
+            signalTier: "archive" as const,
+            signalReason: "fallback album landmark",
             eraId: null,
           }));
-  const hasChartedKeySongs = data.chartingTracks.length > 0;
+  const hasChartedKeySongs = primaryChartTracks.length > 0;
   const visualDiscography = data.connectedAlbums.slice(0, densityTier === "minimal" ? 8 : densityTier === "standard" ? 16 : 28);
   const iconicAlbums = [...data.connectedAlbums]
     .sort((a, b) => {
@@ -1178,6 +1194,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                     className="artist-uni-track-card"
                     data-track-id={track.id}
                     data-track-peak={hasChartedKeySongs ? track.peakChartPosition : "fallback"}
+                    data-signal-tier={track.signalTier ?? (hasChartedKeySongs ? "primary" : "archive")}
                     data-track-weeks={track.chartWeeks ?? 0}
                     style={{
                       ["--au-track-strength" as string]: `${trackStrength || 18}%`,
@@ -1206,6 +1223,11 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                 );
               })}
             </div>
+            {relatedSignalCount > 0 ? (
+              <p className="artist-uni-muted text-[0.78rem]">
+                {relatedSignalCount} related chart variant{relatedSignalCount === 1 ? "" : "s"} kept in the graph, folded out of the primary signal rail.
+              </p>
+            ) : null}
           </section>
         ) : (
           <section className="artist-uni-plate mb-10 max-w-[36rem] px-5 py-5">
