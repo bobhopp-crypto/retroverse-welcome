@@ -1,4 +1,8 @@
 import type { ArtistUniverseRecord } from "@/lib/artist-universe-schema";
+import {
+  readCanonicalArtworkOverridesSync,
+  resolveLocalFirstCanonicalCover,
+} from "@/lib/canonical-artwork-overrides";
 import { getArtistUniverseBySlug } from "@/lib/load-artist-universe";
 import { hrefForArtist } from "@/lib/retroverse-routes";
 
@@ -11,8 +15,8 @@ export type ArtistUniverseExperience = {
     albumTypeLabel: string;
     releaseYear: number | null;
     roleLabel: string | null;
-    coverPath: null;
-    artworkStatus: null;
+    coverPath: string | null;
+    artworkStatus: string | null;
     chartPeak: number | null;
     chartWeeks: number;
     chartingTrackCount: number;
@@ -56,6 +60,7 @@ export type ArtistUniverseExperience = {
 };
 
 function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperience {
+  const artworkOverrides = readCanonicalArtworkOverridesSync();
   const trackRows = record.primary_tracks.map((track) => ({
     id: track.id,
     title: track.title,
@@ -65,9 +70,10 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
     peakChartPosition: track.peak_chart_position,
   }));
   const tracksByAlbumId = new Map<string, typeof trackRows>();
-  for (const track of trackRows) {
-    const source = record.primary_tracks.find((row) => row.id === track.id);
-    if (!source?.album_id) continue;
+  for (const [index, source] of record.primary_tracks.entries()) {
+    if (!source.album_id) continue;
+    const track = trackRows[index];
+    if (!track) continue;
     const rows = tracksByAlbumId.get(source.album_id) ?? [];
     rows.push(track);
     tracksByAlbumId.set(source.album_id, rows);
@@ -95,6 +101,7 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
     connectedAlbums: record.primary_albums.map((album) => {
       const albumTracks = tracksByAlbumId.get(album.album_id) ?? [];
       const chartingAlbumTracks = albumTracks.filter((track) => track.peakChartPosition !== null);
+      const artwork = resolveLocalFirstCanonicalCover(album.album_id, artworkOverrides, null);
       const chartPeak =
         chartingAlbumTracks.length > 0
           ? Math.min(...chartingAlbumTracks.map((track) => track.peakChartPosition as number))
@@ -106,8 +113,8 @@ function recordToExperience(record: ArtistUniverseRecord): ArtistUniverseExperie
         albumTypeLabel: "Album",
         releaseYear: album.release_year,
         roleLabel: "Primary artist",
-        coverPath: null,
-        artworkStatus: null,
+        coverPath: artwork.path,
+        artworkStatus: artwork.trustState ?? null,
         chartPeak,
         chartWeeks: chartingAlbumTracks.length,
         chartingTrackCount: chartingAlbumTracks.length,
