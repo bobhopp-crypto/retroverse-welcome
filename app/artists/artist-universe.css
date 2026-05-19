@@ -91,6 +91,102 @@
     0 0 50px -8px rgba(220, 100, 180, 0.06);
 }
 
+.artist-uni-hero--discography {
+  border-color: color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 24%, transparent);
+  background:
+    radial-gradient(ellipse 85% 50% at 12% -12%, color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 18%, transparent), transparent 54%),
+    radial-gradient(ellipse 65% 45% at 96% 8%, color-mix(in srgb, var(--rv-psychedelic-blue, #2ee8ff) 12%, transparent), transparent 52%),
+    linear-gradient(165deg, rgba(42, 18, 42, 0.72) 0%, rgba(14, 8, 26, 0.52) 100%);
+}
+
+.artist-uni-hero-grid {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.artist-uni-hero-copy {
+  min-width: 0;
+}
+
+.artist-uni-cover-stack {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.artist-uni-hero-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 34%, transparent);
+  border-radius: 0.72rem;
+  background:
+    radial-gradient(circle at 30% 18%, color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 18%, transparent), transparent 44%),
+    rgba(12, 8, 22, 0.75);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.36),
+    0 0 22px color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 12%, transparent),
+    inset 0 1px 0 rgba(255, 244, 214, 0.08);
+  transform: rotate(var(--au-cover-tilt, 0deg));
+  text-decoration: none;
+}
+
+.artist-uni-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.artist-uni-hero-cover span {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  color: rgba(255, 244, 214, 0.82);
+  font-family: var(--au-font-display);
+  font-size: 0.85rem;
+  line-height: 1.08;
+  text-align: center;
+}
+
+.artist-uni-hero-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.artist-uni-hero-facts > div,
+.artist-uni-hero-era {
+  border: 1px solid rgba(255, 191, 112, 0.2);
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(180deg, rgba(255, 244, 214, 0.045), transparent),
+    rgba(18, 12, 32, 0.42);
+  padding: 0.65rem 0.72rem;
+  text-decoration: none;
+}
+
+.artist-uni-fact-label {
+  display: block;
+  color: rgba(255, 191, 112, 0.62);
+  font-family: var(--au-font-broadcast);
+  font-size: 0.54rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.artist-uni-fact-value,
+.artist-uni-hero-era {
+  color: rgba(255, 244, 214, 0.92);
+  font-family: var(--au-font-display);
+  font-size: 1.05rem;
+  line-height: 1.12;
+}
+
 .artist-uni-hero::before {
   content: "";
   position: absolute;
@@ -260,6 +356,167 @@
     0 0 32px -10px rgba(120, 200, 255, 0.06);
 }
 
+.artist-uni-section-intro {
+  max-width: 38rem;
+}
+
+.artist-uni-discography-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.artist-uni-album-card {
+  display: grid;
+  grid-template-columns: minmax(6.2rem, 8.4rem) minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: stretch;
+  border: 1px solid color-mix(in srgb, var(--rv-psychedelic-gold, #ffbf70) 24%, transparent);
+  border-radius: 1.1rem;
+  background:
+    radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 13%, transparent), transparent 34%),
+    linear-gradient(155deg, rgba(42, 20, 44, 0.72), rgba(8, 6, 18, 0.78));
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 244, 214, 0.06);
+  padding: 0.7rem;
+}
+
+.artist-uni-album-cover {
+  display: block;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 191, 112, 0.28);
+  border-radius: 0.85rem;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 191, 112, 0.12), transparent 46%),
+    rgba(10, 8, 18, 0.88);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 244, 214, 0.08);
+  text-decoration: none;
+}
+
+.artist-uni-album-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.artist-uni-album-cover span {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem;
+  color: rgba(255, 244, 214, 0.8);
+  font-family: var(--au-font-display);
+  font-size: 0.9rem;
+  line-height: 1.08;
+  text-align: center;
+}
+
+.artist-uni-album-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.artist-uni-album-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.artist-uni-album-year,
+.artist-uni-album-type {
+  font-family: var(--au-font-broadcast);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 191, 112, 0.62);
+}
+
+.artist-uni-album-head h3 {
+  margin: 0.1rem 0 0;
+  font-family: var(--au-font-display);
+  font-size: clamp(1.2rem, 5vw, 1.65rem);
+  line-height: 1.02;
+}
+
+.artist-uni-chart-bar {
+  height: 0.56rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, rgba(255, 244, 214, 0.08), rgba(46, 232, 255, 0.08)),
+    rgba(5, 5, 12, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 191, 112, 0.16);
+}
+
+.artist-uni-chart-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 0.35rem;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--rv-psychedelic-orange, #ff7b40), var(--rv-psychedelic-gold, #ffbf70));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--rv-psychedelic-orange, #ff7b40) 42%, transparent);
+}
+
+.artist-uni-album-stats,
+.artist-uni-album-tracks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+}
+
+.artist-uni-album-stats span,
+.artist-uni-track-chip {
+  border: 1px solid rgba(255, 191, 112, 0.16);
+  border-radius: 999px;
+  background: rgba(18, 12, 32, 0.46);
+  color: rgba(225, 218, 238, 0.7);
+  font-size: 0.72rem;
+  line-height: 1.1;
+  padding: 0.26rem 0.5rem;
+}
+
+.artist-uni-track-chip {
+  color: rgba(255, 244, 214, 0.88);
+  text-decoration: none;
+}
+
+.artist-uni-track-chip span {
+  margin-left: 0.3rem;
+  color: rgba(255, 191, 112, 0.78);
+}
+
+@media (min-width: 720px) {
+  .artist-uni-hero-grid {
+    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+    align-items: center;
+  }
+
+  .artist-uni-cover-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .artist-uni-album-card {
+    grid-template-columns: minmax(5.8rem, 6.5rem) minmax(0, 1fr);
+    gap: 0.7rem;
+    padding: 0.58rem;
+  }
+
+  .artist-uni-hero-facts {
+    grid-template-columns: 1fr;
+  }
+}
+
 .artist-uni-list {
   list-style: none;
   padding: 0;
@@ -336,6 +593,89 @@
     1;
 }
 
+.artist-uni-era-covers {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.85rem 0 0.2rem;
+  scrollbar-width: none;
+}
+
+.artist-uni-era-covers::-webkit-scrollbar {
+  display: none;
+}
+
+.artist-uni-era-cover {
+  display: block;
+  width: 4.4rem;
+  min-width: 4.4rem;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 191, 112, 0.22);
+  border-radius: 0.62rem;
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 191, 112, 0.12), transparent 48%),
+    rgba(12, 8, 22, 0.74);
+  text-decoration: none;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+}
+
+.artist-uni-era-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artist-uni-era-cover span {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  color: rgba(255, 244, 214, 0.78);
+  font-family: var(--au-font-display);
+  font-size: 0.68rem;
+  line-height: 1.05;
+  text-align: center;
+}
+
+.artist-uni-track-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.artist-uni-track-peak {
+  color: rgba(255, 191, 112, 0.58);
+  font-family: var(--au-font-broadcast);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.artist-uni-track-mini-bar {
+  display: block;
+  height: 0.28rem;
+  width: min(12rem, 100%);
+  margin-top: 0.38rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(5, 5, 12, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 191, 112, 0.12);
+}
+
+.artist-uni-track-mini-bar span {
+  display: block;
+  height: 100%;
+  min-width: 0.2rem;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--rv-psychedelic-orange, #ff7b40), var(--rv-psychedelic-gold, #ffbf70));
+}
+
 .exploration-grid .artist-uni-inline-link {
   display: inline-block;
   padding: 0.45rem 0.65rem;
@@ -346,6 +686,11 @@
 
 .exploration-grid .artist-uni-inline-link:hover {
   border-color: rgba(130, 220, 255, 0.35);
+}
+
+.artist-uni-secondary-nav {
+  border-top: 1px solid rgba(255, 191, 112, 0.12);
+  padding-top: 1rem;
 }
 
 /* Local-first signal identity (no album-cover hero) */

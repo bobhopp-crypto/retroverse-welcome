@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { EntityStatus } from "@/app/components/entity-status";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
+import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
-import { buildArtistContextLine, buildArtistCulturalRole } from "@/lib/retroverse-editorial";
+import { buildArtistContextLine } from "@/lib/retroverse-editorial";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
 import { hrefForAlbum, normalizeEntitySlug } from "@/lib/retroverse-routes";
 import { createClient } from "@/lib/supabase";
@@ -94,11 +95,6 @@ type AlbumTrackRow = {
   side_code: string | null;
 };
 
-type ChartRow = {
-  retroverse_track_id: string;
-  chart_position: number;
-};
-
 type EraRow = {
   retroverse_era_id: string;
   slug: string;
@@ -116,6 +112,15 @@ type AlbumAppearance = {
   roleLabel: string | null;
   coverPath: string | null;
   artworkStatus: string | null;
+  chartPeak?: number | null;
+  chartWeeks?: number;
+  chartingTrackCount?: number;
+  trackCount?: number;
+  majorTracks?: Array<{
+    id: string;
+    title: string;
+    peakChartPosition: number | null;
+  }>;
 };
 
 type ArtistChartTrack = {
@@ -360,6 +365,30 @@ async function loadArtistExperienceFromSupabase(slug: string) {
     }
   }
 
+  const tracksByAlbumId = new Map<string, TrackRow[]>();
+  for (const track of tracks) {
+    if (!track.retroverse_album_id) continue;
+    const rows = tracksByAlbumId.get(track.retroverse_album_id) ?? [];
+    rows.push(track);
+    tracksByAlbumId.set(track.retroverse_album_id, rows);
+  }
+
+  const chartWeeksByAlbumId = new Map<string, number>();
+  const chartingTrackIdsByAlbumId = new Map<string, Set<string>>();
+  const chartPeakByAlbumId = new Map<string, number>();
+  for (const chart of charts) {
+    const track = tracks.find((row) => row.retroverse_track_id === chart.retroverse_track_id);
+    if (!track?.retroverse_album_id) continue;
+    chartWeeksByAlbumId.set(track.retroverse_album_id, (chartWeeksByAlbumId.get(track.retroverse_album_id) ?? 0) + 1);
+    const chartingTrackIds = chartingTrackIdsByAlbumId.get(track.retroverse_album_id) ?? new Set<string>();
+    chartingTrackIds.add(track.retroverse_track_id);
+    chartingTrackIdsByAlbumId.set(track.retroverse_album_id, chartingTrackIds);
+    const currentPeak = chartPeakByAlbumId.get(track.retroverse_album_id);
+    if (currentPeak === undefined || chart.chart_position < currentPeak) {
+      chartPeakByAlbumId.set(track.retroverse_album_id, chart.chart_position);
+    }
+  }
+
   const connectedAlbums: AlbumAppearance[] = albums
     .map((album) => {
       const role = roleByAlbumId.get(album.retroverse_album_id);
@@ -369,6 +398,20 @@ async function loadArtistExperienceFromSupabase(slug: string) {
         album.retroverse_album_id,
         primaryEdition?.retroverse_album_edition_id ?? null,
       );
+      const albumTracks = tracksByAlbumId.get(album.retroverse_album_id) ?? [];
+      const majorTracks = albumTracks
+        .map((track) => ({
+          id: track.retroverse_track_id,
+          title: track.canonical_title,
+          peakChartPosition: peakChartByTrackId.get(track.retroverse_track_id) ?? null,
+        }))
+        .sort((a, b) => {
+          const aPeak = a.peakChartPosition ?? 999;
+          const bPeak = b.peakChartPosition ?? 999;
+          if (aPeak !== bPeak) return aPeak - bPeak;
+          return a.title.localeCompare(b.title);
+        })
+        .slice(0, 4);
 
       return {
         id: album.retroverse_album_id,
@@ -379,6 +422,11 @@ async function loadArtistExperienceFromSupabase(slug: string) {
         roleLabel: roleLabel(role?.role ?? null),
         coverPath: artwork?.canonical_cover_path ?? null,
         artworkStatus: artwork?.artwork_status ?? null,
+        chartPeak: chartPeakByAlbumId.get(album.retroverse_album_id) ?? null,
+        chartWeeks: chartWeeksByAlbumId.get(album.retroverse_album_id) ?? 0,
+        chartingTrackCount: chartingTrackIdsByAlbumId.get(album.retroverse_album_id)?.size ?? 0,
+        trackCount: albumTracks.length,
+        majorTracks,
       };
     })
     .sort((a, b) => {
@@ -672,6 +720,27 @@ function buildCareerChapters(data: Awaited<ReturnType<typeof loadArtistExperienc
   return chapters;
 }
 
+function chartPeakStrength(peak: number | null | undefined): number {
+  if (!peak || peak <= 0) return 0;
+  return Math.max(4, Math.round(((101 - Math.min(100, peak)) / 100) * 100));
+}
+
+function chartPeakLabel(peak: number | null | undefined): string {
+  return peak ? `Peak #${peak}` : "No chart peak";
+}
+
+function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null {
+  return canonicalCoverPathToUrl(album.coverPath, {});
+}
+
+function fallbackEraTitle(index: number): string {
+  if (index === 0) return "Early Recordings";
+  if (index === 1) return "Breakthrough Years";
+  if (index === 2) return "Peak Years";
+  if (index === 3) return "Reinvention";
+  return "Legacy Era";
+}
+
 export default async function ArtistEntityPage({ params }: ArtistPageProps) {
   const { slug } = await params;
   let data: Awaited<ReturnType<typeof loadArtistExperience>> = null;
@@ -694,16 +763,6 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
   const universe = (data as Partial<ArtistUniverseExperience>).universe ?? null;
 
   const contextLine = buildArtistContextLine({
-    numberOneCount: data.metrics.numberOneCount,
-    soundtrackLinkedSinglesCount: data.metrics.soundtrackLinkedSinglesCount,
-    soundtrackAlbumAppearances: data.metrics.soundtrackAlbumAppearances,
-    sequencingTrackCount: data.metrics.sequencingTrackCount,
-    sequencingSides: data.metrics.sequencingSides,
-    dominantEraName: data.metrics.dominantEra?.name ?? null,
-    dominantEraChartingCount: data.metrics.dominantEra?.count ?? 0,
-    totalChartingTracks: data.chartingTracks.length,
-  });
-  const culturalRoleLines = buildArtistCulturalRole({
     numberOneCount: data.metrics.numberOneCount,
     soundtrackLinkedSinglesCount: data.metrics.soundtrackLinkedSinglesCount,
     soundtrackAlbumAppearances: data.metrics.soundtrackAlbumAppearances,
@@ -754,12 +813,39 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             contextLabel: "Track",
             eraId: null,
           }));
-  const releaseAnchors = data.connectedAlbums.slice(0, densityTier === "minimal" ? 4 : densityTier === "standard" ? 10 : 14);
+  const visualDiscography = data.connectedAlbums.slice(0, densityTier === "minimal" ? 8 : densityTier === "standard" ? 16 : 28);
+  const iconicAlbums = [...data.connectedAlbums]
+    .sort((a, b) => {
+      const aPeak = a.chartPeak ?? 999;
+      const bPeak = b.chartPeak ?? 999;
+      if (a.coverPath && !b.coverPath) return -1;
+      if (!a.coverPath && b.coverPath) return 1;
+      if (aPeak !== bPeak) return aPeak - bPeak;
+      return (a.releaseYear ?? 9999) - (b.releaseYear ?? 9999);
+    })
+    .slice(0, 4);
+  const peakChartYear =
+    data.chartingTracks
+      .filter((row) => row.releaseYear !== null)
+      .sort((a, b) => a.peakChartPosition - b.peakChartPosition || (a.releaseYear ?? 9999) - (b.releaseYear ?? 9999))[0]
+      ?.releaseYear ?? null;
+  const strongestYears = [
+    ...new Set([
+      ...(universe?.dominant_years ?? []),
+      ...data.chartingTracks
+        .filter((row) => row.releaseYear !== null)
+        .sort((a, b) => a.peakChartPosition - b.peakChartPosition)
+        .map((row) => row.releaseYear as number),
+      ...data.connectedAlbums
+        .filter((row) => row.releaseYear !== null && (row.chartPeak !== null || row.coverPath))
+        .map((row) => row.releaseYear as number),
+    ]),
+  ].slice(0, 5);
   return (
     <div className="artist-universe min-h-full">
       <div className="artist-uni-atmosphere" aria-hidden />
       <article className="artist-uni-article mx-auto max-w-[52rem] px-4 py-10 pb-16 sm:px-6 sm:py-[4.25rem]">
-        <header className="artist-uni-hero mb-10 space-y-3 sm:mb-12">
+        <header className="artist-uni-hero artist-uni-hero--discography mb-8 space-y-4 sm:mb-10">
           <p className="artist-uni-breadcrumb text-[0.74rem] uppercase tracking-[0.14em]">
             <Link href="/artists">
               Artists
@@ -773,118 +859,148 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
               </>
             ) : null}
           </p>
-          <p className="artist-uni-eyebrow">Artist universe · constellation view</p>
-          <h1 className="artist-uni-title text-[2.35rem] sm:text-[3rem]">{data.artist.canonical_artist_name}</h1>
-          {universe ? (
-            <>
-              <div
-                className="artist-uni-signal-field"
-                style={
-                  {
-                    ["--au-signal-hue" as string]: String(universe.signal_palette.hue),
-                    ["--au-signal-accent" as string]: universe.signal_palette.accent,
-                  } as Record<string, string>
-                }
-                aria-hidden
-              />
-              <p className="artist-uni-meta-line text-[0.88rem]">
-                {universe.active_years.first !== null && universe.active_years.last !== null
-                  ? `${universe.active_years.first}–${universe.active_years.last} in archive`
-                  : "Years still resolving"}
-                {universe.retroverse_summary.best_year !== null &&
-                universe.retroverse_summary.best_year_rank !== null
-                  ? ` · Retroverse #${universe.retroverse_summary.best_year_rank} in ${universe.retroverse_summary.best_year}`
-                  : ""}
-                {universe.retroverse_summary.top_coordinate
-                  ? ` · coordinate ${universe.retroverse_summary.top_coordinate}`
-                  : ""}
+          <div className="artist-uni-hero-grid">
+            <div className="artist-uni-hero-copy">
+              <p className="artist-uni-eyebrow">Artist universe · visual discography</p>
+              <h1 className="artist-uni-title text-[2.55rem] sm:text-[3.35rem]">{data.artist.canonical_artist_name}</h1>
+              <p className="artist-uni-sub text-[1.02rem] sm:text-[1.08rem]">
+                {hasYearRange ? `${firstActiveYear}-${lastActiveYear}` : "Career years resolving"} · {data.connectedAlbums.length} album
+                {data.connectedAlbums.length === 1 ? "" : "s"} · {data.connectedTrackRows.length} tracks in the archive
+                {peakChartYear ? ` · peak chart year ${peakChartYear}` : ""}
               </p>
-              {universe.dominant_years.length > 0 ? (
-                <div className="artist-uni-coord-orbit" aria-label="Dominant Retroverse years">
-                  {universe.dominant_years.map((year) => {
-                    const row = universe.yearly_rankings.find((yr) => yr.year === year);
-                    if (!row) return null;
-                    return (
-                      <span key={year} className="artist-uni-coord-chip">
-                        {year} · A{row.retroverse_artist_rank}
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </>
-          ) : null}
-          {data.primaryEra ? (
-            <Link href={data.primaryEra.href} className="artist-uni-inline-link artist-uni-eyebrow !text-[0.56rem] !tracking-[0.2em]">
-              Primary orbit · {data.primaryEra.name}
-            </Link>
-          ) : null}
-          <p className="artist-uni-sub text-[1.03rem] sm:text-[1.08rem]">{contextLine}</p>
-          <p className="artist-uni-meta-line text-[0.9rem] tracking-[0.03em]">
-            {hasYearRange ? `${firstActiveYear}-${lastActiveYear} on record` : "Years still resolving"}
-            {data.metrics.numberOneCount > 0 ? ` · ${data.metrics.numberOneCount} #1 records` : ""}
-            {data.metrics.dominantEra ? ` · peak era signal: ${data.metrics.dominantEra.name}` : ""}
-          </p>
-          {data.eraConnections.length > 0 ? (
-            <div className="artist-uni-era-orbit" aria-label="ERA CONSTELLATION">
-              {data.eraConnections.slice(0, densityTier === "minimal" ? 5 : 10).map((era) => (
-                <Link key={era.id} href={era.href} className="artist-uni-era-chip">
-                  {era.name}
-                  <span className="sr-only">
-                    · {era.trackCount} archive tracks{densityTier === "minimal" ? "" : `, ${era.chartingTrackCount} charting`}
-                  </span>
-                </Link>
+              <p className="artist-uni-meta-line text-[0.92rem] leading-relaxed">
+                {contextLine}
+              </p>
+            </div>
+            {iconicAlbums.length > 0 ? (
+              <div className="artist-uni-cover-stack" aria-label="Iconic album covers">
+                {iconicAlbums.map((album, idx) => {
+                  const cover = albumCoverUrl(album);
+                  return (
+                    <Link
+                      key={`hero-cover-${album.id}`}
+                      href={album.href}
+                      className="artist-uni-hero-cover"
+                      style={{ ["--au-cover-tilt" as string]: `${idx % 2 === 0 ? -2 : 2}deg` }}
+                    >
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt="" loading={idx === 0 ? "eager" : "lazy"} draggable={false} />
+                      ) : (
+                        <span>{album.title}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <div className="artist-uni-hero-facts" aria-label="Career signals">
+            {strongestYears.length > 0 ? (
+              <div>
+                <span className="artist-uni-fact-label">Strongest years</span>
+                <span className="artist-uni-fact-value">{strongestYears.join(" · ")}</span>
+              </div>
+            ) : null}
+            {peakChartYear ? (
+              <div>
+                <span className="artist-uni-fact-label">Peak chart year</span>
+                <span className="artist-uni-fact-value">{peakChartYear}</span>
+              </div>
+            ) : null}
+            {data.metrics.numberOneCount > 0 ? (
+              <div>
+                <span className="artist-uni-fact-label">No. 1 records</span>
+                <span className="artist-uni-fact-value">{data.metrics.numberOneCount}</span>
+              </div>
+            ) : null}
+            {data.primaryEra ? (
+              <Link href={data.primaryEra.href} className="artist-uni-hero-era">
+                {data.primaryEra.name}
+              </Link>
+            ) : null}
+          </div>
+          {showChapters ? (
+            <div className="artist-uni-era-orbit" aria-label="Career eras">
+              {chapters.map((chapter, index) => (
+                <a key={chapter.key} href={`#${chapter.key}`} className="artist-uni-era-chip">
+                  {chapter.title || fallbackEraTitle(index)}
+                  <span className="sr-only"> · {chapter.rangeLabel}</span>
+                </a>
               ))}
             </div>
           ) : null}
-          {showChapters ? (
-            <nav className="artist-uni-chapter-nav" aria-label="Career arcs">
-              {chapters.map((chapter) => (
-                <a key={chapter.key} href={`#${chapter.key}`}>
-                  {chapter.title}
-                </a>
-              ))}
-            </nav>
-          ) : null}
         </header>
 
-        <div className="mb-9">
-          <RetroverseEntityNav
-            back={{ href: "/artists", label: "Artists" }}
-            items={[
-              { href: "/", label: "Home" },
-              { href: "/albums", label: "Albums" },
-              { href: `/tracks?q=${encodeURIComponent(data.artist.canonical_artist_name)}`, label: "Tracks" },
-              { href: "/track-deck", label: "Charts" },
-              { href: "/album-retroscope", label: "Retroscope" },
-            ]}
-          />
-        </div>
-
-        {releaseAnchors.length > 0 ? (
-          <section className="artist-uni-sector mb-10 space-y-2.5">
-            <p className="artist-uni-section-label">Major albums</p>
-            <ul className="artist-uni-plate artist-uni-list overflow-hidden py-1">
-              {releaseAnchors.map((album) => (
-                <li key={`anchor-${album.id}`} className="artist-uni-row">
-                  <Link href={album.href} className="group flex min-w-0 flex-col gap-0.5 no-underline">
-                      <p className="text-[0.98rem] font-medium leading-tight text-[color:rgba(255,248,255,0.95)] underline-offset-2 group-hover:underline">
-                        {album.title}
-                      </p>
-                      <p className="artist-uni-muted text-[0.83rem] leading-tight">
-                        {album.releaseYear ?? "Year unknown"} · {album.albumTypeLabel}
-                        {album.roleLabel ? ` · ${album.roleLabel}` : ""}
-                      </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+        {visualDiscography.length > 0 ? (
+          <section className="artist-uni-discography mb-12 space-y-4" aria-labelledby="visual-discography">
+            <div className="artist-uni-section-intro">
+              <p className="artist-uni-section-label">Visual discography</p>
+              <h2 id="visual-discography" className="artist-uni-h2 !mb-0">Career trajectory</h2>
+              <p className="artist-uni-muted text-[0.9rem] leading-relaxed">
+                Album sleeves lead the story. The orange signal shows chart force: peak position, weeks present, and momentum across the catalog.
+              </p>
+            </div>
+            <div className="artist-uni-discography-list">
+              {visualDiscography.map((album, index) => {
+                const cover = albumCoverUrl(album);
+                const peakStrength = chartPeakStrength(album.chartPeak);
+                const hasChartSignal = peakStrength > 0 || (album.chartWeeks ?? 0) > 0;
+                return (
+                  <article key={`discography-${album.id}`} className="artist-uni-album-card">
+                    <Link href={album.href} className="artist-uni-album-cover" aria-label={album.title}>
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt="" loading={index < 4 ? "eager" : "lazy"} draggable={false} />
+                      ) : (
+                        <span>{album.title}</span>
+                      )}
+                    </Link>
+                    <div className="artist-uni-album-body">
+                      <div className="artist-uni-album-head">
+                        <div>
+                          <p className="artist-uni-album-year">{album.releaseYear ?? "Year unknown"}</p>
+                          <h3>
+                            <Link href={album.href} className="artist-uni-inline-link">
+                              {album.title}
+                            </Link>
+                          </h3>
+                        </div>
+                        <span className="artist-uni-album-type">{album.albumTypeLabel}</span>
+                      </div>
+                      <div className="artist-uni-chart-bar" aria-label={`${album.title} chart trajectory`}>
+                        <span
+                          className="artist-uni-chart-bar-fill"
+                          style={{ width: `${hasChartSignal ? Math.max(8, peakStrength) : 5}%` }}
+                        />
+                      </div>
+                      <div className="artist-uni-album-stats">
+                        <span>{chartPeakLabel(album.chartPeak)}</span>
+                        <span>{album.chartWeeks ?? 0} chart weeks</span>
+                        <span>{album.trackCount ?? 0} tracks</span>
+                        {album.roleLabel ? <span>{album.roleLabel}</span> : null}
+                      </div>
+                      {album.majorTracks && album.majorTracks.length > 0 ? (
+                        <div className="artist-uni-album-tracks" aria-label={`Major tracks from ${album.title}`}>
+                          {album.majorTracks.map((track) => (
+                            <Link key={`${album.id}-${track.id}`} href={`/tracks/${track.id}`} className="artist-uni-track-chip">
+                              {track.title}
+                              {track.peakChartPosition ? <span>#{track.peakChartPosition}</span> : null}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </section>
         ) : null}
 
         {showChapters ? (
           <section className="mb-12 space-y-8">
-            <p className="artist-uni-section-label">Temporal arcs</p>
+            <p className="artist-uni-section-label">Career eras</p>
             <div className="space-y-8">
               {chapters.map((chapter) => (
                 <article key={chapter.key} id={chapter.key} className="artist-uni-chapter-card sm:pl-5">
@@ -896,41 +1012,48 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                     <p className="artist-uni-muted text-[0.92rem]">{chapter.summary}</p>
                   </header>
 
+                  {chapter.albums.length > 0 ? (
+                    <div className="artist-uni-era-covers" aria-label={`${chapter.title} album landmarks`}>
+                      {chapter.albums.slice(0, 6).map((album) => {
+                        const cover = albumCoverUrl(album);
+                        return (
+                          <Link key={`${chapter.key}-${album.id}`} href={album.href} className="artist-uni-era-cover">
+                            {cover ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={cover} alt="" loading="lazy" draggable={false} />
+                            ) : (
+                              <span>{album.title}</span>
+                            )}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   {chapter.chartTracks.length > 0 ? (
                     <ul className="artist-uni-plate artist-uni-list mt-3 overflow-hidden py-1">
                       {chapter.chartTracks.map((track) => (
                         <li key={`${chapter.key}-${track.id}`} className="artist-uni-row">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[0.96rem]">
-                              <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
-                                {track.title}
-                              </Link>{" "}
-                              ·{" "}
-                              <Link href={track.albumHref} className="artist-uni-inline-link">
-                                {track.albumTitle}
-                              </Link>
-                            </p>
-                            <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.45)]">
-                              Peak #{track.peakChartPosition}
-                            </span>
+                          <div className="artist-uni-track-line">
+                            <div className="min-w-0">
+                              <p className="text-[0.96rem]">
+                                <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
+                                  {track.title}
+                                </Link>{" "}
+                                ·{" "}
+                                <Link href={track.albumHref} className="artist-uni-inline-link">
+                                  {track.albumTitle}
+                                </Link>
+                              </p>
+                              <span className="artist-uni-track-mini-bar">
+                                <span style={{ width: `${chartPeakStrength(track.peakChartPosition)}%` }} />
+                              </span>
+                            </div>
+                            <span className="artist-uni-track-peak">Peak #{track.peakChartPosition}</span>
                           </div>
                         </li>
                       ))}
                     </ul>
-                  ) : null}
-
-                  {chapter.albums.length > 0 ? (
-                    <p className="artist-uni-muted mt-3 text-[0.92rem] leading-[1.58]">
-                      Album landmarks:{" "}
-                      {chapter.albums.map((album, idx) => (
-                        <span key={`${chapter.key}-${album.id}`}>
-                          {idx > 0 ? " · " : ""}
-                          <Link href={album.href} className="artist-uni-inline-link">
-                            {album.title}
-                          </Link>
-                        </span>
-                      ))}
-                    </p>
                   ) : null}
 
                   {chapter.representativeTracks.length > 0 ? (
@@ -956,12 +1079,12 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           <section className="mb-10 space-y-3">
             <h2 className="artist-uni-h2">Major tracks</h2>
             <p className="artist-uni-section-label -mt-1 !mb-2">
-              {densityTier === "minimal" ? "Signals in heavy rotation" : "Phosphor pathways through the archive"}
+              {densityTier === "minimal" ? "Signals in heavy rotation" : "Track pathways through albums, charts, and Retroscope"}
             </p>
             <ul className="artist-uni-plate artist-uni-list overflow-hidden py-1">
               {keySongs.map((track) => (
                 <li key={track.id} className="artist-uni-row">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="artist-uni-track-line">
                     <div className="min-w-0 pr-2">
                       <p className="text-[0.98rem] font-medium sm:text-[1.01rem]">
                         <Link href={`/tracks/${track.id}`} className="artist-uni-inline-link">
@@ -974,9 +1097,12 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                         </Link>
                         {track.releaseYear !== null ? ` · ${track.releaseYear}` : ""}
                       </p>
+                      <span className="artist-uni-track-mini-bar">
+                        <span style={{ width: `${chartPeakStrength(track.peakChartPosition)}%` }} />
+                      </span>
                     </div>
                     {track.peakChartPosition !== null && track.peakChartPosition !== 999 ? (
-                      <span className="text-[0.65rem] uppercase tracking-[0.12em] text-[color:rgba(180,220,240,0.42)]">
+                      <span className="artist-uni-track-peak">
                         Peak #{track.peakChartPosition}
                       </span>
                     ) : null}
@@ -1027,22 +1153,6 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           </section>
         ) : null}
 
-        {culturalRoleLines.length > 0 ? (
-          <section className="artist-uni-plate mb-14 max-w-[35.5rem] space-y-3 px-5 py-6 sm:space-y-4">
-            <h2 className="artist-uni-h2 !mb-0">Archive mood</h2>
-            <ul className="space-y-4 text-[0.98rem] leading-[1.74] text-[color:rgba(210,215,240,0.65)] sm:text-[1.03rem]">
-              {(densityTier === "minimal"
-                ? culturalRoleLines.slice(0, 2)
-                : densityTier === "standard"
-                  ? culturalRoleLines.slice(0, 4)
-                  : culturalRoleLines
-              ).map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
         {data.eraConnections.length > 0 ? (
           <section className="mb-10 space-y-4">
             <h2 className="artist-uni-h2">Era signal detail</h2>
@@ -1065,6 +1175,20 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             </ul>
           </section>
         ) : null}
+
+        <div className="artist-uni-secondary-nav mb-10">
+          <p className="artist-uni-section-label">Connected entity context</p>
+          <RetroverseEntityNav
+            back={{ href: "/artists", label: "Artists" }}
+            items={[
+              { href: "/", label: "Home" },
+              { href: "/albums", label: "Albums" },
+              { href: `/tracks?q=${encodeURIComponent(data.artist.canonical_artist_name)}`, label: "Tracks" },
+              { href: "/track-deck", label: "Charts" },
+              { href: "/album-retroscope", label: "Retroscope" },
+            ]}
+          />
+        </div>
 
         <section className="exploration-grid mb-10 space-y-3">
           <h2 className="artist-uni-h2">Exploration</h2>
