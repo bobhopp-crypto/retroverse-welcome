@@ -35,6 +35,40 @@ type WorkbenchCandidate = {
 
 type CandidateApiFailureDetail = Extract<PortalCuratorWorkbenchResult, { ok: false }>["error"];
 
+type ArtworkQualityReport = {
+  tier?: "archive" | "usable" | "unusable";
+  width?: number;
+  height?: number;
+  byteSize?: number;
+  thresholds?: {
+    archiveMinDimension?: number;
+    usableMinDimension?: number;
+  };
+};
+
+type RestorationRequestBody = {
+  action: "replace_artwork";
+  albumId: string;
+  artist: string;
+  title: string;
+  confidence: null;
+  candidateSource: string | null;
+  candidateImageUrl: string | null;
+  stagedFilePath: string | null;
+  sourceArtist: string;
+  sourceCollection: string;
+  sourceReleaseDate: string | null;
+  replaceSource: "discogs" | "staged";
+  qualityOverride?: boolean;
+};
+
+type QualityWarningState = {
+  requestBody: RestorationRequestBody;
+  message: string;
+  detail: string | null;
+  quality: ArtworkQualityReport | null;
+};
+
 function HeroCover({ src, fallbackLabel, remixKey }: { src: string | null; fallbackLabel: string; remixKey: string }) {
   if (src) {
     return (
@@ -235,6 +269,7 @@ export default function PortalV2CurateClient({
   const [savedDisplayUrl, setSavedDisplayUrl] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const [qualityWarning, setQualityWarning] = useState<QualityWarningState | null>(null);
 
   /**
    * `normalizeCandidateArtworkUrl` strips query params (used for dedupe), so
@@ -396,6 +431,132 @@ export default function PortalV2CurateClient({
     window.navigator.vibrate?.(18);
   }
 
+  function isQualityWarningPayload(payload: {
+    ok?: boolean;
+    stage?: string;
+    retryWithQualityOverride?: boolean;
+  }): boolean {
+    return (
+      payload.ok === false &&
+      payload.stage === "artwork_quality_warning" &&
+      payload.retryWithQualityOverride === true
+    );
+  }
+
+  async function postRestorationRequest(
+    requestBody: RestorationRequestBody,
+  ): Promise<{
+    ok: boolean;
+    savedAt?: number;
+    displayUrl?: string | null;
+    canonicalCoverPath?: string | null;
+    storage?: string;
+  }> {
+    const saveUrl = "/api/artwork-workbench/living-action";
+    const res = await fetch(saveUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+    const rawBody = await res.text();
+    let payload: {
+      ok?: boolean;
+      error?: string;
+      message?: string;
+      stage?: string;
+      detail?: string;
+      traceId?: string;
+      canonicalPath?: string | null;
+      canonicalCoverPath?: string | null;
+      displayUrl?: string | null;
+      publicCoverUrl?: string | null;
+      savedAt?: number;
+      storage?: string;
+      artworkQuality?: ArtworkQualityReport | null;
+      retryWithQualityOverride?: boolean;
+    } = {};
+    try {
+      payload = JSON.parse(rawBody || "{}") as typeof payload;
+    } catch (parseErr) {
+      console.error("[CURATOR/CLIENT] save_response_json_parse_failed", {
+        albumId: row.albumId,
+        httpStatus: res.status,
+        bodyPreview: rawBody.slice(0, 500),
+        parseErr,
+      });
+      setSaveError(formatSaveFailure(res.status, null, rawBody));
+      return { ok: false };
+    }
+
+    console.log("[CURATOR/CLIENT] save_response", {
+      albumId: row.albumId,
+      httpStatus: res.status,
+      ok: payload.ok ?? null,
+      error: payload.error ?? null,
+      stage: payload.stage ?? null,
+      traceId: payload.traceId ?? null,
+      canonicalPath: payload.canonicalPath ?? null,
+      publicCoverUrl: payload.publicCoverUrl ?? null,
+      artworkQuality: payload.artworkQuality ?? null,
+      bodyPreview: rawBody.slice(0, 500),
+    });
+
+    if (isQualityWarningPayload(payload)) {
+      setQualityWarning({
+        requestBody,
+        message: payload.message ?? "Archive source is lower resolution than preferred.",
+        detail: payload.detail ?? null,
+        quality: payload.artworkQuality ?? null,
+      });
+      setSaveError(null);
+      return { ok: false };
+    }
+
+    if (!res.ok || !payload.ok) {
+      setSaveError(formatSaveFailure(res.status, payload, rawBody));
+      return { ok: false };
+    }
+
+    return {
+      ok: true,
+      savedAt: typeof payload.savedAt === "number" ? payload.savedAt : Date.now(),
+      displayUrl: payload.displayUrl ?? payload.publicCoverUrl ?? null,
+      canonicalCoverPath: payload.canonicalCoverPath ?? payload.canonicalPath ?? null,
+      storage: payload.storage,
+    };
+  }
+
+  async function continueRestorationAnyway() {
+    if (!qualityWarning || applyPending || pastePending) return;
+    const requestBody = { ...qualityWarning.requestBody, qualityOverride: true };
+    setQualityWarning(null);
+    setApplyPending(true);
+    try {
+      const result = await postRestorationRequest(requestBody);
+      if (!result.ok) return;
+      if (result.displayUrl) setSavedDisplayUrl(result.displayUrl);
+      completeRestoration(result.savedAt ?? Date.now(), "Lower-resolution archive source restored by curator choice.");
+      onSaved?.({
+        albumId: row.albumId,
+        canonicalCoverPath: result.canonicalCoverPath ?? null,
+        savedAt: result.savedAt ?? Date.now(),
+        publicCoverUrl: result.displayUrl ?? null,
+      });
+      if (onDismiss) {
+        onDismiss();
+      } else {
+        setPasteUrl("");
+        setSelectedUrl(null);
+      }
+    } catch (e) {
+      const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+      console.error("[CURATOR/CLIENT] quality_override_failed", { albumId: row.albumId, error: detail });
+      setSaveError(`Restoration failed: ${detail}`);
+    } finally {
+      setApplyPending(false);
+    }
+  }
+
   useEffect(() => {
     if (loading || candidateFetchError) return;
     for (const c of grid) {
@@ -427,7 +588,7 @@ export default function PortalV2CurateClient({
 
     const replaceSource: "discogs" | "staged" = hasStaged ? "staged" : "discogs";
     const requestUrl = "/api/artwork-workbench/living-action";
-    const requestBody = {
+    const requestBody: RestorationRequestBody = {
       action: "replace_artwork" as const,
       albumId: row.albumId,
       artist: row.artist,
@@ -446,6 +607,7 @@ export default function PortalV2CurateClient({
     setSaveError(null);
     setSaveSuccess(null);
     setRestoredAt(null);
+    setQualityWarning(null);
     console.log("[CURATOR/CLIENT] save_started", {
       albumId: row.albumId,
       replaceSource,
@@ -455,77 +617,21 @@ export default function PortalV2CurateClient({
       requestUrl,
     });
     try {
-      const res = await fetch(requestUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      const rawBody = await res.text();
-      let payload: {
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        stage?: string;
-        detail?: string;
-        traceId?: string;
-        canonicalPath?: string | null;
-        canonicalCoverPath?: string | null;
-        displayUrl?: string | null;
-        publicCoverUrl?: string | null;
-        savedAt?: number;
-        storage?: string;
-        localDbVerified?: boolean;
-      } = {};
-      try {
-        payload = JSON.parse(rawBody || "{}") as typeof payload;
-      } catch (parseErr) {
-        console.error("[CURATOR/CLIENT] save_response_json_parse_failed", {
-          albumId: row.albumId,
-          httpStatus: res.status,
-          bodyPreview: rawBody.slice(0, 500),
-          parseErr,
-        });
-        setSaveError(formatSaveFailure(res.status, null, rawBody));
-        return;
-      }
-
-      console.log("[CURATOR/CLIENT] save_response", {
-        albumId: row.albumId,
-        httpStatus: res.status,
-        ok: payload.ok ?? null,
-        error: payload.error ?? null,
-        traceId: payload.traceId ?? null,
-        canonicalPath: payload.canonicalPath ?? null,
-        publicCoverUrl: payload.publicCoverUrl ?? null,
-        bodyPreview: rawBody.slice(0, 500),
-      });
-
-      if (!res.ok || !payload.ok) {
-        setSaveError(formatSaveFailure(res.status, payload, rawBody));
-        return;
-      }
-
-      const savedAt = typeof payload.savedAt === "number" ? payload.savedAt : Date.now();
-      const displayUrl =
-        payload.displayUrl ?? payload.publicCoverUrl ?? null;
-      const canonicalCoverPath =
-        payload.canonicalCoverPath ?? payload.canonicalPath ?? null;
-
-      if (displayUrl) {
-        setSavedDisplayUrl(displayUrl);
-      }
+      const result = await postRestorationRequest(requestBody);
+      if (!result.ok) return;
+      if (result.displayUrl) setSavedDisplayUrl(result.displayUrl);
       completeRestoration(
-        savedAt,
-        payload.storage === "local"
+        result.savedAt ?? Date.now(),
+        result.storage === "local"
           ? "Restored identity held in the local archive."
           : "Restored identity applied to the archive.",
       );
 
       onSaved?.({
         albumId: row.albumId,
-        canonicalCoverPath,
-        savedAt,
-        publicCoverUrl: displayUrl,
+        canonicalCoverPath: result.canonicalCoverPath ?? null,
+        savedAt: result.savedAt ?? Date.now(),
+        publicCoverUrl: result.displayUrl ?? null,
       });
 
       if (onDismiss) {
@@ -606,6 +712,7 @@ export default function PortalV2CurateClient({
     setSaveError(null);
     setSaveSuccess(null);
     setRestoredAt(null);
+    setQualityWarning(null);
     console.log("[CURATOR/CLIENT] paste_save_started", { albumId: row.albumId, urlKind: kind });
     try {
       let imageUrl: string | null = null;
@@ -643,71 +750,29 @@ export default function PortalV2CurateClient({
         if (typeof payload.year === "number") sourceYear = payload.year;
       }
 
-      const saveUrl = "/api/artwork-workbench/living-action";
-      const saveRes = await fetch(saveUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "replace_artwork",
-          albumId: row.albumId,
-          artist: row.artist,
-          title: row.title,
-          confidence: null,
-          candidateSource: imageUrl,
-          candidateImageUrl: imageUrl,
-          stagedFilePath: null,
-          sourceArtist,
-          sourceCollection: sourceTitle,
-          sourceReleaseDate: sourceYear ? `${sourceYear}-01-01` : null,
-          replaceSource: "discogs",
-        }),
-      });
-      const saveRaw = await saveRes.text();
-      let savePayload: {
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        stage?: string;
-        detail?: string;
-        traceId?: string;
-        canonicalPath?: string | null;
-        canonicalCoverPath?: string | null;
-        displayUrl?: string | null;
-        publicCoverUrl?: string | null;
-        savedAt?: number;
-        storage?: string;
-      } = {};
-      try {
-        savePayload = JSON.parse(saveRaw || "{}") as typeof savePayload;
-      } catch {
-        setSaveError(formatSaveFailure(saveRes.status, null, saveRaw));
-        return;
-      }
-      console.log("[CURATOR/CLIENT] paste_save_response", {
+      const requestBody: RestorationRequestBody = {
+        action: "replace_artwork",
         albumId: row.albumId,
-        httpStatus: saveRes.status,
-        ok: savePayload.ok ?? null,
-        error: savePayload.error ?? null,
-        traceId: savePayload.traceId ?? null,
-        bodyPreview: saveRaw.slice(0, 500),
-      });
-      if (!saveRes.ok || !savePayload.ok) {
-        setSaveError(formatSaveFailure(saveRes.status, savePayload, saveRaw));
-        return;
-      }
-
-      const savedAt = typeof savePayload.savedAt === "number" ? savePayload.savedAt : Date.now();
-      const displayUrl =
-        savePayload.displayUrl ?? savePayload.publicCoverUrl ?? null;
-      const canonicalCoverPath =
-        savePayload.canonicalCoverPath ?? savePayload.canonicalPath ?? null;
-      if (displayUrl) setSavedDisplayUrl(displayUrl);
-      completeRestoration(savedAt, "Restored identity applied to the archive.");
+        artist: row.artist,
+        title: row.title,
+        confidence: null,
+        candidateSource: imageUrl,
+        candidateImageUrl: imageUrl,
+        stagedFilePath: null,
+        sourceArtist,
+        sourceCollection: sourceTitle,
+        sourceReleaseDate: sourceYear ? `${sourceYear}-01-01` : null,
+        replaceSource: "discogs",
+      };
+      const result = await postRestorationRequest(requestBody);
+      if (!result.ok) return;
+      if (result.displayUrl) setSavedDisplayUrl(result.displayUrl);
+      completeRestoration(result.savedAt ?? Date.now(), "Restored identity applied to the archive.");
       onSaved?.({
         albumId: row.albumId,
-        canonicalCoverPath,
-        savedAt,
-        publicCoverUrl: displayUrl,
+        canonicalCoverPath: result.canonicalCoverPath ?? null,
+        savedAt: result.savedAt ?? Date.now(),
+        publicCoverUrl: result.displayUrl ?? null,
       });
       if (onDismiss) {
         onDismiss();
@@ -904,6 +969,7 @@ export default function PortalV2CurateClient({
                         setSelectedUrl(tileUrl);
                         setSaveSuccess(null);
                         setRestoredAt(null);
+                        setQualityWarning(null);
                       }}
                     />
                   </li>
@@ -951,6 +1017,7 @@ export default function PortalV2CurateClient({
                 if (saveError) setSaveError(null);
                 if (saveSuccess) setSaveSuccess(null);
                 if (restoredAt) setRestoredAt(null);
+                if (qualityWarning) setQualityWarning(null);
               }}
               placeholder="Paste archive source"
               className="min-w-0 flex-1 rounded-xl border border-[rgba(200,169,107,0.35)] bg-[#08111d] px-3 py-3 text-[14px] text-[#f3eadb] shadow-[inset_0_2px_10px_rgba(0,0,0,0.35)] placeholder:text-[#6d6358] focus:border-[#c8a96b] focus:outline-none focus:ring-1 focus:ring-[#c8a96b]/35"
@@ -972,6 +1039,36 @@ export default function PortalV2CurateClient({
             <p role="alert" className="mt-2 text-center text-[12px] leading-snug text-[#f0dcd8]">
               {saveError}
             </p>
+          ) : null}
+          {qualityWarning ? (
+            <div className="mt-3 rounded-2xl border border-amber-300/35 bg-[rgba(91,53,20,0.44)] px-4 py-3 text-center shadow-[0_0_24px_rgba(255,191,112,0.10)]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#ffbf70]">
+                Restoration Quality Check
+              </p>
+              <p className="mt-1 text-[13px] leading-snug text-[#f8ead4]">{qualityWarning.message}</p>
+              <p className="mt-1 text-[12px] leading-snug text-[#cbbda8]">
+                {qualityWarning.quality?.width && qualityWarning.quality?.height
+                  ? `${qualityWarning.quality.width}x${qualityWarning.quality.height} source. Preferred: ${qualityWarning.quality.thresholds?.archiveMinDimension ?? 800}px+.`
+                  : qualityWarning.detail}
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQualityWarning(null)}
+                  className="touch-manipulation rounded-xl border border-[rgba(200,169,107,0.28)] bg-[#08111d] px-3 py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#d8cab6]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void continueRestorationAnyway()}
+                  disabled={applyPending || pastePending}
+                  className="touch-manipulation rounded-xl bg-[#ffbf70] px-3 py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[#120b07] disabled:opacity-60"
+                >
+                  Continue Restoration
+                </button>
+              </div>
+            </div>
           ) : null}
         </form>
       </div>
