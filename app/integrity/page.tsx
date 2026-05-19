@@ -1,20 +1,31 @@
-import type { Metadata } from "next";
+import { IntegrityExplorer } from "./integrity-explorer";
+import { loadExplorerData } from "@/lib/integrity-console/queries";
+import type { IntegrityView } from "@/lib/integrity-console/types";
 
-import { IntegrityReport } from "./integrity-report";
-import { loadIntegrityAudits } from "./load-integrity-audits";
+export const dynamic = "force-dynamic";
 
-import "./integrity.css";
+function parseView(raw: string | undefined): IntegrityView {
+  if (raw === "families" || raw === "variants" || raw === "relationships") return raw;
+  return "artists";
+}
 
-export const metadata: Metadata = {
-  title: "Integrity (internal)",
-  robots: { index: false, follow: false },
-};
+export default async function IntegrityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ artist?: string; family?: string; q?: string; view?: string }>;
+}) {
+  const sp = await searchParams;
+  const artistId = sp.artist ? Number(sp.artist) : null;
+  const familyId = sp.family ? Number(sp.family) : null;
+  const searchQ = typeof sp.q === "string" ? sp.q.trim() : "";
+  const view = parseView(sp.view);
 
-export default async function IntegrityPage() {
-  const data = await loadIntegrityAudits();
-  return (
-    <div className="int-root">
-      <IntegrityReport data={data} />
-    </div>
-  );
+  const data = await loadExplorerData({
+    artistId: artistId && !Number.isNaN(artistId) ? artistId : null,
+    familyId: familyId && !Number.isNaN(familyId) ? familyId : null,
+    searchQ,
+    view,
+  });
+
+  return <IntegrityExplorer data={data} />;
 }
