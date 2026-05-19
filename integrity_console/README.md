@@ -31,6 +31,16 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 | `sql/203_track_version_analysis.sql` | Version classification and preservation guidance | No |
 | `sql/204_track_merge_readiness_report.sql` | Merge readiness metrics + top 100 groups | No |
 
+### Phase 3 — Track family modeling
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/301_track_family_schema.sql` | Create `track_families`, `track_family_members`, `track_variant_types` | **Yes** (additive DDL) |
+| `sql/302_track_family_candidate_generation.sql` | Proposed families from normalized titles | No |
+| `sql/303_track_family_population_preview.sql` | Preview families, members, variants, chart counts | No |
+| `sql/304_track_variant_relationship_analysis.sql` | Pairwise variant relationships inside families | No |
+| `sql/305_track_family_population_execute.sql` | Populate families + members (idempotent) | **Yes** (additive DML) |
+
 ## Run order
 
 ### Artists
@@ -50,7 +60,38 @@ This is **not** a disposable importer script. It is the controlled merge layer f
 3. `203_track_version_analysis.sql` — classify live/remix/remaster variants
 4. `204_track_merge_readiness_report.sql` — summary metrics and top groups
 
-Future Phase 2b will add `302`/`303`-style dry-run and execute scripts for tracks. **Do not merge tracks until those exist and are reviewed.**
+Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tracks until those exist and are reviewed.**
+
+### Track families (Phase 3)
+
+1. `301_track_family_schema.sql` — run once (safe to re-run)
+2. `302_track_family_candidate_generation.sql` — review proposed families
+3. `303_track_family_population_preview.sql` — inspect members before population
+4. `304_track_variant_relationship_analysis.sql` — review pairwise relationships
+5. `305_track_family_population_execute.sql` — populate identity tables only
+
+**305 does not modify `tracks` or `chart_appearances`.** Re-running 305 skips existing members (`ON CONFLICT DO NOTHING`).
+
+## Retroverse Track Identity Model
+
+Retroverse models music as a **historical identity graph**, not a collapsed metadata catalog.
+
+| Concept | Table / layer | What it represents |
+|---------|----------------|-------------------|
+| **Track family** | `track_families` | Canonical song family for one artist (e.g. `Hotel California`) |
+| **Family membership** | `track_family_members` | Links existing `tracks` rows into a family without merging them |
+| **Recording** | `tracks` row (primary member) | The best candidate canonical recording (`is_primary_recording`) |
+| **Recording variant** | `tracks` row + `relationship_type` | Remaster, live, remix, edit, etc. |
+| **Release version** | Album/edition context on `tracks.album_id` | Release packaging (not overwritten in Phase 3) |
+| **Chart appearance** | `chart_appearances` | Historical chart fact — always stays on the original `track_id` |
+
+### Why lineage is preserved
+
+Chart weeks, DJ history, and curator review depend on knowing **which track row charted**. Families group related rows for analysis; they do not rewrite chart FKs. Live and remaster cuts remain distinct until an explicit future merge phase with dry-run approval.
+
+### Reversibility
+
+Phase 3 is additive: new tables only. Removing family assignments later does not require touching canonical track or chart data.
 
 ## Track normalization philosophy
 
@@ -152,5 +193,6 @@ Take a `pg_dump` snapshot before first production bulk merge on a large database
 - No schema changes
 - No CSV cleanup
 - No writes to `staging_music_imports`
-- No track merges, track deletes, or track updates (Phase 2)
+- No track merges, track deletes, or track updates (Phase 2–3)
+- Phase 3 does not rewrite `chart_appearances` lineage
 - No automatic promotion to canonical beyond FK reassignment (artist execute scripts only)
