@@ -66,29 +66,6 @@ function FigArchivePanel() {
   );
 }
 
-function FigMoodMeters() {
-  return (
-    <svg className="dossier-operator-fig" viewBox="0 0 280 132" aria-hidden>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <g key={i} transform={`translate(16, ${20 + i * 22})`}>
-          <text x="0" y="10" fill="rgba(210,188,165,0.45)" fontSize="8" fontFamily="system-ui, sans-serif" letterSpacing="0.18em">
-            {["NRG", "SUN", "DNC", "ACO", "SIG"][i]}
-          </text>
-          <rect x="52" y="3" width="200" height="10" rx="3" fill="rgba(8,8,14,0.65)" stroke="rgba(60,52,48,0.5)" strokeWidth="0.6" />
-          <rect x="53" y="4" width={[62, 120, 88, 40, 95][i]} height="8" rx="2" fill="url(#op-meter)" opacity={0.45 + i * 0.08} />
-        </g>
-      ))}
-      <defs>
-        <linearGradient id="op-meter" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stopColor="rgba(220,140,80,0.9)" />
-          <stop offset="55%" stopColor="rgba(200,90,70,0.85)" />
-          <stop offset="100%" stopColor="rgba(95,185,195,0.75)" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
 function FigTrackStrip() {
   return (
     <svg className="dossier-operator-fig dossier-operator-fig--wide" viewBox="0 0 280 100" aria-hidden>
@@ -96,10 +73,10 @@ function FigTrackStrip() {
       <circle cx="36" cy="60" r="14" stroke="rgba(115,195,200,0.4)" strokeWidth="1.1" fill="rgba(22,18,26,0.6)" />
       <path d="M32 56 L46 62 L32 64 Z" fill="rgba(218,165,110,0.35)" opacity="0.9" />
       <text x="60" y="56" fill="rgba(248,236,218,0.85)" fontSize="11" fontFamily="Georgia, serif" fontStyle="italic">
-        Lane signal
+        Canonical sequence
       </text>
       <text x="60" y="72" fill="rgba(205,178,148,0.45)" fontSize="8" fontFamily="ui-monospace, monospace" letterSpacing="0.06em">
-        RV score · PLAY · CRATE
+        SIDE · TITLE · LINKAGE
       </text>
       <rect x="188" y="48" width="36" height="24" rx="3" stroke="rgba(115,195,200,0.35)" strokeWidth="0.9" fill="rgba(95,165,172,0.08)" />
       <rect x="228" y="48" width="36" height="24" rx="3" stroke="rgba(218,155,95,0.35)" strokeWidth="0.9" fill="rgba(218,140,70,0.08)" />
@@ -271,49 +248,25 @@ export function AlbumDossierOperatorOverlay() {
               <section className="dossier-operator-section">
                 <div className="dossier-operator-section-marker">
                   <span className="dossier-operator-callout-num">03</span>
-                  <span className="dossier-operator-callout-chip">ALBUM MOOD · ALBUM FEEL</span>
+                  <span className="dossier-operator-callout-chip">CANONICAL TRACKS</span>
                 </div>
-                <FigMoodMeters />
+                <FigTrackStrip />
                 <ul className="dossier-operator-bullets">
                   <li>
-                    <strong className="dossier-operator-strong">Energy / Valence / Danceability —</strong> temperament of motion and light.
+                    Rows carry only the <strong className="dossier-operator-strong">sequence marker</strong>, title, duration, and canonical reference.
                   </li>
                   <li>
-                    <strong className="dossier-operator-strong">Acousticness —</strong> how much flesh and wood bleed through the varnish.
+                    Original side labels stay intact when the historical release identity provides them.
                   </li>
                   <li>
-                    <strong className="dossier-operator-strong">Signal density —</strong> loudness topography; feel for how packed the waveform air is.
+                    Bonus, alternate, expanded, and previously unreleased rows stay out of the main listening sequence.
                   </li>
-                  <li className="dossier-operator-whisper">Meters gossip in colors, not keystrokes.</li>
                 </ul>
               </section>
 
               <section className="dossier-operator-section">
                 <div className="dossier-operator-section-marker">
                   <span className="dossier-operator-callout-num">04</span>
-                  <span className="dossier-operator-callout-chip">TRACK SIGNAL</span>
-                </div>
-                <FigTrackStrip />
-                <ul className="dossier-operator-bullets">
-                  <li>
-                    The quadrant ring sketches <strong className="dossier-operator-strong">sonic posture</strong> per cut — microscopic broadcast art.
-                  </li>
-                  <li>
-                    <strong className="dossier-operator-strong">Retroverse score</strong> crystallizes pooled signal whenever the ledger carries it.
-                  </li>
-                  <li>
-                    <strong className="dossier-operator-strong">PLAY</strong> states echo what the archive hears about playback; crates remember{" "}
-                    <strong className="dossier-operator-strong">ADD</strong> intents.
-                  </li>
-                  <li className="dossier-operator-whisper">
-                    Dense strip mode behaves like waveform strips on an analog console sketchpad.
-                  </li>
-                </ul>
-              </section>
-
-              <section className="dossier-operator-section">
-                <div className="dossier-operator-section-marker">
-                  <span className="dossier-operator-callout-num">05</span>
                   <span className="dossier-operator-callout-chip">GRID NEIGHBORHOOD</span>
                 </div>
                 <FigSpatialGrid />
