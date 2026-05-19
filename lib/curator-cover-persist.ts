@@ -107,9 +107,8 @@ export async function persistCoverBytes(opts: {
 }): Promise<CoverPersistResult> {
   const albumId = normalizeRvalAlbumId(opts.albumId);
   const timings: CoverPersistTimings = {};
-  const qualityStart = performance.now();
   const quality = await assessArtworkQuality(opts.bytes, opts.sourceUrl ?? null);
-  timings.quality_assessment = elapsedMs(qualityStart);
+  Object.assign(timings, quality.timings);
   curatorPipelineLog("artwork_quality", {
     traceId: opts.traceId,
     ok: quality.tier !== "unusable",

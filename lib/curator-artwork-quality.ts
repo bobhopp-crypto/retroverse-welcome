@@ -16,6 +16,11 @@ export type ArtworkQualityReport = {
     minByteSize: number;
   };
   message: string;
+  timings?: {
+    image_metadata_read: number;
+    dimension_validation: number;
+    quality_assessment: number;
+  };
 };
 
 export const ARTWORK_QUALITY_THRESHOLDS = {
@@ -27,17 +32,24 @@ export const ARTWORK_QUALITY_THRESHOLDS = {
 
 const SUPPORTED_FORMATS = new Set(["jpeg", "jpg", "png", "webp", "avif", "tiff"]);
 
+function elapsedMs(start: number): number {
+  return Math.round((performance.now() - start) * 10) / 10;
+}
+
 export async function assessArtworkQuality(
   bytes: Buffer,
   sourceUrl: string | null,
 ): Promise<ArtworkQualityReport> {
   let metadata: sharp.Metadata;
+  const metadataStart = performance.now();
   try {
     metadata = await sharp(bytes).metadata();
   } catch {
     throw new Error("image_unreadable_or_corrupt");
   }
+  const imageMetadataRead = elapsedMs(metadataStart);
 
+  const validationStart = performance.now();
   const width = metadata.width ?? 0;
   const height = metadata.height ?? 0;
   const format = (metadata.format ?? "unknown").toLowerCase();
@@ -51,7 +63,9 @@ export async function assessArtworkQuality(
   if (byteSize < thresholds.minByteSize || width <= 0 || height <= 0) {
     throw new Error(`image_unusable_thumbnail:${width}x${height}:${byteSize}`);
   }
+  const dimensionValidation = elapsedMs(validationStart);
 
+  const qualityStart = performance.now();
   const tier: ArtworkQualityTier =
     minDimension >= thresholds.archiveMinDimension
       ? "archive"
@@ -65,6 +79,7 @@ export async function assessArtworkQuality(
       : tier === "usable"
         ? "Archive source is lower resolution than preferred."
         : "Artwork source is too small for restoration.";
+  const qualityAssessment = elapsedMs(qualityStart);
 
   return {
     tier,
@@ -75,5 +90,10 @@ export async function assessArtworkQuality(
     sourceUrl,
     thresholds,
     message,
+    timings: {
+      image_metadata_read: imageMetadataRead,
+      dimension_validation: dimensionValidation,
+      quality_assessment: qualityAssessment,
+    },
   };
 }
