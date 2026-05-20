@@ -258,6 +258,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "missing_action_or_album", traceId }, { status: 400 });
   }
 
+  const action = body.action;
   const albumId = normalizeRvalAlbumId(body.albumId);
   body.albumId = albumId;
 
@@ -300,22 +301,22 @@ export async function POST(request: Request) {
   });
 
   const sourceTag = body.runId ? `workbench:${body.runId}` : "workbench:manual";
-  const notes = `living-archive action=${body.action}; confidence=${body.confidence ?? "n/a"}; source=${body.sourceArtist ?? ""}::${body.sourceCollection ?? ""}; replace_source=${body.replaceSource ?? "n/a"}`;
+  const notes = `living-archive action=${action}; confidence=${body.confidence ?? "n/a"}; source=${body.sourceArtist ?? ""}::${body.sourceCollection ?? ""}; replace_source=${body.replaceSource ?? "n/a"}`;
 
   let nextState: LivingArtworkState = "needs_review";
   let canonicalPath: string | null = beforePath;
 
-  if (body.action === "approve") nextState = "canonical_verified";
-  if (body.action === "replace_artwork") nextState = "manually_corrected";
-  if (body.action === "mark_verified") nextState = "canonical_verified";
-  if (body.action === "mark_needs_review") nextState = "needs_review";
-  if (body.action === "reject") nextState = "low_confidence";
-  if (body.action === "clear_artwork") nextState = "unresolved";
-  if (body.action === "mark_needs_review" && (body.confidence ?? 0) > 0) nextState = "provisional";
+  if (action === "approve") nextState = "canonical_verified";
+  if (action === "replace_artwork") nextState = "manually_corrected";
+  if (action === "mark_verified") nextState = "canonical_verified";
+  if (action === "mark_needs_review") nextState = "needs_review";
+  if (action === "reject") nextState = "low_confidence";
+  if (action === "clear_artwork") nextState = "unresolved";
+  if (action === "mark_needs_review" && (body.confidence ?? 0) > 0) nextState = "provisional";
 
   let coverStorage: "local" | "r2" | null = null;
   let artworkQuality: Awaited<ReturnType<typeof persistCoverBytes>>["quality"] | null = null;
-  if (body.action === "approve" || body.action === "replace_artwork") {
+  if (action === "approve" || action === "replace_artwork") {
     const stagedPath = allowedStagedPath(body.stagedFilePath);
     const remote = allowedRemoteImage(body.candidateImageUrl ?? null);
     curatorDebug("[CURATOR/API] deploy_source_resolved", {
@@ -337,10 +338,10 @@ export async function POST(request: Request) {
     try {
       deployed = stagedPath
         ? await timed("critical_cover_persist_total", () =>
-            deployStagedCover(body.albumId, stagedPath, traceId, body.qualityOverride === true, timings),
+            deployStagedCover(albumId, stagedPath, traceId, body.qualityOverride === true, timings),
           )
         : await timed("critical_cover_persist_total", () =>
-            deployRemoteCover(body.albumId, remote as URL, traceId, body.qualityOverride === true, timings),
+            deployRemoteCover(albumId, remote as URL, traceId, body.qualityOverride === true, timings),
           );
     } catch (e) {
       if (e instanceof ArtworkQualityWarning) {
@@ -378,7 +379,7 @@ export async function POST(request: Request) {
       storage: coverStorage,
     });
   }
-  if (body.action === "clear_artwork") canonicalPath = null;
+  if (action === "clear_artwork") canonicalPath = null;
 
   const status = statusForState(nextState);
 
@@ -389,8 +390,8 @@ export async function POST(request: Request) {
         ? body.candidateSource.trim()
         : null;
   const approvedAt =
-    body.action === "approve" ||
-    body.action === "mark_verified" ||
+    action === "approve" ||
+    action === "mark_verified" ||
     nextState === "canonical_verified" ||
     nextState === "manually_corrected"
       ? new Date().toISOString()
@@ -402,7 +403,7 @@ export async function POST(request: Request) {
       await timed("local_db_write_verify", () => {
         insertCuratorActionLocal({
           albumId,
-          actionType: body.action,
+          actionType: action,
           previousValue: beforeSnapshot,
           newValue: {
             canonical_cover_path: canonicalPath,
@@ -480,7 +481,7 @@ export async function POST(request: Request) {
     try {
       await backgroundTimed("overrides_projection_write", () =>
         writeCanonicalArtworkOverride(
-          body.albumId,
+          albumId,
           {
             canonical_cover_path: canonicalPath,
             artwork_status: status,
@@ -525,7 +526,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await backgroundTimed("revalidate_cache", () => runRevalidate(traceId, body.albumId));
+      await backgroundTimed("revalidate_cache", () => runRevalidate(traceId, albumId));
       curatorPipelineLog("cache_invalidate", { traceId, ok: true, albumId });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -544,7 +545,7 @@ export async function POST(request: Request) {
       try {
         await backgroundTimed("registry_update_save", async () => {
         upsertArtworkState(registry, {
-          albumId: body.albumId,
+          albumId,
           nextState,
           confidenceScore: body.confidence ?? null,
           provisional: nextState !== "canonical_verified" && nextState !== "manually_corrected",
@@ -558,7 +559,7 @@ export async function POST(request: Request) {
           queryUsed: body.queryUsed ?? null,
           normalizedQuery: body.normalizedQuery ?? null,
           appliedAt: new Date().toISOString(),
-          action: body.action,
+          action,
           actor: "curator",
           notes: `${notes}; storage=${coverStorage ?? "n/a"}`,
           dbSnapshotBefore: beforeSnapshot as Record<string, unknown> | null,
@@ -596,7 +597,7 @@ export async function POST(request: Request) {
   const payload = {
     ok: true as const,
     albumId,
-    action: body.action,
+    action,
     nextState,
     canonicalPath,
     canonicalCoverPath: canonicalPath,
@@ -618,8 +619,8 @@ export async function POST(request: Request) {
 
   curatorDebug("[CURATOR/API] response_ok", {
     traceId,
-    albumId: body.albumId,
-    action: body.action,
+    albumId,
+    action,
     nextState,
     canonicalPath,
     afterCanonicalPath: afterSnapshot.canonical_cover_path ?? null,

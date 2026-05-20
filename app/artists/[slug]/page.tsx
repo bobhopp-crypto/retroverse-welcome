@@ -472,7 +472,7 @@ async function loadArtistExperienceFromSupabase(slug: string) {
       return a.releaseYear - b.releaseYear || a.title.localeCompare(b.title);
     });
 
-  const chartingTracks: ArtistChartTrack[] = tracks
+  const chartingTracks = tracks
     .map((track) => {
       const peak = peakChartByTrackId.get(track.retroverse_track_id);
       if (peak === undefined) return null;
@@ -491,13 +491,13 @@ async function loadArtistExperienceFromSupabase(slug: string) {
         releaseYear: track.release_year,
         peakChartPosition: peak,
         chartWeeks: chartWeeksByTrackId.get(track.retroverse_track_id) ?? 0,
-        signalTier: "primary",
+        signalTier: "primary" as SignalTier,
         signalReason: "canonical chart signal",
         contextLabel,
         eraId: track.era_id,
       };
     })
-    .filter((row): row is ArtistChartTrack => row !== null)
+    .filter((row) => row !== null)
     .sort((a, b) => a.peakChartPosition - b.peakChartPosition || a.title.localeCompare(b.title));
 
   const eraTrackCounts = new Map<string, number>();
