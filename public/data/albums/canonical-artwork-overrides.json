@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-05-16T18:16:44.752Z",
+  "updated_at": "2026-05-19T03:29:39.757Z",
   "albums": {
     "RVAL408433": {
       "canonical_cover_path": "retroverse/covers/RVAL408433/canonical.jpg",
@@ -57,6 +57,27 @@
       "trust_state": "verified",
       "cover_source": "workbench:manual",
       "updated_at": "2026-05-16T18:16:44.752Z"
+    },
+    "RVAL039655": {
+      "canonical_cover_path": "retroverse/covers/RVAL039655/canonical.jpg",
+      "artwork_status": "verified",
+      "trust_state": "verified",
+      "cover_source": "workbench:manual",
+      "updated_at": "2026-05-19T00:35:06.727Z"
+    },
+    "RVAL500925": {
+      "canonical_cover_path": "retroverse/covers/RVAL500925/canonical.jpg",
+      "artwork_status": "verified",
+      "trust_state": "verified",
+      "cover_source": "workbench:manual",
+      "updated_at": "2026-05-19T02:11:12.756Z"
+    },
+    "RVAL695796": {
+      "canonical_cover_path": "retroverse/covers/RVAL695796/canonical.jpg",
+      "artwork_status": "verified",
+      "trust_state": "verified",
+      "cover_source": "workbench:manual",
+      "updated_at": "2026-05-19T03:29:39.757Z"
     }
   }
 }

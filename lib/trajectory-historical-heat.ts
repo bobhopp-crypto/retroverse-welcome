@@ -6,9 +6,7 @@ export type TrajectoryHistoricalHeat = {
   atmosphereBorder: string;
   atmosphereGlow: string;
   railTint: string;
-  markerFill: string;
-  markerBorder: string;
-  connector: string;
+  barFill: string;
 };
 
 type Rgb = { r: number; g: number; b: number };
@@ -110,8 +108,6 @@ export function resolveTrajectoryHistoricalHeat(
     atmosphereBorder: rgba(rgb, 0.2 + intensity * 0.28),
     atmosphereGlow: rgba(rgb, 0.08 + intensity * 0.22),
     railTint: rgba(rgb, 0.14 + intensity * 0.12),
-    markerFill: rgba(rgb, 0.34 + intensity * 0.28),
-    markerBorder: rgba(rgb, 0.62 + intensity * 0.3),
-    connector: rgba(rgb, 0.38 + intensity * 0.4),
+    barFill: rgba(rgb, 0.42 + intensity * 0.38),
   };
 }

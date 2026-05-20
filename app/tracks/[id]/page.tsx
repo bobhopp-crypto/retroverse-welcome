@@ -555,14 +555,6 @@ function formatChartDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
-function movementLabel(week: TrackTrajectory["weeks"][number]): string {
-  if (week.movement === "debut") return "debut";
-  if (week.movement === "reentry") return "re-entry";
-  if (week.movement === "same") return "hold";
-  if (week.delta === null) return week.movement;
-  return week.delta > 0 ? `up ${week.delta}` : `down ${Math.abs(week.delta)}`;
-}
-
 function trajectoryMomentClasses(weeks: TrackTrajectory["weeks"], index: number): string {
   const week = weeks[index];
   const previous = index > 0 ? weeks[index - 1] : null;
@@ -640,27 +632,21 @@ function renderTrajectoryPage(data: TrackTrajectory) {
           </div>
           <ol className="dossier-trajectory-rail">
             {data.weeks.map((week, index) => {
-              const left = Math.min(week.previousX ?? week.x, week.x);
-              const width = Math.abs((week.previousX ?? week.x) - week.x);
               const momentClasses = trajectoryMomentClasses(data.weeks, index);
               const heat = resolveTrajectoryHistoricalHeat(week, index, data.weeks, data.peak);
               return (
                 <li
                   key={`${week.issueDate}-${index}`}
-                  className={`dossier-trajectory-week dossier-trajectory-week--${week.movement} ${momentClasses}`.trim()}
+                  className={`dossier-trajectory-week ${momentClasses}`.trim()}
                   style={
                     {
                       "--rank-x": `${week.x}%`,
-                      "--move-left": `${left}%`,
-                      "--move-width": `${width}%`,
                       "--heat-intensity": String(heat.intensity),
                       "--heat-bg": heat.atmosphereBg,
                       "--heat-border": heat.atmosphereBorder,
                       "--heat-glow": heat.atmosphereGlow,
                       "--heat-rail": heat.railTint,
-                      "--heat-marker-fill": heat.markerFill,
-                      "--heat-marker-border": heat.markerBorder,
-                      "--heat-connector": heat.connector,
+                      "--heat-bar": heat.barFill,
                     } as CSSProperties
                   }
                 >
@@ -668,13 +654,9 @@ function renderTrajectoryPage(data: TrackTrajectory) {
                     <span>{formatChartDate(week.issueDate)}</span>
                     <small>week {week.weeksOnChart ?? index + 1}</small>
                   </div>
-                  <div className="dossier-trajectory-track" aria-hidden>
-                    {index > 0 ? <span className="dossier-trajectory-connector" /> : null}
-                    <span className="dossier-trajectory-marker" />
-                  </div>
+                  <div className="dossier-trajectory-track" aria-hidden />
                   <div className="dossier-trajectory-rank">
                     <strong>#{week.rank}</strong>
-                    <span>{movementLabel(week)}</span>
                   </div>
                 </li>
               );
