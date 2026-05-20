@@ -5,7 +5,7 @@ import "../album-retroscope/album-retroscope.css";
 export default function TrackRetroscopeLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <BodyClassName className="arv-body-lock" />
+      <BodyClassName className="arv-body-lock arv-structure-strip" />
       <div className="arv-route-shell">{children}</div>
     </>
   );

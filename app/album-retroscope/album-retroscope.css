@@ -2564,3 +2564,244 @@ body.arv-body-lock main {
   position: relative;
   z-index: 1;
 }
+
+/* ========== STRUCTURE STRIP — raw interaction skeleton (subtraction only) ========== */
+
+body.arv-structure-strip .arv-root {
+  background: #0e0c0a;
+}
+
+body.arv-structure-strip .arv-machine {
+  background: #0e0c0a;
+  box-shadow: none;
+  gap: 0.15rem 0;
+}
+
+body.arv-structure-strip .arv-machine::before,
+body.arv-structure-strip .arv-machine::after {
+  display: none;
+}
+
+body.arv-structure-strip .arv-machine--operator {
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-screw,
+body.arv-structure-strip .arv-device-vents,
+body.arv-structure-strip .arv-device-led,
+body.arv-structure-strip .arv-portal-tag,
+body.arv-structure-strip .arv-viewport-label,
+body.arv-structure-strip .arv-meta-plate-label,
+body.arv-structure-strip .arv-strip-plate-label {
+  display: none;
+}
+
+body.arv-structure-strip .arv-device-face {
+  border-bottom: 1px solid #2a2825;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-device-brand {
+  color: #d4c4a0;
+  text-shadow: none;
+}
+
+body.arv-structure-strip .arv-device-sub-line {
+  color: #8a8070;
+}
+
+body.arv-structure-strip .arv-back {
+  background: #1a1814;
+  border: 1px solid #3a3530;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-operator-glyph {
+  filter: none;
+  color: #8a8070;
+}
+
+body.arv-structure-strip .arv-portal {
+  justify-content: flex-start;
+  padding: 0.2rem 0.35rem 0.1rem;
+}
+
+body.arv-structure-strip .arv-portal-bezel {
+  padding: 0.2rem;
+  border-radius: 4px;
+  background: #0a0908;
+  border: 1px solid #3a3530;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-portal-rim,
+body.arv-structure-strip .arv-portal-glass,
+body.arv-structure-strip .arv-portal-scan {
+  display: none !important;
+}
+
+body.arv-structure-strip .arv-hero {
+  width: min(72vw, 11.5rem);
+  height: min(72vw, 11.5rem);
+  max-width: min(72vw, 11.5rem);
+  max-height: min(72vw, 11.5rem);
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border-radius: 2px;
+  border: 1px solid #3a3530;
+  box-shadow: none;
+  background: #050403;
+}
+
+body.arv-structure-strip .arv-hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+body.arv-structure-strip .arv-meta,
+body.arv-structure-strip .arv-strip {
+  margin-inline: 0.2rem;
+  border-radius: 4px;
+  border: 1px solid #3a3530;
+  background: #0a0908;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-readout,
+body.arv-structure-strip .arv-pad-btn {
+  border-radius: 3px;
+  border: 1px solid #2a2825;
+  background: #121110;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-pad-btn:active {
+  transform: none;
+}
+
+body.arv-structure-strip .arv-viewport {
+  margin-inline: 0.2rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  border: 1px solid #3a3530;
+  background: #0a0908;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-viewport::after {
+  display: none;
+}
+
+body.arv-structure-strip .arv-viewport-reticle::before {
+  background: #e8b84a;
+  box-shadow: none;
+  opacity: 1;
+}
+
+body.arv-structure-strip .arv-grid {
+  width: 100%;
+  gap: 3px;
+  padding-top: 0.12rem;
+  align-content: start;
+}
+
+body.arv-structure-strip .arv-cell {
+  border-radius: 2px;
+  border: 1px solid #2a2825;
+  background: #121110;
+  box-shadow: none;
+  filter: none;
+}
+
+body.arv-structure-strip .arv-cell::before {
+  background: #5a5040;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-cell--void {
+  opacity: 0.2;
+  background: #0a0908;
+}
+
+body.arv-structure-strip .arv-cell--unexplored:not(.arv-cell--void) {
+  background: #121110;
+}
+
+body.arv-structure-strip .arv-cell--explored:not(.arv-cell--active) {
+  opacity: 0.55;
+  filter: none;
+  border-color: #3a3530;
+}
+
+body.arv-structure-strip .arv-cell--active {
+  transform: none;
+  filter: none;
+  border-color: #e8b84a;
+  box-shadow: inset 0 0 0 1px #e8b84a;
+}
+
+body.arv-structure-strip .arv-cell--active::before {
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-cell-mask {
+  opacity: 0.35;
+}
+
+body.arv-structure-strip .arv-cell--active .arv-cell-thumb {
+  transform: none;
+  filter: none;
+}
+
+body.arv-structure-strip .arv-hero-atmo,
+body.arv-structure-strip .arv-hero-glyph,
+body.arv-structure-strip .arv-hero-signal-bloom,
+body.arv-structure-strip .arv-hero-signal-scan,
+body.arv-structure-strip .arv-hero-track-wave,
+body.arv-structure-strip .arv-hero-track-scan {
+  display: none !important;
+}
+
+body.arv-structure-strip .arv-mode-artist .arv-portal-bezel,
+body.arv-structure-strip .arv-mode-artist .arv-portal-rim,
+body.arv-structure-strip .arv-mode-artist .arv-hero--field {
+  background: #0a0908;
+  box-shadow: none;
+}
+
+body.arv-structure-strip .arv-hero-signal-field {
+  background: #050403;
+  box-shadow: none;
+}
+
+@media (max-width: 767px) {
+  body.arv-structure-strip .arv-machine {
+    --arv-portal-square: min(68vw, 10.5rem);
+    grid-template-rows:
+      var(--arv-chrome-h)
+      auto
+      var(--arv-meta-h)
+      var(--arv-strip-h)
+      minmax(0, 1fr);
+    padding:
+      calc(var(--arv-safe-top) + 0.1rem)
+      max(0.15rem, var(--arv-safe-x))
+      calc(var(--arv-safe-bottom) + 0.08rem);
+  }
+
+  body.arv-structure-strip .arv-hero {
+    width: var(--arv-portal-square);
+    height: var(--arv-portal-square);
+    max-width: var(--arv-portal-square);
+    max-height: var(--arv-portal-square);
+  }
+
+  body.arv-structure-strip .arv-cell:not(.arv-cell--active):not(.arv-cell--void) {
+    opacity: 0.5;
+  }
+
+  body.arv-structure-strip .arv-cell-meta {
+    font-size: clamp(0.5rem, 2vw, 0.58rem);
+  }
+}
