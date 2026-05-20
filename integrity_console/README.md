@@ -158,7 +158,7 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 
 **Phase 7 does not merge tracks/albums, delete rows, or rewrite `chart_appearances`.**
 
-**Integrity viewer** (`/integrity`): Linkage, Hot 100 → Album, Album ↔ Family, Media Assets, VDJ Candidates (read-only).
+**Integrity viewer** (`/integrity`): Linkage, Hot 100 → Album, Album ↔ Family (read-only). Media graph views are Phase 9.
 
 ### Acoustic features discovery (Phase 7b)
 
@@ -195,6 +195,61 @@ No table named `acoustics` — source is **`acoustic_features`** in `billboard-2
 8. `807_acoustic_linkage_readiness_report.sql`
 
 **Integrity viewer:** Acoustic Linkage, Acoustic Tracklists, Hot 100 Backfill, Multi-Album Songs (read-only).
+
+### Media asset graph (Phase 9)
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/901_media_asset_schema.sql` | Extend `media_assets`, `media_asset_link_candidates` | **Yes** (additive DDL) |
+| `sql/902_virtualdj_xml_ingest_schema.sql` | VDJ staging + import buffer | **Yes** (additive DDL) |
+| `scripts/parse_virtualdj_database.py` | Stream-parse `database.xml` → CSV | No |
+| `sql/904_virtualdj_staging_load.sql` | Load CSV → `staging_virtualdj_tracks` | **Yes** (additive DML) |
+| `sql/905_media_asset_candidate_generation.sql` | VDJ → canonical candidates | **Yes** (DML) |
+| `sql/906_populate_media_assets.sql` | Populate `media_assets` + `media_track_links` | **Yes** (additive DML) |
+| `sql/907_r2_asset_linkage_analysis.sql` | R2 sync analysis (no API) | No |
+| `sql/908_youtube_enrichment_schema.sql` | `youtube_track_links` + staging | **Yes** (additive DDL) |
+| `scripts/export_youtube_link_staging.py` | Legacy YouTube JSON → CSV | No |
+| `sql/909_existing_youtube_link_import.sql` | Import + candidate preview | **Yes** (staging DML) |
+| `sql/910_media_graph_readiness_report.sql` | Phase 9 coverage report | No |
+
+**Run order:**
+
+1. `901_media_asset_schema.sql`
+2. `902_virtualdj_xml_ingest_schema.sql`
+3. `python3 scripts/parse_virtualdj_database.py`
+4. `\copy` → `staging_virtualdj_tracks_import_buffer` (see `904`)
+5. `904_virtualdj_staging_load.sql`
+6. `905_media_asset_candidate_generation.sql`
+7. `906_populate_media_assets.sql`
+8. `907_r2_asset_linkage_analysis.sql`
+9. `908_youtube_enrichment_schema.sql`
+10. `python3 scripts/export_youtube_link_staging.py` (if sources exist)
+11. `\copy` → `staging_youtube_link_import_buffer` + `909_existing_youtube_link_import.sql`
+12. `910_media_graph_readiness_report.sql`
+
+**Phase 9 does not overwrite/delete/merge media assets, call Cloudflare APIs, or change chart history.**
+
+**Integrity viewer** (`/integrity`): Media Graph, Media Assets, VirtualDJ Assets, VDJ Candidates, R2 Sync Analysis, Thumbnail Coverage, YouTube Enrichment (read-only).
+
+## Retroverse Media Asset Graph
+
+Retroverse connects **canonical music identity** to **operational media reality** without collapsing them.
+
+| Layer | Authority | Role |
+|-------|-----------|------|
+| **Canonical graph** | Retroverse Postgres | Tracks, families, albums, charts — deterministic and historically authoritative |
+| **VirtualDJ `database.xml`** | Playback operations | Play counts, cues, last played, local paths — **not** the canonical graph |
+| **R2** | Distributed storage | Canonical object keys for media served at the edge (`r2_media_key`, `r2_thumbnail_key`) |
+| **Thumbnails** | Presentation | Local VDJ refs + R2 thumb keys — display assets, not song identity |
+| **YouTube** | Enrichment only | `youtube_track_links` / staging imports — optional reference, never replaces tracks |
+
+**Why we link instead of merge**
+
+- A VDJ file path can change; the canonical `track_id` does not.
+- R2 keys are derived from inventory paths but stored as stable linkage fields once confirmed.
+- YouTube IDs help discovery and preview; chart and DJ history stay on canonical rows.
+
+VirtualDJ remains authoritative for **what you actually play**. Retroverse remains authoritative for **what the song is in history**.
 
 ## Retroverse Canonical Linkage Layer
 

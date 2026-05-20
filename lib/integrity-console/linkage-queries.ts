@@ -214,8 +214,6 @@ const LINKAGE_VIEWS = new Set<IntegrityView>([
   "linkage",
   "hot100-album",
   "album-track-links",
-  "media",
-  "vdj",
 ]);
 
 export function isLinkageView(view: IntegrityView): boolean {
@@ -223,22 +221,13 @@ export function isLinkageView(view: IntegrityView): boolean {
 }
 
 export async function loadLinkageExplorerSlice(view: IntegrityView): Promise<
-  Pick<
-    ExplorerData,
-    | "linkageSummary"
-    | "albumTrackLinks"
-    | "hot100AlbumLinks"
-    | "mediaAssets"
-    | "vdjCandidates"
-  >
+  Pick<ExplorerData, "linkageSummary" | "albumTrackLinks" | "hot100AlbumLinks">
 > {
   if (view === "linkage") {
     return {
       linkageSummary: await loadLinkageSummary(),
       albumTrackLinks: [],
       hot100AlbumLinks: [],
-      mediaAssets: [],
-      vdjCandidates: [],
     };
   }
   if (view === "album-track-links") {
@@ -246,8 +235,6 @@ export async function loadLinkageExplorerSlice(view: IntegrityView): Promise<
       linkageSummary: null,
       albumTrackLinks: await loadAlbumTrackLinks(),
       hot100AlbumLinks: [],
-      mediaAssets: [],
-      vdjCandidates: [],
     };
   }
   if (view === "hot100-album") {
@@ -255,33 +242,11 @@ export async function loadLinkageExplorerSlice(view: IntegrityView): Promise<
       linkageSummary: null,
       albumTrackLinks: [],
       hot100AlbumLinks: await loadHot100AlbumLinks(),
-      mediaAssets: [],
-      vdjCandidates: [],
-    };
-  }
-  if (view === "media") {
-    return {
-      linkageSummary: null,
-      albumTrackLinks: [],
-      hot100AlbumLinks: [],
-      mediaAssets: await loadMediaAssets(),
-      vdjCandidates: [],
-    };
-  }
-  if (view === "vdj") {
-    return {
-      linkageSummary: null,
-      albumTrackLinks: [],
-      hot100AlbumLinks: [],
-      mediaAssets: [],
-      vdjCandidates: await loadVdjLinkageCandidates(),
     };
   }
   return {
     linkageSummary: null,
     albumTrackLinks: [],
     hot100AlbumLinks: [],
-    mediaAssets: [],
-    vdjCandidates: [],
   };
 }

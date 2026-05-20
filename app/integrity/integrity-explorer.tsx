@@ -19,8 +19,13 @@ const VIEWS: { id: IntegrityView; label: string }[] = [
   { id: "linkage", label: "Linkage" },
   { id: "hot100-album", label: "Hot 100 → Album" },
   { id: "album-track-links", label: "Album ↔ Family" },
+  { id: "media-graph", label: "Media Graph" },
   { id: "media", label: "Media Assets" },
+  { id: "vdj-assets", label: "VirtualDJ Assets" },
   { id: "vdj", label: "VDJ Candidates" },
+  { id: "r2-sync", label: "R2 Sync Analysis" },
+  { id: "thumbnail-coverage", label: "Thumbnail Coverage" },
+  { id: "youtube-enrichment", label: "YouTube Enrichment" },
   { id: "acoustic-linkage", label: "Acoustic Linkage" },
   { id: "acoustic-tracklists", label: "Acoustic Tracklists" },
   { id: "acoustic-hot100", label: "Hot 100 Backfill" },
@@ -38,8 +43,16 @@ const LINKAGE_VIEWS = new Set<IntegrityView>([
   "linkage",
   "hot100-album",
   "album-track-links",
+]);
+
+const MEDIA_VIEWS = new Set<IntegrityView>([
+  "media-graph",
   "media",
+  "vdj-assets",
   "vdj",
+  "r2-sync",
+  "thumbnail-coverage",
+  "youtube-enrichment",
 ]);
 
 const ALBUM_VIEWS = new Set<IntegrityView>([
@@ -64,6 +77,7 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
   const [searchDraft, setSearchDraft] = useState(data.searchQ);
   const albumMode = ALBUM_VIEWS.has(data.view);
   const linkageMode = LINKAGE_VIEWS.has(data.view);
+  const mediaMode = MEDIA_VIEWS.has(data.view);
   const acousticMode = ACOUSTIC_VIEWS.has(data.view);
 
   const pushParams = useCallback(
@@ -110,8 +124,8 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
             placeholder={
               albumMode
                 ? "Album or artist…"
-                : linkageMode || acousticMode
-                  ? "Linkage browse…"
+                : linkageMode || mediaMode || acousticMode
+                  ? "Browse linkage / media…"
                   : "Artist or family…"
             }
             value={searchDraft}
@@ -181,6 +195,8 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
       <main className="ic-main">
         {acousticMode ? (
           <AcousticPanels data={data} pending={pending} />
+        ) : mediaMode ? (
+          <MediaPanels data={data} pending={pending} />
         ) : linkageMode ? (
           <LinkagePanels data={data} pending={pending} />
         ) : albumMode ? (
@@ -876,43 +892,204 @@ function LinkagePanels({ data, pending }: { data: ExplorerData; pending: boolean
     );
   }
 
-  if (data.view === "media") {
+  return <div className="ic-empty">Select a linkage view from the sidebar.</div>;
+}
+
+
+function MediaPanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
+  const s = data.mediaGraphSummary;
+
+  if (data.view === "media-graph" && s) {
     return (
       <>
         <header className="ic-header">
           <h1>
-            Media assets
+            Media asset graph
             <span className="ic-readonly">read-only</span>
           </h1>
+          {pending ? <span>loading…</span> : null}
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">Phase 9 — operational ↔ canonical linkage</p>
+          <div className="ic-stats" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+            <span>VDJ staging <strong>{s.vdj_staging}</strong></span>
+            <span>media assets <strong>{s.media_assets}</strong> ({s.vdj_media_assets} from VDJ)</span>
+            <span>linked tracks <strong>{s.linked_tracks}</strong></span>
+            <span>unresolved media <strong>{s.unresolved_media}</strong></span>
+            <span>thumbnail refs <strong>{s.thumbnail_refs}</strong></span>
+            <span>probable R2 paths <strong>{s.probable_r2}</strong></span>
+            <span>YouTube staging <strong>{s.youtube_staging}</strong> ({s.youtube_videos} videos)</span>
+          </div>
+          <p className="ic-hint">Run 901→910 in integrity_console/sql. See README Phase 9.</p>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "media") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>Media assets<span className="ic-readonly">read-only</span></h1>
         </header>
         <div className="ic-body">
           <p className="ic-section-label">media_assets</p>
           <div className="ic-table-wrap">
             <table className="ic-table">
               <thead>
-                <tr>
-                  <th>System</th>
-                  <th>Artist</th>
-                  <th>Title</th>
-                  <th>Album</th>
-                  <th>Duration</th>
-                  <th>VDJ GUID</th>
-                </tr>
+                <tr><th>System</th><th>Artist</th><th>Title</th><th>Plays</th><th>R2</th><th>Linked</th></tr>
               </thead>
               <tbody>
                 {data.mediaAssets.length === 0 ? (
-                  <tr>
-                    <td colSpan={6}>No media assets yet — populate after VDJ import</td>
-                  </tr>
+                  <tr><td colSpan={6}>No media assets — run 901→906</td></tr>
                 ) : (
                   data.mediaAssets.map((r) => (
                     <tr key={r.id}>
                       <td>{r.source_system}</td>
                       <td>{r.artist_text ?? "—"}</td>
                       <td>{r.title_text ?? "—"}</td>
-                      <td>{r.album_text ?? "—"}</td>
+                      <td>{r.play_count ?? "—"}</td>
+                      <td>{r.r2_media_key ? "yes" : "—"}</td>
+                      <td>{r.linked ? "yes" : "no"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "vdj-assets") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>VirtualDJ assets<span className="ic-readonly">read-only</span></h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">staging_virtualdj_tracks</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr><th>File</th><th>Artist</th><th>Title</th><th>Plays</th><th>Dur</th><th>Thumb</th></tr>
+              </thead>
+              <tbody>
+                {data.vdjAssets.length === 0 ? (
+                  <tr><td colSpan={6}>No staging rows — parse XML + 904</td></tr>
+                ) : (
+                  data.vdjAssets.map((r) => (
+                    <tr key={r.id}>
+                      <td title={r.source_path}>{r.filename ?? r.source_path.split("/").pop()}</td>
+                      <td>{r.artist_text ?? "—"}</td>
+                      <td>{r.title_text ?? "—"}</td>
+                      <td>{r.play_count ?? "—"}</td>
                       <td>{r.duration_seconds ?? "—"}</td>
-                      <td>{r.vdj_guid ?? "—"}</td>
+                      <td>{r.thumbnail_path ? "yes" : "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "r2-sync") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>R2 sync analysis<span className="ic-readonly">read-only</span></h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">local path → probable R2 keys</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr><th>Artist</th><th>Title</th><th>Status</th><th>R2 key</th><th>Miss thumb</th></tr>
+              </thead>
+              <tbody>
+                {data.r2SyncRows.length === 0 ? (
+                  <tr><td colSpan={5}>No VDJ media assets — run 906</td></tr>
+                ) : (
+                  data.r2SyncRows.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.artist_text ?? "—"}</td>
+                      <td>{r.title_text ?? "—"}</td>
+                      <td>{r.sync_status}</td>
+                      <td title={r.probable_r2_media_key ?? undefined}>{r.probable_r2_media_key?.slice(0, 36) ?? "—"}</td>
+                      <td>{r.missing_thumbnail ? "yes" : "no"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "thumbnail-coverage") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>Thumbnail coverage<span className="ic-readonly">read-only</span></h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">local vs R2 thumbnail refs</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr><th>Artist</th><th>Title</th><th>Status</th><th>Local</th><th>R2</th></tr>
+              </thead>
+              <tbody>
+                {data.thumbnailCoverage.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.artist_text ?? "—"}</td>
+                    <td>{r.title_text ?? "—"}</td>
+                    <td>{r.coverage_status}</td>
+                    <td>{r.local_thumbnail_path ? "yes" : "—"}</td>
+                    <td>{r.r2_thumbnail_key ? "yes" : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "youtube-enrichment") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>YouTube enrichment<span className="ic-readonly">read-only</span></h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">staging_youtube_link_imports</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr><th>Artist</th><th>Title</th><th>Video</th><th>Source</th><th>Track</th><th>Conf</th><th>Review</th></tr>
+              </thead>
+              <tbody>
+                {data.youtubeEnrichment.length === 0 ? (
+                  <tr><td colSpan={7}>No imports — export_youtube + 909</td></tr>
+                ) : (
+                  data.youtubeEnrichment.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.artist_text ?? "—"}</td>
+                      <td>{r.title_text ?? "—"}</td>
+                      <td>{r.youtube_video_id ?? "—"}</td>
+                      <td>{r.source}</td>
+                      <td>{r.candidate_track_id ?? "—"}</td>
+                      <td>{r.confidence_score}</td>
+                      <td>{r.review_flag}</td>
                     </tr>
                   ))
                 )}
@@ -927,33 +1104,18 @@ function LinkagePanels({ data, pending }: { data: ExplorerData; pending: boolean
   return (
     <>
       <header className="ic-header">
-        <h1>
-          VDJ linkage candidates
-          <span className="ic-readonly">read-only</span>
-        </h1>
+        <h1>VDJ linkage candidates<span className="ic-readonly">read-only</span></h1>
       </header>
       <div className="ic-body">
-        <p className="ic-section-label">staging_virtualdj_tracks → canonical matches</p>
+        <p className="ic-section-label">media_asset_link_candidates</p>
         <div className="ic-table-wrap">
           <table className="ic-table">
             <thead>
-              <tr>
-                <th>Path</th>
-                <th>Artist</th>
-                <th>Title</th>
-                <th>Track</th>
-                <th>Family</th>
-                <th>Album</th>
-                <th>Conf</th>
-                <th>Reason</th>
-                <th>Review</th>
-              </tr>
+              <tr><th>Path</th><th>Artist</th><th>Title</th><th>Track</th><th>Family</th><th>Album</th><th>Conf</th><th>Reason</th><th>Review</th></tr>
             </thead>
             <tbody>
               {data.vdjCandidates.length === 0 ? (
-                <tr>
-                  <td colSpan={9}>No VDJ staging rows — run 706 + import, then 707</td>
-                </tr>
+                <tr><td colSpan={9}>No candidates — run 905</td></tr>
               ) : (
                 data.vdjCandidates.map((r) => (
                   <tr key={r.vdj_staging_id}>
@@ -976,6 +1138,7 @@ function LinkagePanels({ data, pending }: { data: ExplorerData; pending: boolean
     </>
   );
 }
+
 
 function AcousticPanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
   const s = data.acousticSummary;

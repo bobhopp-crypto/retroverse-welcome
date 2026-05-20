@@ -23,6 +23,8 @@
 # large local chart exports
 /exports/billboard_200/*.csv
 /exports/acoustics/*.csv
+/exports/virtualdj/*.csv
+/exports/youtube/*.csv
 
 # misc
 .DS_Store

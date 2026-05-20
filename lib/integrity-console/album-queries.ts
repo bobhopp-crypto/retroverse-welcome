@@ -263,6 +263,7 @@ export async function loadExplorerDataWithAlbums(opts: {
 }): Promise<ExplorerData> {
   const { loadExplorerData } = await import("./queries");
   const { isLinkageView, loadLinkageExplorerSlice } = await import("./linkage-queries");
+  const { isMediaView, loadMediaExplorerSlice } = await import("./media-queries");
   const { isAcousticView, loadAcousticExplorerSlice } = await import("./acoustic-queries");
   const base = await loadExplorerData({
     artistId: opts.artistId,
@@ -274,7 +275,9 @@ export async function loadExplorerDataWithAlbums(opts: {
       opts.view === "editions" ||
       opts.view === "b200" ||
       opts.view === "tracklists" ||
-      isLinkageView(opts.view) || isAcousticView(opts.view)
+      isLinkageView(opts.view) ||
+      isMediaView(opts.view) ||
+      isAcousticView(opts.view)
         ? "artists"
         : opts.view,
   });
@@ -284,8 +287,17 @@ export async function loadExplorerDataWithAlbums(opts: {
         linkageSummary: null,
         albumTrackLinks: [],
         hot100AlbumLinks: [],
+      };
+  const mediaSlice = isMediaView(opts.view)
+    ? await loadMediaExplorerSlice(opts.view)
+    : {
+        mediaGraphSummary: null,
         mediaAssets: [],
+        vdjAssets: [],
         vdjCandidates: [],
+        r2SyncRows: [],
+        thumbnailCoverage: [],
+        youtubeEnrichment: [],
       };
   const acousticSlice = isAcousticView(opts.view)
     ? await loadAcousticExplorerSlice(opts.view)
@@ -318,6 +330,7 @@ export async function loadExplorerDataWithAlbums(opts: {
     editionRows,
     tracklistRows,
     ...linkageSlice,
+    ...mediaSlice,
     ...acousticSlice,
   };
 }

@@ -12,7 +12,12 @@ export type IntegrityView =
   | "hot100-album"
   | "album-track-links"
   | "media"
+  | "media-graph"
   | "vdj"
+  | "vdj-assets"
+  | "r2-sync"
+  | "thumbnail-coverage"
+  | "youtube-enrichment"
   | "acoustic-linkage"
   | "acoustic-tracklists"
   | "acoustic-hot100"
@@ -186,6 +191,18 @@ export type Hot100AlbumLinkRow = {
   review_flag: string;
 };
 
+export type MediaGraphSummary = {
+  vdj_staging: number;
+  media_assets: number;
+  vdj_media_assets: number;
+  linked_tracks: number;
+  thumbnail_refs: number;
+  probable_r2: number;
+  unresolved_media: number;
+  youtube_staging: number;
+  youtube_videos: number;
+};
+
 export type MediaAssetRow = {
   id: number;
   source_system: string;
@@ -195,6 +212,56 @@ export type MediaAssetRow = {
   album_text: string | null;
   duration_seconds: number | null;
   vdj_guid: string | null;
+  play_count?: number | null;
+  r2_media_key?: string | null;
+  local_thumbnail_path?: string | null;
+  linked?: boolean;
+};
+
+export type VdjAssetRow = {
+  id: number;
+  source_path: string;
+  filename: string | null;
+  artist_text: string | null;
+  title_text: string | null;
+  play_count: number | null;
+  duration_seconds: number | null;
+  vdj_guid: string | null;
+  thumbnail_path: string | null;
+};
+
+export type R2SyncRow = {
+  id: number;
+  artist_text: string | null;
+  title_text: string | null;
+  source_path: string | null;
+  probable_r2_media_key: string | null;
+  probable_r2_thumbnail_key: string | null;
+  missing_thumbnail: boolean;
+  missing_r2_asset: boolean;
+  sync_status: string;
+};
+
+export type ThumbnailCoverageRow = {
+  id: number;
+  artist_text: string | null;
+  title_text: string | null;
+  source_path: string | null;
+  local_thumbnail_path: string | null;
+  r2_thumbnail_key: string | null;
+  coverage_status: string;
+};
+
+export type YoutubeEnrichmentRow = {
+  id: number;
+  artist_text: string | null;
+  title_text: string | null;
+  youtube_url: string | null;
+  youtube_video_id: string | null;
+  source: string;
+  candidate_track_id: number | null;
+  confidence_score: number;
+  review_flag: string;
 };
 
 export type VdjLinkageCandidateRow = {
@@ -255,8 +322,13 @@ export type ExplorerData = {
   linkageSummary: LinkageSummary | null;
   albumTrackLinks: AlbumTrackLinkRow[];
   hot100AlbumLinks: Hot100AlbumLinkRow[];
+  mediaGraphSummary: MediaGraphSummary | null;
   mediaAssets: MediaAssetRow[];
+  vdjAssets: VdjAssetRow[];
   vdjCandidates: VdjLinkageCandidateRow[];
+  r2SyncRows: R2SyncRow[];
+  thumbnailCoverage: ThumbnailCoverageRow[];
+  youtubeEnrichment: YoutubeEnrichmentRow[];
   acousticSummary: AcousticLinkageSummary | null;
   acousticTracklists: AcousticTracklistRow[];
   acousticHot100Links: Hot100AlbumLinkRow[];

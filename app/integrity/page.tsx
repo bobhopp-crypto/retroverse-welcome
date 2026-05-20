@@ -19,7 +19,12 @@ function parseView(raw: string | undefined): IntegrityView {
     raw === "hot100-album" ||
     raw === "album-track-links" ||
     raw === "media" ||
+    raw === "media-graph" ||
     raw === "vdj" ||
+    raw === "vdj-assets" ||
+    raw === "r2-sync" ||
+    raw === "thumbnail-coverage" ||
+    raw === "youtube-enrichment" ||
     raw === "acoustic-linkage" ||
     raw === "acoustic-tracklists" ||
     raw === "acoustic-hot100" ||
