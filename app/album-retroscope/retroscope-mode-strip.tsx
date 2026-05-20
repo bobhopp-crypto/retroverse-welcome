@@ -10,16 +10,16 @@ import { saveRetroscopePreferredMode } from "@/lib/retroscope-mode-persist";
 
 const LAYERS: { mode: RetroscopeMode; label: string }[] = [
   { mode: "album", label: "Albums" },
-  { mode: "track", label: "Songs" },
   { mode: "artist", label: "Artists" },
+  { mode: "track", label: "Tracks" },
 ];
 
 type RetroscopeModeStripProps = {
   active: RetroscopeMode;
   mapOpen?: boolean;
   onMapOpen?: () => void;
-  /** Interaction band — compact mode toggles. */
-  variant?: "chrome" | "deck" | "band";
+  /** Center control-deck layout (replaces D-pad). */
+  variant?: "chrome" | "deck";
 };
 
 export function RetroscopeModeStrip({
@@ -30,7 +30,7 @@ export function RetroscopeModeStrip({
 }: RetroscopeModeStripProps) {
   return (
     <nav
-      className={`arv-mode-strip${variant === "deck" ? " arv-mode-strip--deck" : ""}${variant === "band" ? " arv-mode-strip--band" : ""}`}
+      className={`arv-mode-strip${variant === "deck" ? " arv-mode-strip--deck" : ""}`}
       aria-label="RetroScope layer"
     >
       {LAYERS.map(({ mode, label }) => (

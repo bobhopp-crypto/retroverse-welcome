@@ -11,8 +11,7 @@ import {
 } from "@/lib/album-retroscope-constants";
 import { retroscopeStorageKeys, type RetroscopePersistScope } from "@/lib/retroscope-mode";
 import {
-  defaultViewportOrigin,
-  ensureViewportIncludesSelection,
+  centerViewportOnSelection,
   isValidRetroscopeCoordKey,
   loadRetroscopeExploredKeys,
   loadRetroscopePersistedSession,
@@ -106,22 +105,13 @@ function coordinateFromExploredFallback(
   return parseRetroscopeCoordKey(initialActiveKey);
 }
 
-function fittedViewport(
-  activeYear: number,
-  activeRank: number,
-  visibleGridRows: number,
-  prior?: { viewYear0: number; viewRank0: number },
-) {
-  if (prior) {
-    return ensureViewportIncludesSelection({
-      activeYear,
-      activeRank,
-      viewYear0: prior.viewYear0,
-      viewRank0: prior.viewRank0,
-      visibleGridRows,
-    });
-  }
-  return defaultViewportOrigin(activeYear, activeRank, visibleGridRows);
+/** Always derive viewport from center-locked playhead (ignore legacy saved pan offsets). */
+function fittedViewport(activeYear: number, activeRank: number, visibleGridRows: number) {
+  return centerViewportOnSelection({
+    activeYear,
+    activeRank,
+    visibleGridRows,
+  });
 }
 
 function logBootstrap(scope: RetroscopePersistScope, detail: Record<string, unknown>) {
@@ -184,10 +174,7 @@ export function resolveRetroscopeBootstrap(opts: {
   if (saved) {
     const ay = saved.activeYear;
     const ar = saved.activeRank;
-    const fitted = fittedViewport(ay, ar, gridRows, {
-      viewYear0: saved.viewYear0,
-      viewRank0: saved.viewRank0,
-    });
+    const fitted = fittedViewport(ay, ar, gridRows);
     const exploredKeys = mergeRetroscopeExploredKeys(storedExplored, saved.exploredKeys);
     saveRetroscopeExploredKeys(exploredKeys, scope);
     const result: RetroscopeBootstrapResult = {

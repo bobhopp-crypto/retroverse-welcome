@@ -147,7 +147,7 @@ export function saveRetroscopeExploredKeys(
   }
 }
 
-/** @deprecated Center reticle removed — kept for any legacy imports. */
+/** Grid indices where the tuned selection sits (fixed reticle / playhead lock). */
 export function retroscopeViewportFocusIndices(visibleGridRows: number): {
   yearCol: number;
   rankRow: number;
@@ -165,13 +165,16 @@ export function retroscopeViewportFocusIndices(visibleGridRows: number): {
   };
 }
 
-/** Pan the viewport only when the active coordinate falls outside the visible window. */
-export function ensureViewportIncludesSelection(opts: {
+/**
+ * Keep the active coordinate under the center reticle — the world scrolls, not the lock point.
+ * Legacy viewYear0/viewRank0 args are ignored (included only for call-site compatibility).
+ */
+export function centerViewportOnSelection(opts: {
   activeYear: number;
   activeRank: number;
-  viewYear0: number;
-  viewRank0: number;
   visibleGridRows: number;
+  viewYear0?: number;
+  viewRank0?: number;
 }): { viewYear0: number; viewRank0: number } {
   const visibleGridRows = clamp(
     Number.isFinite(opts.visibleGridRows) && opts.visibleGridRows > 0
@@ -180,71 +183,21 @@ export function ensureViewportIncludesSelection(opts: {
     1,
     RETROSCOPE_RANK_MAX,
   );
+  const { yearCol, rankRow } = retroscopeViewportFocusIndices(visibleGridRows);
   const ynn = clamp(Math.round(opts.activeYear), RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
   const rnn = clamp(Math.round(opts.activeRank), 1, RETROSCOPE_RANK_MAX);
 
-  let viewYear0 = clamp(
-    Math.round(opts.viewYear0),
+  const viewYear0 = clamp(
+    ynn - yearCol,
     RETROSCOPE_WORLD_YEAR_MIN,
     RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1,
   );
-  let viewRank0 = clamp(
-    Math.round(opts.viewRank0),
-    1,
-    RETROSCOPE_RANK_MAX - visibleGridRows + 1,
-  );
-
-  if (ynn < viewYear0) viewYear0 = ynn;
-  if (ynn > viewYear0 + RETROSCOPE_GRID_COLS - 1) {
-    viewYear0 = clamp(ynn - RETROSCOPE_GRID_COLS + 1, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
-  }
-  if (rnn < viewRank0) viewRank0 = rnn;
-  if (rnn > viewRank0 + visibleGridRows - 1) {
-    viewRank0 = clamp(rnn - visibleGridRows + 1, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
-  }
+  const viewRank0 = clamp(rnn - rankRow, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
 
   return { viewYear0, viewRank0 };
 }
 
-/** Default viewport origin: active cell at top-left of the visible grid (not center-locked). */
-export function defaultViewportOrigin(activeYear: number, activeRank: number, visibleGridRows: number): {
-  viewYear0: number;
-  viewRank0: number;
-} {
-  const rows = clamp(
-    Number.isFinite(visibleGridRows) && visibleGridRows > 0
-      ? Math.round(visibleGridRows)
-      : RETROSCOPE_GRID_ROWS,
-    1,
-    RETROSCOPE_RANK_MAX,
-  );
-  return {
-    viewYear0: clamp(
-      Math.round(activeYear),
-      RETROSCOPE_WORLD_YEAR_MIN,
-      RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1,
-    ),
-    viewRank0: clamp(Math.round(activeRank), 1, RETROSCOPE_RANK_MAX - rows + 1),
-  };
-}
-
-/** @deprecated Center-lock removed — use `ensureViewportIncludesSelection`. */
-export function centerViewportOnSelection(opts: {
-  activeYear: number;
-  activeRank: number;
-  visibleGridRows: number;
-  viewYear0?: number;
-  viewRank0?: number;
-}): { viewYear0: number; viewRank0: number } {
-  return ensureViewportIncludesSelection({
-    activeYear: opts.activeYear,
-    activeRank: opts.activeRank,
-    viewYear0: opts.viewYear0 ?? opts.activeYear,
-    viewRank0: opts.viewRank0 ?? opts.activeRank,
-    visibleGridRows: opts.visibleGridRows,
-  });
-}
-
+/** @deprecated Prefer `centerViewportOnSelection` — same center-lock behavior. */
 export function fitViewportToIncludeCoordinate(opts: {
   activeYear: number;
   activeRank: number;
@@ -252,7 +205,7 @@ export function fitViewportToIncludeCoordinate(opts: {
   viewRank0: number;
   visibleGridRows: number;
 }): { viewYear0: number; viewRank0: number } {
-  return ensureViewportIncludesSelection(opts);
+  return centerViewportOnSelection(opts);
 }
 
 export function loadRetroscopePersistedSession(

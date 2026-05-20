@@ -2,16 +2,11 @@
 
 import { useEffect } from "react";
 
-function bodyClassTokens(className: string): string[] {
-  return className.trim().split(/\s+/).filter(Boolean);
-}
-
 export function BodyClassName({ className }: { className: string }) {
   useEffect(() => {
-    const tokens = bodyClassTokens(className);
-    document.body.classList.add(...tokens);
+    document.body.classList.add(className);
     return () => {
-      document.body.classList.remove(...tokens);
+      document.body.classList.remove(className);
     };
   }, [className]);
 
