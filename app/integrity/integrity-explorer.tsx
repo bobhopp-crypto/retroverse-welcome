@@ -16,7 +16,20 @@ const VIEWS: { id: IntegrityView; label: string }[] = [
   { id: "editions", label: "Editions" },
   { id: "b200", label: "Billboard 200" },
   { id: "tracklists", label: "Album Tracklists" },
+  { id: "linkage", label: "Linkage" },
+  { id: "hot100-album", label: "Hot 100 → Album" },
+  { id: "album-track-links", label: "Album ↔ Family" },
+  { id: "media", label: "Media Assets" },
+  { id: "vdj", label: "VDJ Candidates" },
 ];
+
+const LINKAGE_VIEWS = new Set<IntegrityView>([
+  "linkage",
+  "hot100-album",
+  "album-track-links",
+  "media",
+  "vdj",
+]);
 
 const ALBUM_VIEWS = new Set<IntegrityView>([
   "albums",
@@ -39,6 +52,7 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
   const [pending, startTransition] = useTransition();
   const [searchDraft, setSearchDraft] = useState(data.searchQ);
   const albumMode = ALBUM_VIEWS.has(data.view);
+  const linkageMode = LINKAGE_VIEWS.has(data.view);
 
   const pushParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -81,7 +95,9 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
           <input
             className="ic-search"
             type="search"
-            placeholder={albumMode ? "Album or artist…" : "Artist or family…"}
+            placeholder={
+              albumMode ? "Album or artist…" : linkageMode ? "Linkage browse…" : "Artist or family…"
+            }
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -147,7 +163,9 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
       </aside>
 
       <main className="ic-main">
-        {albumMode ? (
+        {linkageMode ? (
+          <LinkagePanels data={data} pending={pending} />
+        ) : albumMode ? (
           <AlbumPanels data={data} pending={pending} pushParams={pushParams} />
         ) : data.artist ? (
           <ArtistPanels data={data} pending={pending} pushParams={pushParams} />
@@ -697,6 +715,245 @@ function AlbumPanels({
             </div>
           </>
         ) : null}
+      </div>
+    </>
+  );
+}
+
+function LinkagePanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
+  const s = data.linkageSummary;
+
+  if (data.view === "linkage" && s) {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Canonical linkage
+            <span className="ic-readonly">read-only</span>
+          </h1>
+          {pending ? <span>loading…</span> : null}
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">Phase 7 bridge layer</p>
+          <div className="ic-stats" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+            <span>
+              track↔album links <strong>{s.ctal_total}</strong> ({s.ctal_ok} ok)
+            </span>
+            <span>
+              Hot 100↔album links <strong>{s.chart_links}</strong> ({s.chart_ok} ok)
+            </span>
+            <span>
+              Hot 100 unresolved <strong>{s.hot100_unresolved}</strong>
+            </span>
+            <span>
+              VDJ staging rows <strong>{s.vdj_staging}</strong>
+            </span>
+            <span>
+              media assets <strong>{s.media_assets}</strong>
+            </span>
+          </div>
+          <p className="ic-hint">Run 701→708 in integrity_console/sql. VDJ import optional.</p>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "hot100-album") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Hot 100 → Album
+            <span className="ic-readonly">read-only</span>
+          </h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">chart_track_album_links</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Rank</th>
+                  <th>Artist</th>
+                  <th>Track</th>
+                  <th>Album</th>
+                  <th>Conf</th>
+                  <th>Review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.hot100AlbumLinks.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>No links — run 703 then 705</td>
+                  </tr>
+                ) : (
+                  data.hot100AlbumLinks.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.chart_date}</td>
+                      <td>{r.chart_position ?? "—"}</td>
+                      <td>{r.artist}</td>
+                      <td>{r.track_title}</td>
+                      <td>{r.album_title ?? "—"}</td>
+                      <td>{r.confidence_score ?? "—"}</td>
+                      <td>{r.review_flag}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "album-track-links") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Album ↔ Track Family
+            <span className="ic-readonly">read-only</span>
+          </h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">canonical_track_album_links</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Artist</th>
+                  <th>Family</th>
+                  <th>Album</th>
+                  <th>Edition</th>
+                  <th>#</th>
+                  <th>Source</th>
+                  <th>Review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.albumTrackLinks.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>No links — run 703</td>
+                  </tr>
+                ) : (
+                  data.albumTrackLinks.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.artist_name}</td>
+                      <td>{r.track_family_name}</td>
+                      <td>{r.album_title}</td>
+                      <td>{r.edition_name ?? "—"}</td>
+                      <td>{r.track_number ?? "—"}</td>
+                      <td>{r.source}</td>
+                      <td>{r.review_flag}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "media") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Media assets
+            <span className="ic-readonly">read-only</span>
+          </h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">media_assets</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>System</th>
+                  <th>Artist</th>
+                  <th>Title</th>
+                  <th>Album</th>
+                  <th>Duration</th>
+                  <th>VDJ GUID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.mediaAssets.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>No media assets yet — populate after VDJ import</td>
+                  </tr>
+                ) : (
+                  data.mediaAssets.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.source_system}</td>
+                      <td>{r.artist_text ?? "—"}</td>
+                      <td>{r.title_text ?? "—"}</td>
+                      <td>{r.album_text ?? "—"}</td>
+                      <td>{r.duration_seconds ?? "—"}</td>
+                      <td>{r.vdj_guid ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <header className="ic-header">
+        <h1>
+          VDJ linkage candidates
+          <span className="ic-readonly">read-only</span>
+        </h1>
+      </header>
+      <div className="ic-body">
+        <p className="ic-section-label">staging_virtualdj_tracks → canonical matches</p>
+        <div className="ic-table-wrap">
+          <table className="ic-table">
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Artist</th>
+                <th>Title</th>
+                <th>Track</th>
+                <th>Family</th>
+                <th>Album</th>
+                <th>Conf</th>
+                <th>Reason</th>
+                <th>Review</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.vdjCandidates.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>No VDJ staging rows — run 706 + import, then 707</td>
+                </tr>
+              ) : (
+                data.vdjCandidates.map((r) => (
+                  <tr key={r.vdj_staging_id}>
+                    <td title={r.source_path}>{r.source_path.split("/").pop()}</td>
+                    <td>{r.artist_text ?? "—"}</td>
+                    <td>{r.title_text ?? "—"}</td>
+                    <td>{r.candidate_track_id ?? "—"}</td>
+                    <td>{r.candidate_track_family_id ?? "—"}</td>
+                    <td>{r.candidate_album_id ?? "—"}</td>
+                    <td>{r.confidence_score ?? "—"}</td>
+                    <td>{r.match_reason}</td>
+                    <td>{r.review_flag}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );

@@ -140,6 +140,54 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 
 **Integrity viewer** (`/integrity`): Album Families, Editions, Billboard 200 timelines, album lineage (read-only).
 
+### Canonical linkage (Phase 7)
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/701_linkage_schema.sql` | Linkage + media tables | **Yes** (additive DDL) |
+| `sql/702_album_tracklist_linkage_candidates.sql` | Track family ↔ album candidates | No |
+| `sql/703_populate_canonical_track_album_links.sql` | Populate `canonical_track_album_links` | **Yes** (additive DML) |
+| `sql/704_hot100_to_album_linkage_candidates.sql` | Hot 100 → album candidates | No |
+| `sql/705_populate_chart_track_album_links.sql` | Populate `chart_track_album_links` | **Yes** (additive DML) |
+| `sql/706_virtualdj_media_staging_schema.sql` | `staging_virtualdj_tracks` | **Yes** (additive DDL) |
+| `sql/707_virtualdj_linkage_candidates.sql` | VDJ → track/family/album candidates | No |
+| `sql/708_linkage_readiness_report.sql` | Linkage coverage report | No |
+
+1. `701` → `702` → `703` → `704` → `705` → `706` → `707` → `708`
+2. VDJ import is optional; `707`/`708` succeed with zero staging rows.
+
+**Phase 7 does not merge tracks/albums, delete rows, or rewrite `chart_appearances`.**
+
+**Integrity viewer** (`/integrity`): Linkage, Hot 100 → Album, Album ↔ Family, Media Assets, VDJ Candidates (read-only).
+
+## Retroverse Canonical Linkage Layer
+
+Tracks, albums, charts, and media files are **separate identity layers**. Linkage tables are the nervous system between them.
+
+| Layer | Role | Canonical? |
+|-------|------|------------|
+| `tracks` / `track_families` | Recording-first song identity | Yes |
+| `albums` / `album_editions` | Release-first album identity | Yes |
+| `chart_appearances` | Historical chart facts (never rewritten) | Fact |
+| `media_assets` / VDJ staging | Operational playback files | No — operational |
+
+**Why linkage tables exist**
+
+- A Hot 100 week points at a `track_id`, not necessarily an album. `chart_track_album_links` records *which album context* applies for that chart row without changing the chart fact.
+- A track family can appear on many albums. `canonical_track_album_links` records each appearance with edition, disc, and track number when known.
+- VirtualDJ paths are **operational identity** (what you play). Canonical tracks are **catalog identity** (what Retroverse knows). `media_track_links` bridges them with confidence and review flags.
+
+**Self-healing review flags**
+
+- `review_flag = ok` — safe for automated downstream use.
+- `review_flag = review_required` — inserted but ambiguous (multiple albums, weak match, missing family). Human or later rules can promote to `ok` without re-ingesting charts.
+
+**VirtualDJ / media**
+
+- Import into `staging_virtualdj_tracks` when ready (`706` schema only in this phase).
+- Candidates from `707` never overwrite canonical rows.
+- Populate `media_assets` + `media_track_links` in a future execute step after staging review.
+
 ## Retroverse Album Identity Model
 
 Albums in Retroverse are **canonical identity anchors**, not flat release metadata.

@@ -7,7 +7,12 @@ export type IntegrityView =
   | "album-families"
   | "editions"
   | "b200"
-  | "tracklists";
+  | "tracklists"
+  | "linkage"
+  | "hot100-album"
+  | "album-track-links"
+  | "media"
+  | "vdj";
 
 export type AlbumListItem = {
   id: number;
@@ -143,6 +148,64 @@ export type RelationshipRow = {
   confidence_score: number;
 };
 
+export type LinkageSummary = {
+  ctal_total: number;
+  ctal_ok: number;
+  chart_links: number;
+  chart_ok: number;
+  hot100_unresolved: number;
+  vdj_staging: number;
+  media_assets: number;
+};
+
+export type AlbumTrackLinkRow = {
+  id: number;
+  track_family_name: string;
+  artist_name: string;
+  album_title: string;
+  edition_name: string | null;
+  track_number: number | null;
+  disc_number: number | null;
+  confidence_score: number | null;
+  source: string;
+  review_flag: string;
+};
+
+export type Hot100AlbumLinkRow = {
+  id: number;
+  chart_date: string;
+  chart_position: number | null;
+  artist: string;
+  track_title: string;
+  album_title: string | null;
+  confidence_score: number | null;
+  review_flag: string;
+};
+
+export type MediaAssetRow = {
+  id: number;
+  source_system: string;
+  filename: string | null;
+  artist_text: string | null;
+  title_text: string | null;
+  album_text: string | null;
+  duration_seconds: number | null;
+  vdj_guid: string | null;
+};
+
+export type VdjLinkageCandidateRow = {
+  vdj_staging_id: number;
+  source_path: string;
+  artist_text: string | null;
+  title_text: string | null;
+  candidate_track_id: number | null;
+  candidate_track_family_id: number | null;
+  candidate_album_id: number | null;
+  confidence_score: number | null;
+  match_reason: string;
+  review_flag: string;
+};
+
 export type ExplorerData = {
   artists: ArtistListItem[];
   artist: ArtistSummary | null;
@@ -156,6 +219,11 @@ export type ExplorerData = {
   albumPopulationRows: AlbumPopulationRow[];
   editionRows: AlbumEditionRow[];
   tracklistRows: AlbumTracklistRow[];
+  linkageSummary: LinkageSummary | null;
+  albumTrackLinks: AlbumTrackLinkRow[];
+  hot100AlbumLinks: Hot100AlbumLinkRow[];
+  mediaAssets: MediaAssetRow[];
+  vdjCandidates: VdjLinkageCandidateRow[];
   selectedArtistId: number | null;
   selectedFamilyId: number | null;
   selectedAlbumId: number | null;

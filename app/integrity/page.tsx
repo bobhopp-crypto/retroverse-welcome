@@ -14,7 +14,12 @@ function parseView(raw: string | undefined): IntegrityView {
     raw === "album-families" ||
     raw === "editions" ||
     raw === "b200" ||
-    raw === "tracklists"
+    raw === "tracklists" ||
+    raw === "linkage" ||
+    raw === "hot100-album" ||
+    raw === "album-track-links" ||
+    raw === "media" ||
+    raw === "vdj"
   ) {
     return raw;
   }
