@@ -1012,7 +1012,7 @@ export default function PortalV2Client({
                 )}
               </p>
               <p className="pv2-proto-album px-1 text-pretty">{title || "…"}</p>
-              <p className="pv2-device-explored-line" aria-live="polite">
+              <p className="pv2-device-explored-line pv2-mobile-clutter" aria-live="polite">
                 {portalClientReady ? (
                   <>
                     Explored {exploredCount}

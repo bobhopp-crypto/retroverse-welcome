@@ -168,9 +168,10 @@ export default async function AlbumDossierPage({ params }: Props) {
     <>
       <BodyClassName className="dossier-body" />
       <div className="dossier-shell">
-        <header className="dossier-top dossier-top--nav">
+        <header className="dossier-top dossier-top--nav dossier-top--immersive">
           <RetroverseEntityNav
-            back={{ href: "/", label: "Home" }}
+            immersive
+            back={{ href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" }}
             items={[
               { href: artistRoute(identity.artist), label: "Artist" },
               { href: `/tracks?q=${encodeURIComponent(identity.album)}`, label: "Tracks" },
@@ -202,11 +203,11 @@ export default async function AlbumDossierPage({ params }: Props) {
                 <dt>Peak</dt>
                 <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
               </div>
-              <div>
+              <div className="dossier-chart-glance-depth">
                 <dt>Weeks</dt>
                 <dd>{chartWeeks ?? "—"}</dd>
               </div>
-              <div>
+              <div className="dossier-chart-glance-depth">
                 <dt>On chart</dt>
                 <dd>
                   {formatArchiveDate(chartFirst)}
@@ -231,7 +232,7 @@ export default async function AlbumDossierPage({ params }: Props) {
           </p>
         ) : null}
 
-        <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank">
+        <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank dossier-mobile-reveal-panel">
           <h2 className="dossier-panel-label">
             Canonical tracks
             {graphDetail?.trackFamilyCount ? (

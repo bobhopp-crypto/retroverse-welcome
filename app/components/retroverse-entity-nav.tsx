@@ -6,14 +6,16 @@ type Props = {
   back?: NavItem;
   items?: NavItem[];
   className?: string;
+  /** Mobile: back link only — secondary nav hidden until desktop. */
+  immersive?: boolean;
 };
 
-export function RetroverseEntityNav({ back, items = [], className = "" }: Props) {
+export function RetroverseEntityNav({ back, items = [], className = "", immersive = false }: Props) {
   if (!back && items.length === 0) return null;
 
   return (
     <nav
-      className={`rv-entity-nav flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[0.68rem] uppercase tracking-[0.14em] ${className}`.trim()}
+      className={`rv-entity-nav flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[0.68rem] uppercase tracking-[0.14em]${immersive ? " rv-entity-nav--immersive" : ""} ${className}`.trim()}
       aria-label="Page navigation"
     >
       {back ? (

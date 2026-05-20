@@ -113,7 +113,9 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
   return (
     <>
       <BodyClassName className="dossier-body" />
-      <main className="dossier-shell dossier-shell--album-index">
+      <main
+        className={`dossier-shell dossier-shell--album-index${useGraphYear && year != null ? " dossier-shell--year-immersion" : ""}`}
+      >
         <header className="dossier-top dossier-top--nav">
           <Link href="/" className="dossier-a dossier-a--quiet">
             Home

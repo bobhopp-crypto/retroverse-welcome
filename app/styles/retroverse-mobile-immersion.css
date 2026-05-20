@@ -1,0 +1,430 @@
+/**
+ * Retroverse mobile immersion — one dominant object per screen.
+ * Loaded by portal-v2 (v2.css) and album surfaces (album-dossier.css).
+ */
+
+@media (max-width: 639px) {
+  /* —— Portal v2 —— */
+  .pv2-atmo-grid {
+    opacity: 0.1;
+  }
+
+  .pv2-device-masthead {
+    padding-top: max(0.55rem, env(safe-area-inset-top));
+    padding-bottom: 0.15rem;
+  }
+
+  .pv2-device-wordmark {
+    font-size: 0.58rem;
+    letter-spacing: 0.32em;
+    color: rgba(205, 164, 90, 0.62);
+  }
+
+  .pv2-device-frame-slot {
+    width: 100%;
+    max-width: none;
+  }
+
+  .pv2-device-frame-slot .pv2-proto-frame {
+    width: min(94vw, 100%);
+    max-width: 26rem;
+    margin-inline: auto;
+    padding: clamp(10px, 2.8vw, 14px);
+  }
+
+  .pv2-surface-drag {
+    justify-content: center;
+    gap: 0;
+  }
+
+  .pv2-device-meta {
+    padding-top: clamp(14px, 3.5vh, 22px);
+    gap: clamp(0.5rem, 2vh, 0.85rem);
+    max-width: 100%;
+  }
+
+  .pv2-device-rank-sub {
+    font-size: clamp(0.82rem, 3.4vw, 0.95rem);
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    color: rgba(205, 164, 90, 0.9);
+  }
+
+  .pv2-proto-artist {
+    font-size: clamp(1.55rem, 7.2vw, 2.35rem);
+    line-height: 1.08;
+    min-height: 1.08em;
+  }
+
+  .pv2-proto-album {
+    font-size: clamp(2.15rem, 11.5vw, 3.35rem);
+    line-height: 0.98;
+    min-height: calc(0.98em * 2);
+  }
+
+  .pv2-mobile-clutter {
+    display: none !important;
+  }
+
+  /* —— Entity nav (album / shared) —— */
+  .rv-entity-nav--immersive {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 0;
+    margin-bottom: 0.15rem;
+  }
+
+  .rv-entity-nav--immersive .rv-entity-nav-back {
+    font-family: var(--d-font-broadcast, var(--font-geist-sans), system-ui, sans-serif);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(200, 228, 238, 0.82);
+    padding: 0.35rem 0;
+  }
+
+  .rv-entity-nav--immersive .rv-entity-nav-link,
+  .rv-entity-nav--immersive > span[aria-hidden] {
+    display: none;
+  }
+
+  .dossier-top--nav.dossier-top--immersive {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.35rem;
+    border-bottom-color: rgba(255, 248, 240, 0.06);
+  }
+
+  .dossier-top--immersive .dossier-top-end {
+    display: none;
+  }
+
+  /* —— Album dossier detail —— */
+  .dossier-shell {
+    padding-inline: max(1rem, env(safe-area-inset-left)) max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .dossier-cinematic {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .dossier-hero-bezel {
+    padding: 0.4rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .dossier-hero-inner {
+    width: 100%;
+    max-width: none;
+    max-height: min(88vw, 72vh);
+    margin-inline: auto;
+    aspect-ratio: 1;
+  }
+
+  .dossier-readout {
+    text-align: center;
+    padding-top: 0.35rem;
+  }
+
+  .dossier-title {
+    font-size: clamp(2.35rem, 11.5vw, 3.65rem);
+    line-height: 1.02;
+    margin-bottom: 0.45rem;
+  }
+
+  .dossier-artist {
+    font-size: clamp(1.35rem, 5.8vw, 1.85rem);
+    line-height: 1.15;
+    margin-bottom: 0.5rem;
+  }
+
+  .dossier-artist a {
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
+
+  .dossier-chart-glance {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 0.85rem;
+    padding-top: 0;
+    border-top: none;
+    justify-items: center;
+  }
+
+  .dossier-chart-glance > div {
+    text-align: center;
+    width: 100%;
+  }
+
+  .dossier-chart-glance-depth {
+    display: block;
+  }
+
+  .dossier-chart-glance-depth dt {
+    font-size: 0.62rem;
+    letter-spacing: 0.28em;
+    color: rgba(200, 180, 160, 0.55);
+  }
+
+  .dossier-chart-glance > div:first-child dd {
+    font-size: clamp(2.4rem, 14vw, 3.4rem);
+    font-weight: 650;
+    font-family: var(--d-font-editorial), ui-serif, Georgia, serif;
+    letter-spacing: -0.03em;
+    color: rgba(248, 246, 255, 0.98);
+    margin-top: 0.2rem;
+  }
+
+  .dossier-chart-glance-depth dd {
+    font-size: 0.92rem;
+    margin-top: 0.15rem;
+  }
+
+  .dossier-chart-glance-depth + .dossier-chart-glance-depth {
+    margin-top: 0.35rem;
+  }
+
+  .dossier-mobile-reveal-panel {
+    margin-top: 0.5rem;
+  }
+
+  .dossier-mobile-reveal-panel .dossier-panel-label {
+    font-size: 0.62rem;
+  }
+
+  .dossier-mobile-reveal-panel .dossier-track-scroll {
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .dossier-media-signals,
+  .dossier-provenance-strip,
+  .dossier-foot,
+  .dossier-explore-loop,
+  .dossier-panel--paths,
+  .dossier-canonical-note,
+  .dossier-panel-label-meta {
+    display: none !important;
+  }
+
+  .dossier-mobile-reveal {
+    margin: 0 0 1rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .dossier-mobile-reveal summary {
+    list-style: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    margin: 0 0 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid rgba(255, 248, 240, 0.12);
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(12, 10, 22, 0.85), rgba(8, 18, 28, 0.65));
+    font-family: var(--d-font-broadcast, system-ui, sans-serif);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(200, 228, 238, 0.78);
+    text-align: center;
+  }
+
+  .dossier-mobile-reveal summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .dossier-mobile-reveal[open] summary {
+    border-color: rgba(125, 205, 210, 0.35);
+    color: rgba(244, 236, 255, 0.92);
+  }
+
+  .dossier-panel--tracks .dossier-panel-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.2em;
+  }
+
+  .dossier-table--tracks thead {
+    display: none;
+  }
+
+  .dossier-table--tracks tbody tr {
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.15rem 0.65rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid rgba(255, 248, 240, 0.07);
+  }
+
+  .dossier-table--tracks .dossier-tcol-signal {
+    display: none;
+  }
+
+  .dossier-table--tracks .dossier-tcol-idx {
+    grid-row: 1 / span 2;
+    align-self: start;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: rgba(200, 180, 160, 0.55);
+    padding-top: 0.1rem;
+  }
+
+  .dossier-table--tracks .dossier-tcol-title {
+    grid-column: 2;
+  }
+
+  .dossier-table--tracks .dossier-track-title {
+    font-size: 1.05rem;
+    line-height: 1.2;
+    color: rgba(248, 246, 255, 0.95);
+  }
+
+  .dossier-table--tracks td:nth-child(4),
+  .dossier-table--tracks .dossier-tcol-mb {
+    display: none;
+  }
+
+  /* —— Album year index (/albums?year=) —— */
+  .dossier-shell--year-immersion .dossier-top--nav .dossier-a--quiet:not(:first-child) {
+    display: none;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-search,
+  .dossier-shell--year-immersion .dossier-index-status {
+    display: none;
+  }
+
+  .dossier-shell--year-immersion .dossier-provenance-label {
+    font-size: 0.62rem;
+    letter-spacing: 0.32em;
+    text-align: center;
+    display: block;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-readout {
+    text-align: center;
+    margin-bottom: 0.35rem;
+  }
+
+  .dossier-shell--year-immersion .dossier-title {
+    font-size: clamp(3.25rem, 20vw, 4.75rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    text-align: center;
+  }
+
+  .dossier-year-rail {
+    margin-bottom: 0.85rem;
+    padding: 0.65rem 0.5rem;
+    border: none;
+    background: transparent;
+  }
+
+  .dossier-year-rail-now {
+    font-size: clamp(2.5rem, 16vw, 3.5rem);
+    letter-spacing: -0.02em;
+  }
+
+  .dossier-year-rail-step {
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+  }
+
+  .dossier-year-rail-anchors,
+  .dossier-year-rail-meta {
+    display: none;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-grid {
+    grid-template-columns: 1fr;
+    gap: 1.35rem;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-cover-link {
+    width: 100%;
+    max-width: min(92vw, 22rem);
+    margin-inline: auto;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    box-shadow:
+      0 28px 56px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  .dossier-shell--year-immersion .dossier-index-card-copy {
+    padding-top: 0.85rem;
+    text-align: center;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-rank-line {
+    justify-content: center;
+    margin-bottom: 0.35rem;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-rank {
+    font-size: clamp(1.75rem, 9vw, 2.35rem);
+    font-family: var(--d-font-editorial), ui-serif, Georgia, serif;
+    font-weight: 650;
+    color: rgba(248, 246, 255, 0.92);
+    letter-spacing: -0.02em;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-peak {
+    font-size: 0.78rem;
+    letter-spacing: 0.14em;
+    margin-left: 0.5rem;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-card h2 {
+    font-size: clamp(1.45rem, 6.5vw, 1.95rem);
+    line-height: 1.06;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-card-copy p {
+    font-size: clamp(1rem, 4.2vw, 1.2rem);
+    margin-top: 0.35rem;
+  }
+
+  .dossier-shell--year-immersion .dossier-index-card dl {
+    display: none;
+  }
+
+  .dossier-index-more {
+    font-size: 0.82rem;
+    letter-spacing: 0.12em;
+  }
+}
+
+@media (min-width: 640px) {
+  .dossier-chart-glance {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    text-align: left;
+    border-top: 1px solid rgba(255, 248, 240, 0.08);
+    padding-top: 0.65rem;
+  }
+
+  .dossier-chart-glance > div:first-child dd {
+    font-size: 0.72rem;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-weight: 400;
+  }
+}
