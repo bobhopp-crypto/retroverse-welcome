@@ -1,20 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Source_Serif_4 } from "next/font/google";
 import Link from "next/link";
 
 import { PRIMARY_NAV } from "@/lib/retroverse-nav";
 import RetroverseRouteTuner from "./retroverse-route-tuner";
 
 import "./globals.css";
+import "./retroverse-public.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const rvDisplay = Fraunces({
+  variable: "--font-rv-display",
   subsets: ["latin"],
+  weight: ["600", "700"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const rvBody = Source_Serif_4({
+  variable: "--font-rv-body",
   subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
 
 export const viewport: Viewport = {
@@ -26,7 +29,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Retroverse",
-  description: "Chart memory — albums, artists, and eras.",
+  description: "Search music history — artists, albums, and chart runs.",
   applicationName: "Retroverse",
   appleWebApp: {
     capable: true,
@@ -41,9 +44,6 @@ export const metadata: Metadata = {
   },
 };
 
-const navLink =
-  "text-[0.68rem] uppercase tracking-[0.16em] text-[var(--text-secondary)] transition hover:text-[var(--accent-primary)]";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -52,23 +52,20 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${rvDisplay.variable} ${rvBody.variable} h-full antialiased`}
       data-theme="dark"
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
+      <body className="rv-public-surface min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
         <RetroverseRouteTuner />
         <header className="rv-global-header" role="banner">
           <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-5">
-            <Link
-              href="/"
-              className="font-serif text-[1.05rem] tracking-[0.04em] text-[var(--text-primary)] sm:text-[1.12rem]"
-            >
+            <Link href="/" className="rv-public-wordmark">
               Retroverse
             </Link>
             <nav className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3" aria-label="Primary">
               {PRIMARY_NAV.filter((item) => item.href !== "/").map((item) => (
-                <Link key={item.href} className={navLink} href={item.href}>
+                <Link key={item.href} className="rv-public-header-link" href={item.href}>
                   {item.label}
                 </Link>
               ))}

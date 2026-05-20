@@ -2,14 +2,12 @@
 
 export type NavItem = { href: string; label: string };
 
+/** Public header only — labs/tools live off-nav (Retroscope, Portal, integrity, etc.). */
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/", label: "Home" },
-  { href: "/album-retroscope", label: "Retroscope" },
-  { href: "/track-deck", label: "Charts" },
-  { href: "/artists", label: "Artists" },
   { href: "/albums", label: "Albums" },
+  { href: "/artists", label: "Artists" },
   { href: "/tracks", label: "Tracks" },
-  { href: "/relationship-workspace", label: "Link" },
 ];
 
 export function relationshipWorkspaceHref(artist: string, title: string): string {

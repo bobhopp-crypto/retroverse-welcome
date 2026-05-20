@@ -5,8 +5,7 @@ import AskRetroverseClient from "./ask-retroverse-client";
 
 export const metadata: Metadata = {
   title: "Retroverse — Search music history",
-  description:
-    "Press play for the past. Search chart tracks, albums, and artists — then travel through Retroscope, charts, and your DJ memory trails.",
+  description: "Search artists, albums, and chart history — readable music culture, album by album.",
 };
 
 /** Home is the search front door (200 OK — no redirect). */

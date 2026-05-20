@@ -9,7 +9,7 @@ import "@/app/albums/album-dossier.css";
 
 export const metadata: Metadata = {
   title: "Tracks - Retroverse",
-  description: "Canonical track archive index.",
+  description: "Browse chart tracks by title and artist.",
 };
 export const dynamic = "force-dynamic";
 
@@ -33,9 +33,9 @@ function withParams(searchParams: Awaited<TracksPageProps["searchParams"]>, offs
 }
 
 function confidenceLabel(value: "high" | "medium" | "low"): string {
-  if (value === "high") return "identity high";
-  if (value === "medium") return "identity review";
-  return "identity weak";
+  if (value === "high") return "verified";
+  if (value === "medium") return "needs review";
+  return "tentative match";
 }
 
 export default async function TracksIndexPage({ searchParams }: TracksPageProps) {

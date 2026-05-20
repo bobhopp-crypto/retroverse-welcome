@@ -12,12 +12,12 @@ import { getAlbumDossier } from "@/lib/load-album-dossier";
 import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
 import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/canonical-album-sequences";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
-import { artistRoute } from "@/lib/retroverse-routes";
+import { homeSearchHref } from "@/lib/retroverse-nav";
+import { artistRoute, hrefForTrack } from "@/lib/retroverse-routes";
 
 import { AlbumArchiveCover } from "../album-archive-cover";
 import { AlbumExploreLoop } from "../album-explore-loop";
 import { AlbumMediaSignals } from "../album-media-signals";
-import { AlbumDossierOperatorOverlay } from "./album-dossier-operator-overlay";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +61,6 @@ function formatArchiveDate(raw: string | null | undefined): string {
   const dy = Number(m[3]);
   const d = new Date(Date.UTC(y, mo - 1, dy));
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
-function shortenId(s: string): string {
-  const t = s.trim();
-  if (t.length <= 10) return t;
-  return `${t.slice(0, 6)}…${t.slice(-4)}`;
 }
 
 function normalizeCanonicalTitle(value: string): string {
@@ -157,12 +151,12 @@ export default async function AlbumDossierPage({ params }: Props) {
   const chartWeeks = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
   const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date;
   const chartLast = graphDetail?.lastChartDate ?? chart.last_chart_date;
-  const curateHref = `/portal-v2/curate?albumId=${encodeURIComponent(dossier.albumId)}`;
-  const canonicalSequence = getCanonicalAlbumSequence(dossier.albumId);
-  const resolvedSequence = canonicalSequence
-    ? resolveCanonicalSequenceTracks(canonicalSequence, acoustic.tracks)
-    : { tracks: [], unresolvedTrackCount: acoustic.tracks.length };
-  const canonicalTracks = resolvedSequence.tracks;
+  const displayTracks =
+    acoustic.tracks.length > 0
+      ? acoustic.tracks
+      : getCanonicalAlbumSequence(dossier.albumId)
+        ? resolveCanonicalSequenceTracks(getCanonicalAlbumSequence(dossier.albumId)!, acoustic.tracks).tracks
+        : [];
 
   return (
     <>
@@ -173,23 +167,17 @@ export default async function AlbumDossierPage({ params }: Props) {
             immersive
             back={{ href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" }}
             items={[
+              { href: "/", label: "Search" },
               { href: artistRoute(identity.artist), label: "Artist" },
               { href: `/tracks?q=${encodeURIComponent(identity.album)}`, label: "Tracks" },
-              { href: "/album-retroscope", label: "Retroscope" },
-              { href: "/track-deck", label: "Charts" },
             ]}
           />
-          <div className="dossier-top-end">
-            <AlbumDossierOperatorOverlay />
-          </div>
         </header>
 
         <div className="dossier-cinematic">
           <div className="dossier-hero-bezel">
             <div className="dossier-hero-inner">
-            <Link href="/album-retroscope" className="dossier-hero-archive-link" aria-label="Open spatial archive (RetroScope)" prefetch={false}>
-              <AlbumArchiveCover src={coverUrl} title={identity.album} className="dossier-cover-frame--hero" />
-            </Link>
+            <AlbumArchiveCover src={coverUrl} title={identity.album} className="dossier-cover-frame--hero" />
             </div>
           </div>
 
@@ -233,64 +221,27 @@ export default async function AlbumDossierPage({ params }: Props) {
         ) : null}
 
         <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank dossier-mobile-reveal-panel">
-          <h2 className="dossier-panel-label">
-            Canonical tracks
-            {graphDetail?.trackFamilyCount ? (
-              <span className="dossier-panel-label-meta"> · {graphDetail.trackFamilyCount} families linked</span>
-            ) : null}
-          </h2>
-          <p className="dossier-provenance dossier-canonical-note">
-            {canonicalSequence?.source_note ??
-              "Canonical sequence unresolved. Track rows are withheld until an original listening sequence is available."}
-          </p>
-          {canonicalTracks.length ? (
-            <div className="dossier-track-scroll">
-              <table className="dossier-table dossier-table--tracks">
-                <thead>
-                  <tr>
-                    <th className="dossier-tcol-signal">Signal</th>
-                    <th className="dossier-tcol-idx">#</th>
-                    <th className="dossier-tcol-title">Title</th>
-                    <th>Dur</th>
-                    <th>Canonical ref</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {canonicalTracks.map((tr, i) => {
-                    const mb = tr.musicbrainz;
-                    const mbBits = [
-                      tr.canonicalRefLabel ?? null,
-                      mb?.position != null ? `#${mb.position}` : null,
-                      mb?.recording_mbid ? shortenId(mb.recording_mbid) : null,
-                    ].filter(Boolean);
-                    return (
-                      <tr key={`${tr.spotify_track_id ?? tr.title}-${i}`}>
-                        <td className="dossier-tcol-signal">
-                          <span className="dossier-tri-signal" aria-label="Canonical sequence signal">
-                            <span />
-                            <span />
-                            <span />
-                          </span>
-                        </td>
-                        <td className="dossier-tcol-idx">{canonicalTrackPosition(tr, i)}</td>
-                        <td className="dossier-tcol-title">
-                          <span className="dossier-track-title">{tr.title}</span>
-                          {mb?.disambiguation ? (
-                            <span className="dossier-track-mb-hint">{String(mb.disambiguation)}</span>
-                          ) : null}
-                        </td>
-                        <td>{formatDurationMs(tr.duration_ms ?? undefined)}</td>
-                        <td className="dossier-tcol-mb">{mbBits.length ? mbBits.join(" · ") : "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+          <h2 className="dossier-panel-label">Track listing</h2>
+          {displayTracks.length ? (
+            <ol className="rv-public-track-list">
+              {displayTracks.map((tr, i) => {
+                const trackHref =
+                  tr.spotify_track_id && /^RVTR\d{6}$/i.test(tr.spotify_track_id)
+                    ? hrefForTrack(tr.spotify_track_id)
+                    : homeSearchHref(`${tr.title} ${identity.artist}`);
+                return (
+                  <li key={`${tr.spotify_track_id ?? tr.title}-${i}`}>
+                    <Link href={trackHref}>
+                      <span className="rv-track-num">{canonicalTrackPosition(tr, i)}</span>
+                      <span>{tr.title}</span>
+                      <span className="rv-track-dur">{formatDurationMs(tr.duration_ms ?? undefined)}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
           ) : (
-            <div className="dossier-unresolved-sequence" role="status">
-              Canonical sequence unresolved
-            </div>
+            <p className="dossier-provenance">Track listing not available for this album yet.</p>
           )}
         </section>
 
@@ -316,7 +267,7 @@ export default async function AlbumDossierPage({ params }: Props) {
             </div>
             <div className="dossier-tunnel">
               <h3 className="dossier-subhead dossier-subhead--tunnel">
-                Adjacent on Retroverse grid
+                Nearby on the charts
                 <span className="dossier-tunnel-glyph dossier-tunnel-glyph--grid" aria-hidden />
               </h3>
               <ul className="dossier-related">
@@ -346,11 +297,6 @@ export default async function AlbumDossierPage({ params }: Props) {
           albumId={dossier.albumId}
         />
 
-        <footer className="dossier-foot">
-          <Link href={curateHref} className="dossier-a dossier-a--quiet">
-            Operator · artwork
-          </Link>
-        </footer>
       </div>
     </>
   );

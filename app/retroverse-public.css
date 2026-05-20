@@ -1,0 +1,373 @@
+/**
+ * Retroverse public design system — one readable universe for /, search, artists, albums, tracks.
+ * Two families: Fraunces (display) + Source Serif 4 (body), wired in layout.tsx.
+ */
+
+:root {
+  --rv-pub-bg: #15100a;
+  --rv-pub-bg-elevated: #1f1610;
+  --rv-pub-fg: #f5ecd6;
+  --rv-pub-fg-muted: #d4c4a0;
+  --rv-pub-accent: #e8b84a;
+  --rv-pub-accent-hover: #f5d078;
+  --rv-pub-link: #f0c96a;
+  --rv-pub-border: rgba(232, 184, 74, 0.35);
+  --rv-pub-radius: 0.75rem;
+  --rv-pub-pad-x: clamp(1rem, 4vw, 1.5rem);
+  --rv-pub-pad-y: clamp(1.25rem, 5vw, 2rem);
+  --rv-pub-font-display: var(--font-rv-display), Georgia, "Times New Roman", serif;
+  --rv-pub-font-body: var(--font-rv-body), Georgia, "Times New Roman", serif;
+  --rv-pub-text-body: 1.0625rem;
+  --rv-pub-text-meta: 0.9375rem;
+  --rv-pub-text-title: clamp(2rem, 9vw, 2.75rem);
+  --rv-pub-text-section: 0.8125rem;
+  --rv-pub-leading: 1.55;
+  --rv-pub-content-max: 42rem;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --rv-pub-text-body: 1.125rem;
+    --rv-pub-text-meta: 1rem;
+  }
+}
+
+/* Align global tokens with public palette on entity surfaces */
+html[data-theme="dark"] {
+  --bg-main: var(--rv-pub-bg);
+  --text-primary: var(--rv-pub-fg);
+  --text-secondary: var(--rv-pub-fg-muted);
+  --accent-primary: var(--rv-pub-accent);
+  --card-border: var(--rv-pub-border);
+}
+
+body.rv-public-surface {
+  font-family: var(--rv-pub-font-body);
+  font-size: var(--rv-pub-text-body);
+  line-height: var(--rv-pub-leading);
+  color: var(--rv-pub-fg);
+  background-color: var(--rv-pub-bg);
+}
+
+/* —— Global header (public nav) —— */
+.rv-public-header-link {
+  font-family: var(--rv-pub-font-body);
+  font-size: max(0.9375rem, 15px);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rv-pub-fg-muted);
+  text-decoration: none;
+  padding: 0.35rem 0.15rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rv-public-header-link:hover,
+.rv-public-header-link:focus-visible {
+  color: var(--rv-pub-link);
+}
+
+.rv-public-wordmark {
+  font-family: var(--rv-pub-font-display);
+  font-size: clamp(1.15rem, 4.5vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--rv-pub-fg);
+  text-decoration: none;
+}
+
+/* —— Home / search —— */
+.rv-home {
+  min-height: calc(100dvh - var(--rv-header-offset, 3.75rem));
+  background:
+    radial-gradient(ellipse 100% 60% at 50% -10%, rgba(232, 184, 74, 0.14), transparent 55%),
+    var(--rv-pub-bg);
+  color: var(--rv-pub-fg);
+}
+
+.rv-home-inner {
+  max-width: var(--rv-pub-content-max);
+  margin: 0 auto;
+  padding: var(--rv-pub-pad-y) var(--rv-pub-pad-x) 3rem;
+}
+
+.rv-home-hero {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.rv-home-title {
+  font-family: var(--rv-pub-font-display);
+  font-size: var(--rv-pub-text-title);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  color: var(--rv-pub-fg);
+  margin: 0 0 0.5rem;
+}
+
+.rv-home-tagline {
+  font-size: max(1.0625rem, 17px);
+  line-height: 1.45;
+  color: var(--rv-pub-fg-muted);
+  margin: 0;
+  max-width: 28ch;
+  margin-inline: auto;
+}
+
+.rv-home-search-wrap {
+  margin-bottom: 1rem;
+}
+
+.rv-home-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--rv-pub-font-body);
+  font-size: max(1.0625rem, 17px);
+  line-height: 1.35;
+  color: var(--rv-pub-fg);
+  background: var(--rv-pub-bg-elevated);
+  border: 2px solid var(--rv-pub-border);
+  border-radius: var(--rv-pub-radius);
+  padding: 1rem 1.1rem;
+  min-height: 3.25rem;
+  outline: none;
+}
+
+.rv-home-search::placeholder {
+  color: color-mix(in srgb, var(--rv-pub-fg-muted) 72%, transparent);
+}
+
+.rv-home-search:focus {
+  border-color: var(--rv-pub-accent);
+  box-shadow: 0 0 0 3px rgba(232, 184, 74, 0.2);
+}
+
+.rv-home-hint {
+  font-size: max(0.9375rem, 15px);
+  color: var(--rv-pub-fg-muted);
+  margin: 0.5rem 0 0;
+  min-height: 1.35em;
+}
+
+.rv-home-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.rv-home-example {
+  font-family: var(--rv-pub-font-body);
+  font-size: max(0.9375rem, 15px);
+  font-weight: 600;
+  color: var(--rv-pub-fg);
+  background: color-mix(in srgb, var(--rv-pub-bg-elevated) 88%, var(--rv-pub-accent) 12%);
+  border: 1px solid var(--rv-pub-border);
+  border-radius: 999px;
+  padding: 0.5rem 0.9rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-home-example:hover {
+  border-color: var(--rv-pub-accent);
+  color: var(--rv-pub-link);
+}
+
+.rv-home-results {
+  margin-top: 1.25rem;
+  padding: 0.85rem 0.65rem;
+  background: var(--rv-pub-bg-elevated);
+  border: 1px solid var(--rv-pub-border);
+  border-radius: var(--rv-pub-radius);
+}
+
+.rv-home-section-title {
+  font-size: var(--rv-pub-text-section);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rv-pub-accent);
+  margin: 0 0 0.35rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--rv-pub-border);
+}
+
+.rv-home-section-title + .rv-home-section-title {
+  margin-top: 1rem;
+}
+
+.rv-home-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.85rem 0.5rem;
+  min-height: 2.85rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--rv-pub-border) 45%, transparent);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-home-result:last-child {
+  border-bottom: none;
+}
+
+.rv-home-result:hover {
+  background: color-mix(in srgb, var(--rv-pub-accent) 12%, transparent);
+}
+
+.rv-home-result-main {
+  font-size: max(1.0625rem, 17px);
+  font-weight: 600;
+  color: var(--rv-pub-fg);
+}
+
+.rv-home-result-sub {
+  font-size: max(0.9375rem, 15px);
+  color: var(--rv-pub-fg-muted);
+  margin-top: 0.2rem;
+}
+
+/* —— Entity nav + status —— */
+.rv-entity-nav {
+  font-size: max(0.9375rem, 15px) !important;
+  letter-spacing: 0.08em !important;
+}
+
+.rv-entity-nav-back,
+.rv-entity-nav-link {
+  color: var(--rv-pub-fg-muted) !important;
+  min-height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+.rv-entity-nav-back:hover,
+.rv-entity-nav-link:hover {
+  color: var(--rv-pub-link) !important;
+}
+
+.rv-entity-status {
+  min-height: calc(100dvh - var(--rv-header-offset, 3.75rem));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem var(--rv-pub-pad-x);
+}
+
+.rv-entity-status-inner {
+  max-width: 22rem;
+  text-align: center;
+}
+
+.rv-entity-status h1 {
+  font-family: var(--rv-pub-font-display);
+  font-size: clamp(1.5rem, 6vw, 2rem);
+  color: var(--rv-pub-fg);
+  margin: 0 0 0.75rem;
+}
+
+.rv-entity-status p {
+  font-size: max(1.0625rem, 17px);
+  color: var(--rv-pub-fg-muted);
+  line-height: var(--rv-pub-leading);
+  margin: 0 0 1rem;
+}
+
+.rv-entity-status a {
+  font-size: max(1rem, 16px);
+  font-weight: 600;
+  color: var(--rv-pub-link);
+}
+
+/* —— Public entity page readability overrides —— */
+@media (max-width: 639px) {
+  .dossier-body .dossier-title {
+    font-size: clamp(1.85rem, 9vw, 2.35rem) !important;
+  }
+
+  .dossier-body .dossier-artist,
+  .dossier-body .dossier-byline {
+    font-size: max(1.0625rem, 17px) !important;
+  }
+
+  .dossier-body .dossier-provenance-label,
+  .dossier-body .dossier-panel-label,
+  .dossier-body .dossier-subhead {
+    font-size: max(0.9375rem, 15px) !important;
+  }
+
+  .dossier-body .dossier-chart-glance dt,
+  .dossier-body .dossier-chart-glance dd,
+  .dossier-body .dossier-table th,
+  .dossier-body .dossier-table td {
+    font-size: max(0.9375rem, 15px) !important;
+  }
+
+  .dossier-body .dossier-index-search label span,
+  .dossier-body .dossier-index-search input,
+  .dossier-body .dossier-index-search button {
+    font-size: max(1rem, 16px) !important;
+  }
+
+  .dossier-canonical-note,
+  .dossier-unresolved-sequence,
+  .dossier-index-status,
+  .dossier-index-flags,
+  .dossier-tcol-signal,
+  .dossier-tcol-mb {
+    display: none !important;
+  }
+
+  .dossier-body .dossier-table--tracks th:nth-child(4),
+  .dossier-body .dossier-table--tracks td:nth-child(4),
+  .dossier-body .dossier-table--tracks th:nth-child(5),
+  .dossier-body .dossier-table--tracks td:nth-child(5) {
+    display: none;
+  }
+}
+
+.rv-public-track-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rv-public-track-list li {
+  border-bottom: 1px solid color-mix(in srgb, var(--rv-pub-border) 40%, transparent);
+}
+
+.rv-public-track-list a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  padding: 0.85rem 0.25rem;
+  min-height: 2.85rem;
+  text-decoration: none;
+  color: var(--rv-pub-fg);
+  font-size: max(1.0625rem, 17px);
+  font-weight: 600;
+}
+
+.rv-public-track-list a:hover {
+  color: var(--rv-pub-link);
+}
+
+.rv-public-track-list .rv-track-num {
+  font-size: max(0.9375rem, 15px);
+  color: var(--rv-pub-fg-muted);
+  min-width: 1.5rem;
+}
+
+.rv-public-track-list .rv-track-dur {
+  margin-left: auto;
+  font-size: max(0.9375rem, 15px);
+  font-weight: 400;
+  color: var(--rv-pub-fg-muted);
+}

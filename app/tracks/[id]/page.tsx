@@ -3,7 +3,6 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { BodyClassName } from "@/app/components/body-class-name";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
-import { relationshipWorkspaceHref } from "@/lib/retroverse-nav";
 import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildTrackContextLine, buildTrackCulturalRole } from "@/lib/retroverse-editorial";
@@ -22,7 +21,7 @@ import "@/app/albums/album-dossier.css";
 
 export const metadata: Metadata = {
   title: "Track - Retroverse",
-  description: "Canonical track graph traversal powered by Retroverse.",
+  description: "Hot 100 chart run, peak, and album links for a song.",
 };
 export const dynamic = "force-dynamic";
 
@@ -575,8 +574,6 @@ function trajectoryMomentClasses(weeks: TrackTrajectory["weeks"], index: number)
 
 function renderTrajectoryPage(data: TrackTrajectory) {
   const primaryAlbum = data.connectedAlbums[0] ?? null;
-  const integrityStates = data.integrityStates.length ? data.integrityStates : ["canonical Hot 100 linked"];
-
   return (
     <>
       <BodyClassName className="dossier-body" />
@@ -601,7 +598,7 @@ function renderTrajectoryPage(data: TrackTrajectory) {
               Album link: <Link href={`/albums/${primaryAlbum.albumId}`}>{primaryAlbum.albumTitle}</Link>
             </p>
           ) : (
-            <p className="dossier-provenance">Canonical album unresolved</p>
+            <p className="dossier-provenance">Album link not available yet</p>
           )}
 
           <dl className="dossier-trajectory-stats">
@@ -676,12 +673,12 @@ function renderTrajectoryPage(data: TrackTrajectory) {
                 ))}
               </ul>
             ) : (
-              <p className="dossier-provenance">Unresolved canonical album</p>
+              <p className="dossier-provenance">No linked albums yet</p>
             )}
           </article>
 
           <article className="dossier-panel dossier-panel--band-gold">
-            <h2 className="dossier-panel-label">Related canonical tracks</h2>
+            <h2 className="dossier-panel-label">Related tracks</h2>
             <ul className="dossier-support-list">
               {data.relatedTracks.map((track) => (
                 <li key={track.href}>
@@ -692,18 +689,14 @@ function renderTrajectoryPage(data: TrackTrajectory) {
             </ul>
           </article>
 
-          <article className="dossier-panel dossier-panel--band-teal">
-            <h2 className="dossier-panel-label">Integrity</h2>
-            <div className="dossier-track-integrity dossier-track-integrity--support">
-              {integrityStates.map((state) => (
-                <span key={state}>{state}</span>
-              ))}
-              {data.reentryCount > 0 ? <span>{data.reentryCount} recurrence gap{data.reentryCount === 1 ? "" : "s"}</span> : null}
-            </div>
-            {data.pairedAliases.length ? (
-              <p className="dossier-provenance">Paired alias parts: {data.pairedAliases.join(" / ")}</p>
-            ) : null}
-          </article>
+          {data.reentryCount > 0 ? (
+            <article className="dossier-panel dossier-panel--band-teal">
+              <h2 className="dossier-panel-label">Chart notes</h2>
+              <p className="dossier-provenance">
+                Re-entered the Hot 100 {data.reentryCount} time{data.reentryCount === 1 ? "" : "s"} after leaving the chart.
+              </p>
+            </article>
+          ) : null}
         </section>
       </main>
     </>
@@ -819,7 +812,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             {charts.length > 0 ? ` · ${charts.length} chart entries` : ""}
           </p>
           {partial ? (
-            <p className="text-[0.82rem] text-[var(--text-secondary)]">Partial data — some graph details are unavailable.</p>
+            <p className="text-[0.82rem] text-[var(--text-secondary)]">Some details are still being filled in.</p>
           ) : null}
           <p className="max-w-[40ch] text-[1.03rem] leading-[1.7] text-[var(--text-secondary)] sm:text-[1.08rem]">
             {contextLine}
@@ -830,15 +823,9 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
           <RetroverseEntityNav
             back={{ href: "/tracks", label: "Tracks" }}
             items={[
-              { href: "/", label: "Home" },
+              { href: "/", label: "Search" },
               { href: artistHref, label: "Artist" },
               { href: primaryAlbumHref, label: "Album" },
-              { href: "/track-deck", label: "Charts" },
-              {
-                href: relationshipWorkspaceHref(artist.canonical_artist_name, track.canonical_title),
-                label: "Link",
-              },
-              { href: "/album-retroscope", label: "Retroscope" },
             ]}
           />
         </div>

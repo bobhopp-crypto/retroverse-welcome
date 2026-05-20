@@ -623,7 +623,7 @@ export async function generateMetadata({ params }: ArtistPageProps): Promise<Met
   const { slug } = await params;
   return {
     title: `${slug.replaceAll("-", " ")} - Retroverse`,
-    description: "Canonical artist exploration powered by the Retroverse graph.",
+    description: "Albums, tracks, and chart highlights for this artist.",
   };
 }
 
@@ -939,7 +939,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           </p>
           <div className="artist-uni-hero-grid">
             <div className="artist-uni-hero-copy">
-              <p className="artist-uni-eyebrow">Artist universe · visual discography</p>
+              <p className="artist-uni-eyebrow">Artist · albums &amp; chart highlights</p>
               <h1 className="artist-uni-title text-[2.55rem] sm:text-[3.35rem]">{data.artist.canonical_artist_name}</h1>
               <p className="artist-uni-sub text-[1.02rem] sm:text-[1.08rem]">
                 {hasYearRange ? `${firstActiveYear}-${lastActiveYear}` : "Career years resolving"} · {data.connectedAlbums.length} album
@@ -1225,7 +1225,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             </div>
             {relatedSignalCount > 0 ? (
               <p className="artist-uni-muted text-[0.78rem]">
-                {relatedSignalCount} related chart variant{relatedSignalCount === 1 ? "" : "s"} kept in the graph, folded out of the primary signal rail.
+                {relatedSignalCount} related chart variant{relatedSignalCount === 1 ? "" : "s"} not shown in the main list.
               </p>
             ) : null}
           </section>
