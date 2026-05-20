@@ -3143,12 +3143,72 @@ a.dossier-track-name:hover {
 }
 
 .dossier-tracklist-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 2.85rem 2rem minmax(0, 1fr);
-  gap: 0.35rem 0.45rem;
+  grid-template-columns: 3.35rem minmax(0, 1fr);
+  gap: 0.4rem 0.5rem;
   align-items: center;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.35rem;
   border-bottom: 1px solid rgba(255, 248, 240, 0.06);
+  border-radius: 4px;
+}
+
+.dossier-tracklist-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dossier-tracklist-row--heat-peak::before {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(232, 107, 79, 0.1) 0%,
+    rgba(255, 214, 150, 0.06) 42%,
+    transparent 100%
+  );
+}
+
+.dossier-tracklist-row--heat-high::before {
+  opacity: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 200, 120, 0.07) 0%,
+    rgba(199, 107, 143, 0.04) 38%,
+    transparent 100%
+  );
+}
+
+.dossier-tracklist-row--heat-mid::before {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(94, 196, 207, 0.04) 0%, transparent 72%);
+}
+
+.dossier-tracklist-row--heat-low::before {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(120, 150, 175, 0.035) 0%, transparent 65%);
+}
+
+.dossier-tracklist-row--heat-dim::before {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(80, 95, 115, 0.03) 0%, transparent 55%);
+}
+
+.dossier-tracklist-row--heat-peak .dossier-tracklist-title {
+  color: rgba(252, 244, 232, 0.98);
+}
+
+.dossier-tracklist-row--heat-high .dossier-tracklist-title {
+  color: rgba(248, 242, 255, 0.95);
+}
+
+.dossier-tracklist-row--heat-dim .dossier-tracklist-title,
+.dossier-tracklist-row--heat-low .dossier-tracklist-title {
+  color: rgba(220, 210, 198, 0.82);
 }
 
 .dossier-tracklist-row:last-child {
@@ -3156,19 +3216,24 @@ a.dossier-track-name:hover {
 }
 
 .dossier-tracklist-glyph {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 0.12rem;
+  min-width: 2.85rem;
 }
 
-.dossier-tracklist-score {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.78rem;
-  font-weight: 700;
+.dossier-tracklist-signal-rank {
+  font-family: var(--d-font-broadcast);
+  font-size: 0.48rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   line-height: 1;
-  color: rgba(245, 235, 224, 0.92);
-  text-align: center;
-  min-width: 1.75rem;
+  color: rgba(255, 214, 150, 0.62);
 }
 
 .dossier-inst--track-row {
@@ -3187,6 +3252,8 @@ a.dossier-track-name:hover {
 }
 
 .dossier-tracklist-main {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 1.65rem minmax(0, 1fr) auto;
   gap: 0.2rem 0.45rem;

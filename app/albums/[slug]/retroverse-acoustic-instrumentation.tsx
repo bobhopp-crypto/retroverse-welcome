@@ -81,6 +81,8 @@ type Props = {
   retroverseDial?: number;
   /** Track row: score renders outside the ring for readability. */
   hideCenterDial?: boolean;
+  /** Track row experiment: lighter quadrant strokes. */
+  simplifyRing?: boolean;
   /** Larger ring + type for the Rumours strip hero dial. */
   presentation?: "default" | "arcade" | "track-row";
 };
@@ -95,6 +97,7 @@ export function RetroverseAcousticInstrumentation({
   domIdSlug,
   retroverseDial,
   hideCenterDial = false,
+  simplifyRing = false,
   presentation = "default",
 }: Props) {
   void domIdSlug;
@@ -120,14 +123,42 @@ export function RetroverseAcousticInstrumentation({
   const cy = 50;
   const rTrack = trackRow ? 38 : arcade ? 37 : 36;
   const rSignal = trackRow ? 31 : arcade ? 30.5 : 30;
-  const wTrack = trackRow ? 5.8 : arcade ? 6.35 : 5.5;
-  const wSignal = trackRow ? 5.2 : arcade ? 5.6 : 5;
+  const wTrack = trackRow ? (simplifyRing ? 5.2 : 5.8) : arcade ? 6.35 : 5.5;
+  const wSignal = trackRow ? (simplifyRing ? 4.6 : 5.2) : arcade ? 5.6 : 5;
 
   const quads = [
-    { m: clamp01(profile.energy), start: (-3 * Math.PI) / 4, track: "rgba(232,107,79,0.14)", signal: "rgba(232,107,79,0.92)", label: "E", title: `Energy ${fmtRatio01Pct(profile.energy)}` },
-    { m: clamp01(profile.valence), start: -Math.PI / 4, track: "rgba(199,107,143,0.14)", signal: "rgba(199,107,143,0.92)", label: "Em", title: `Emotion ${fmtRatio01Pct(profile.valence)}` },
-    { m: culturalPresenceMetric(profile), start: Math.PI / 4, track: "rgba(94,196,207,0.14)", signal: "rgba(94,196,207,0.92)", label: "C", title: `Cultural presence ${fmtRatio01Pct(culturalPresenceMetric(profile))}` },
-    { m: replayabilityMetric(profile), start: (3 * Math.PI) / 4, track: "rgba(255,200,120,0.14)", signal: "rgba(255,200,120,0.88)", label: "R", title: `Replayability ${fmtRatio01Pct(replayabilityMetric(profile))}` },
+    {
+      m: clamp01(profile.energy),
+      start: (-3 * Math.PI) / 4,
+      track: simplifyRing ? "rgba(232,107,79,0.1)" : "rgba(232,107,79,0.14)",
+      signal: simplifyRing ? "rgba(232,107,79,0.78)" : "rgba(232,107,79,0.92)",
+      label: "E",
+      title: `Energy ${fmtRatio01Pct(profile.energy)}`,
+    },
+    {
+      m: clamp01(profile.valence),
+      start: -Math.PI / 4,
+      track: simplifyRing ? "rgba(199,107,143,0.1)" : "rgba(199,107,143,0.14)",
+      signal: simplifyRing ? "rgba(199,107,143,0.78)" : "rgba(199,107,143,0.92)",
+      label: "Em",
+      title: `Emotion ${fmtRatio01Pct(profile.valence)}`,
+    },
+    {
+      m: culturalPresenceMetric(profile),
+      start: Math.PI / 4,
+      track: simplifyRing ? "rgba(94,196,207,0.1)" : "rgba(94,196,207,0.14)",
+      signal: simplifyRing ? "rgba(94,196,207,0.78)" : "rgba(94,196,207,0.92)",
+      label: "C",
+      title: `Cultural presence ${fmtRatio01Pct(culturalPresenceMetric(profile))}`,
+    },
+    {
+      m: replayabilityMetric(profile),
+      start: (3 * Math.PI) / 4,
+      track: simplifyRing ? "rgba(255,200,120,0.1)" : "rgba(255,200,120,0.14)",
+      signal: simplifyRing ? "rgba(255,200,120,0.72)" : "rgba(255,200,120,0.88)",
+      label: "R",
+      title: `Replayability ${fmtRatio01Pct(replayabilityMetric(profile))}`,
+    },
   ];
 
   const ariaCore = `${a11yLabel}. Retroverse signal ${rs}.`;

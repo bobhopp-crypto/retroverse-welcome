@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { RetroverseAcousticInstrumentation } from "@/app/albums/[slug]/retroverse-acoustic-instrumentation";
 import type { DossierTrackRow } from "@/lib/album-dossier-display-tracks";
+import { buildAlbumTrackSignalPresentation } from "@/lib/track-signal-presentation";
 import { homeSearchHref } from "@/lib/retroverse-nav";
 import { hrefForTrack } from "@/lib/retroverse-routes";
 
@@ -23,29 +24,43 @@ export function AlbumDossierTracklist({ rows, artistName }: Props) {
     return <p className="dossier-provenance">Tracks not listed yet.</p>;
   }
 
+  const presentation = buildAlbumTrackSignalPresentation(rows);
+
   return (
-    <ol className="dossier-tracklist">
+    <ol className="dossier-tracklist dossier-tracklist--editorial-signal">
       {rows.map((row, i) => {
         const tr = row.track;
+        const pres = presentation[i]!;
         const trackHref =
           tr.spotify_track_id && /^RVTR\d{6}$/i.test(tr.spotify_track_id)
             ? hrefForTrack(tr.spotify_track_id)
             : homeSearchHref(`${tr.title} ${artistName}`);
+        const heatClass =
+          pres.heatTier !== "none" ? ` dossier-tracklist-row--heat-${pres.heatTier}` : "";
+        const rankLabel =
+          pres.signalRank != null ? `Album signal rank #${pres.signalRank}` : "Signal not rated";
+
         return (
-          <li key={`${tr.spotify_track_id ?? tr.title}-${i}`} className="dossier-tracklist-row">
+          <li
+            key={`${tr.spotify_track_id ?? tr.title}-${i}`}
+            className={`dossier-tracklist-row${heatClass}`}
+          >
             <div className="dossier-tracklist-glyph">
               <RetroverseAcousticInstrumentation
                 presentation="track-row"
                 profile={row.profile}
                 retroverseDial={row.retroverseDial}
                 hideCenterDial
-                a11yLabel={tr.title}
+                simplifyRing
+                a11yLabel={`${tr.title}. ${rankLabel}.`}
                 domIdSlug={`${i}-${tr.title.slice(0, 12)}`}
               />
+              {pres.signalRank != null ? (
+                <span className="dossier-tracklist-signal-rank" aria-hidden>
+                  #{pres.signalRank}
+                </span>
+              ) : null}
             </div>
-            <span className="dossier-tracklist-score" aria-label={`Signal ${row.retroverseDial}`}>
-              {row.retroverseDial > 0 ? row.retroverseDial : "—"}
-            </span>
             <Link href={trackHref} className="dossier-tracklist-main">
               <span className="dossier-tracklist-num">{row.position}</span>
               <span className="dossier-tracklist-title">{tr.title}</span>
