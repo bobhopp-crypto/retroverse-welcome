@@ -41,9 +41,9 @@ import { RetroscopeModeStrip } from "./retroscope-mode-strip";
 import { RetroscopeOrientationOverlay } from "./retroscope-orientation-overlay";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
-  centerViewportOnSelection,
   clearRetroscopePersistedState,
-  retroscopeViewportFocusIndices,
+  defaultViewportOrigin,
+  ensureViewportIncludesSelection,
   saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
 } from "@/lib/retroscope-persist-session";
@@ -196,6 +196,31 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function retroscopeChartLabel(mode: RetroscopeMode): string {
+  if (mode === "track") return "Billboard Hot 100";
+  if (mode === "album") return "Billboard 200";
+  return "Chart years";
+}
+
+function retroscopeMicroContext(cell: RetroscopeCellDTO | null, mode: RetroscopeMode): string | null {
+  const chart = retroscopeChartLabel(mode);
+  if (!cell) return chart;
+  const bits: string[] = [chart];
+  if (cell.releaseYear != null && mode !== "artist") {
+    bits.push(`Released ${cell.releaseYear}`);
+  }
+  if (mode === "artist" && cell.rankedYearCount != null && cell.rankedYearCount > 0) {
+    bits.push(`${cell.rankedYearCount} chart years`);
+  }
+  return bits.join(" · ");
+}
+
+function temporalYearClass(y: number, activeYear: number): string {
+  if (y < activeYear) return "arv-cell--past";
+  if (y > activeYear) return "arv-cell--future";
+  return "arv-cell--now";
+}
+
 function subscribeRetroscopeViewportRows(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const mq = window.matchMedia(MOBILE_MQ);
@@ -265,22 +290,14 @@ export default function RetroscopeClient({
   const machineRef = useRef<HTMLDivElement>(null);
   const portalRef = useRef<HTMLElement>(null);
   const viewportRef = useRef<HTMLElement>(null);
-  const stripRef = useRef<HTMLElement>(null);
+  const bandRef = useRef<HTMLElement>(null);
   const [viewYear0, setViewYear0] = useState(() => {
     const rows = serverSnapshotRetroscopeGridRows();
-    return centerViewportOnSelection({
-      activeYear: ssrInit.y,
-      activeRank: ssrInit.r,
-      visibleGridRows: rows,
-    }).viewYear0;
+    return defaultViewportOrigin(ssrInit.y, ssrInit.r, rows).viewYear0;
   });
   const [viewRank0, setViewRank0] = useState(() => {
     const rows = serverSnapshotRetroscopeGridRows();
-    return centerViewportOnSelection({
-      activeYear: ssrInit.y,
-      activeRank: ssrInit.r,
-      visibleGridRows: rows,
-    }).viewRank0;
+    return defaultViewportOrigin(ssrInit.y, ssrInit.r, rows).viewRank0;
   });
 
   /** Keep viewport rank clamped when breakpoint row count shifts — avoids hydration mismatch vs SSR desktop rows. */
@@ -426,10 +443,10 @@ export default function RetroscopeClient({
     posRef.current = { y: activeYear, r: activeRank };
   }, [activeYear, activeRank]);
 
-  /** Re-lock center when mobile/desktop grid row count changes. */
+  /** Keep selection visible when mobile/desktop grid row count changes. */
   useEffect(() => {
     if (!bootstrapped) return;
-    centerViewportOnActive(activeYear, activeRank);
+    panViewportToActive(activeYear, activeRank);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reflow on row-band change
   }, [visibleGridRows]);
 
@@ -450,11 +467,6 @@ export default function RetroscopeClient({
 
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
-  const viewportFocus = useMemo(
-    () => retroscopeViewportFocusIndices(visibleGridRows),
-    [visibleGridRows],
-  );
-
   const curatorHref = useMemo(() => curatorHrefForCell(activeCell), [activeCell]);
 
   const flushRetroscopePersistNow = useCallback(() => {
@@ -484,17 +496,19 @@ export default function RetroscopeClient({
       exploredCount: exploredKeys.length,
     });
   }, [corpusId, viewYear0, viewRank0, persistScope]);
-  const centerViewportOnActive = useCallback(
+  const panViewportToActive = useCallback(
     (ny: number, nr: number) => {
-      const origin = centerViewportOnSelection({
+      const next = ensureViewportIncludesSelection({
         activeYear: ny,
         activeRank: nr,
+        viewYear0,
+        viewRank0,
         visibleGridRows,
       });
-      setViewYear0(origin.viewYear0);
-      setViewRank0(origin.viewRank0);
+      setViewYear0(next.viewYear0);
+      setViewRank0(next.viewRank0);
     },
-    [visibleGridRows],
+    [visibleGridRows, viewYear0, viewRank0],
   );
 
   const flashPortal = useCallback(() => {
@@ -521,9 +535,9 @@ export default function RetroscopeClient({
       posRef.current = { y: ny, r: nr };
       setActiveYear(ny);
       setActiveRank(nr);
-      centerViewportOnActive(ny, nr);
+      panViewportToActive(ny, nr);
     },
-    [centerViewportOnActive, persistScope],
+    [panViewportToActive, persistScope],
   );
 
   const onPad = useCallback(
@@ -676,11 +690,7 @@ export default function RetroscopeClient({
     posRef.current = { y: init.y, r: init.r };
     setActiveYear(init.y);
     setActiveRank(init.r);
-    const origin = centerViewportOnSelection({
-      activeYear: init.y,
-      activeRank: init.r,
-      visibleGridRows,
-    });
+    const origin = defaultViewportOrigin(init.y, init.r, visibleGridRows);
     setViewYear0(origin.viewYear0);
     setViewRank0(origin.viewRank0);
     persistSnapRef.current = {
@@ -730,7 +740,7 @@ export default function RetroscopeClient({
       welcome: machineRef,
       portal: portalRef,
       grid: viewportRef,
-      controls: stripRef,
+      controls: bandRef,
     }),
     [],
   );
@@ -752,13 +762,8 @@ export default function RetroscopeClient({
             {isArtistMode ? "Artist" : isTrackMode ? "Track" : "2000"}
           </span>
         </span>
-        <span className="arv-device-sub">
-          <span className="arv-device-sub-line">
-            {isArtistMode ? "Signal Field" : isTrackMode ? "Hot 100 Band" : "Solid State"}
-          </span>
-          <span className="arv-device-sub-line">
-            {isArtistMode ? "Dominance Map" : isTrackMode ? "Scan Layer" : "Catalog Explorer"}
-          </span>
+        <span className="arv-device-sub" aria-hidden>
+          <span className="arv-device-sub-line">Music time machine</span>
         </span>
         <span className="arv-device-vents" />
         <span className="arv-screw arv-screw--bl" />
@@ -940,79 +945,67 @@ export default function RetroscopeClient({
         </div>
       ) : null}
 
-      <section className="arv-meta" aria-live="polite">
-        <span className="arv-meta-plate-label" aria-hidden>
-          Readout
-        </span>
-        <div className="arv-meta-inner">
+      <section
+        ref={bandRef}
+        className="arv-interaction-band"
+        aria-label="Retroscope controls"
+        aria-live="polite"
+      >
+        <div className="arv-band-title">
           {activeCell ? (
-            <>
-              <p className="arv-title-line">
-                {isArtistMode ? activeCell.title : `${activeCell.artist} — ${activeCell.title}`}
-                {searchHref && !isArtistMode && !isTrackMode ? (
-                  <>
-                    {" "}
-                    <Link href={searchHref} className="arv-meta-link arv-meta-link--inline">
-                      search
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-              {isTrackMode ? (
-                <p className="arv-meta-artist-detail">Track layer placeholder · search or scan</p>
-              ) : null}
-            </>
+            isArtistMode ? (
+              <p className="arv-band-album">{activeCell.title}</p>
+            ) : (
+              <>
+                <p className="arv-band-artist">{activeCell.artist}</p>
+                <p className="arv-band-album">{activeCell.title}</p>
+              </>
+            )
           ) : (
-            <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
+            <p className="arv-band-empty">Move through time to find a chart entry</p>
           )}
         </div>
-      </section>
 
-      <section
-        ref={stripRef}
-        className="arv-strip arv-strip--secondary"
-        aria-label="Retroscope controls (secondary)"
-      >
-        <div className="arv-readout arv-readout--year">
-          <span className="arv-readout-lamp" aria-hidden />
-          <div className="arv-readout-label">Year</div>
-          <div className="arv-readout-value">{activeYear}</div>
-        </div>
-
-        <span className="arv-strip-plate-label" aria-hidden>
-          Layer
-        </span>
         <RetroscopeModeStrip
           active={mode}
           mapOpen={mapOpen}
-          variant="deck"
+          variant="band"
           onMapOpen={() => setMapOpen((v) => !v)}
         />
 
-        <div className="arv-readout arv-readout--rank">
-          <span className="arv-readout-lamp" aria-hidden />
-          <span className="arv-readout-dot" aria-hidden />
-          <div className="arv-readout-label">Rank</div>
-          <div className="arv-readout-value">{rankLabel}</div>
+        <div className="arv-band-time" aria-label={`Year ${activeYear}, rank ${rankLabel}`}>
+          <span className="arv-band-year">{activeYear}</span>
+          <span className="arv-band-rank">{rankLabel}</span>
         </div>
+
+        <p className="arv-band-context">{retroscopeMicroContext(activeCell, mode)}</p>
       </section>
 
-      <section
-        ref={viewportRef}
-        className="arv-viewport"
-        aria-label="Exploration viewport"
-        style={
-          {
-            "--arv-focus-col": viewportFocus.yearCol,
-            "--arv-focus-row": viewportFocus.rankRow,
-            "--arv-grid-rows": visibleGridRows,
-          } as CSSProperties
-        }
-      >
+      <section ref={viewportRef} className="arv-viewport" aria-label="Time grid">
         <span className="arv-viewport-label" aria-hidden>
-          Coordinate Bay
+          Time grid
         </span>
-        <span className="arv-viewport-reticle" aria-hidden />
+        {(() => {
+          const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
+          return (
+            <div className="arv-grid-axis" aria-hidden>
+              {Array.from({ length: RETROSCOPE_GRID_COLS }, (_, col) => {
+                const y = vy0 + col;
+                const axisClass =
+                  y < activeYear
+                    ? "arv-grid-axis-y--past"
+                    : y > activeYear
+                      ? "arv-grid-axis-y--future"
+                      : "arv-grid-axis-y--now";
+                return (
+                  <span key={col} className={`arv-grid-axis-y ${axisClass}`}>
+                    {y}
+                  </span>
+                );
+              })}
+            </div>
+          );
+        })()}
         <div
           className="arv-grid"
           role="grid"
@@ -1023,16 +1016,11 @@ export default function RetroscopeClient({
             const row = Math.floor(i / RETROSCOPE_GRID_COLS);
             const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
             const vr0 = Number.isFinite(effectiveViewRank0) ? effectiveViewRank0 : 1;
-            const slotY = vy0 + col;
-            const slotR = vr0 + row;
-            const isFocusSlot =
-              col === viewportFocus.yearCol && row === viewportFocus.rankRow;
-            /** Center lock: playhead stays on focus slot; world coords scroll underneath. */
-            const y = isFocusSlot ? activeYear : slotY;
-            const r = isFocusSlot ? activeRank : slotR;
+            const y = vy0 + col;
+            const r = vr0 + row;
             const k = retroscopeCellKey(y, r);
             const cell = byKey.get(k) ?? null;
-            const isActive = isFocusSlot;
+            const isActive = y === activeYear && r === activeRank;
             const isExplored = explored.has(k);
             const isVoid = !cell;
 
@@ -1061,7 +1049,7 @@ export default function RetroscopeClient({
                     ? `${cell.title}, ${y}, rank ${rankMeta}`
                     : `Empty coordinate ${y} rank ${r}`
                 }
-                className={`arv-cell ${stateClass} ${isVoid ? "arv-cell--void" : ""}${isArtistMode && cell ? " arv-cell--artist" : ""}${isTrackMode && cell ? " arv-cell--track" : ""}${nearSuffix}`}
+                className={`arv-cell ${stateClass} ${temporalYearClass(y, activeYear)}${isVoid ? " arv-cell--void" : ""}${isArtistMode && cell ? " arv-cell--artist" : ""}${isTrackMode && cell ? " arv-cell--track" : ""}${nearSuffix}`}
                 onClick={() => onCellTap(y, r)}
                 style={isArtistMode && cell ? (artistSignalVars(cell) as CSSProperties) : undefined}
               >
