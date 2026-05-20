@@ -8,23 +8,21 @@ import "../album-dossier.css";
 import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
 import { getAlbumDetailByExternalKey, resolveAlbumCoverUrl } from "@/lib/canonical-graph";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+import { buildDossierTrackRows } from "@/lib/album-dossier-display-tracks";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
-import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
-import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/canonical-album-sequences";
+import { loadAlbumChartRunWeeks } from "@/lib/load-album-chart-run";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { homeSearchHref } from "@/lib/retroverse-nav";
-import { artistRoute, hrefForTrack } from "@/lib/retroverse-routes";
+import { artistRoute } from "@/lib/retroverse-routes";
 
 import { AlbumArchiveCover } from "../album-archive-cover";
 import { AlbumExploreLoop } from "../album-explore-loop";
+import { AlbumDossierReadout } from "./album-dossier-readout";
+import { AlbumDossierTracklist } from "./album-dossier-tracklist";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
-type CanonicalTrackDisplay = AlbumDossierTrack & {
-  canonicalRefLabel?: string;
-  canonicalSequenceLabel?: string;
-};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -36,81 +34,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       .replace(/\s+/g, " ")
       .slice(0, 200),
   };
-}
-
-function formatDurationMs(ms: number | null | undefined): string {
-  if (ms == null || !Number.isFinite(ms)) return "—";
-  const s = Math.max(0, Math.round(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${String(r).padStart(2, "0")}`;
-}
-
-/** Chart anchors (YYYY-MM-DD) → readable archive copy, e.g. Feb 26, 1977. */
-function formatArchiveDate(raw: string | null | undefined): string {
-  if (raw == null || !String(raw).trim()) return "—";
-  const s = String(raw).trim();
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
-  if (!m) {
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-  }
-  const y = Number(m[1]);
-  const mo = Number(m[2]);
-  const dy = Number(m[3]);
-  const d = new Date(Date.UTC(y, mo - 1, dy));
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
-function normalizeCanonicalTitle(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/\u2019/g, "'")
-    .replace(/\s*[-–—]\s*.*\bremaster(?:ed)?\b.*$/i, "")
-    .replace(/[^a-z0-9']+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function canonicalTrackPosition(track: CanonicalTrackDisplay, fallbackIndex: number): number | string {
-  if (track.canonicalSequenceLabel) return track.canonicalSequenceLabel;
-  const pos = track.musicbrainz?.position;
-  return typeof pos === "number" && Number.isFinite(pos) && pos > 0 ? pos : fallbackIndex + 1;
-}
-
-function resolveCanonicalSequenceTracks(
-  sequence: CanonicalAlbumSequence,
-  sourceTracks: AlbumDossierTrack[],
-): { tracks: CanonicalTrackDisplay[]; unresolvedTrackCount: number } {
-  const sourceByTitle = new Map<string, AlbumDossierTrack>();
-  const sourceByRawTitle = new Map<string, AlbumDossierTrack>();
-  for (const track of sourceTracks) {
-    const key = normalizeCanonicalTitle(track.title);
-    if (key && !sourceByTitle.has(key)) sourceByTitle.set(key, track);
-    sourceByRawTitle.set(track.title.trim(), track);
-  }
-
-  let unresolvedTrackCount = 0;
-  const tracks = sequence.tracks.map((track) => {
-    const source = track.source_title
-      ? sourceByRawTitle.get(track.source_title.trim()) ?? sourceByTitle.get(normalizeCanonicalTitle(track.source_title))
-      : sourceByTitle.get(normalizeCanonicalTitle(track.canonical_title));
-    if (!source) unresolvedTrackCount += 1;
-
-    return {
-      ...source,
-      title: track.canonical_title,
-      duration_ms: track.duration_ms ?? source?.duration_ms ?? null,
-      canonicalRefLabel: sequence.source_label,
-      canonicalSequenceLabel:
-        track.side_label && track.side_position != null
-          ? `${track.side_label}${track.side_position}`
-          : String(track.global_position),
-    };
-  });
-
-  return { tracks, unresolvedTrackCount };
 }
 
 export default async function AlbumDossierPage({ params }: Props) {
@@ -134,8 +57,11 @@ export default async function AlbumDossierPage({ params }: Props) {
   }
 
   const { identity, chart, acoustic, related } = dossier;
-  const graphDetail = await getAlbumDetailByExternalKey(dossier.albumId);
-  const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
+  const [graphDetail, coverPick, chartWeeks] = await Promise.all([
+    getAlbumDetailByExternalKey(dossier.albumId),
+    pickCanonicalCoverForAlbum(dossier.albumId),
+    loadAlbumChartRunWeeks(dossier.albumId),
+  ]);
   const graphCoverUrl = graphDetail?.canonicalCoverPath
     ? canonicalCoverPathToUrl(graphDetail.canonicalCoverPath)
     : graphDetail?.r2CoverKey
@@ -147,21 +73,16 @@ export default async function AlbumDossierPage({ params }: Props) {
     canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
-  const chartWeeks = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
-  const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date;
-  const chartLast = graphDetail?.lastChartDate ?? chart.last_chart_date;
-  const displayTracks =
-    acoustic.tracks.length > 0
-      ? acoustic.tracks
-      : getCanonicalAlbumSequence(dossier.albumId)
-        ? resolveCanonicalSequenceTracks(getCanonicalAlbumSequence(dossier.albumId)!, acoustic.tracks).tracks
-        : [];
+  const chartWeeksCount = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
+  const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date ?? null;
+  const chartLast = graphDetail?.lastChartDate ?? chart.last_chart_date ?? null;
+  const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks);
 
   return (
     <>
       <BodyClassName className="dossier-body" />
-      <div className="dossier-shell">
-        <header className="dossier-top dossier-top--nav dossier-top--immersive">
+      <div className="dossier-shell dossier-shell--dossier">
+        <header className="dossier-top dossier-top--nav dossier-top--immersive dossier-top--compact">
           <RetroverseEntityNav
             immersive
             back={{ href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" }}
@@ -173,93 +94,50 @@ export default async function AlbumDossierPage({ params }: Props) {
           />
         </header>
 
-        <div className="dossier-cinematic">
+        <div className="dossier-cinematic dossier-cinematic--dossier">
           <div className="dossier-hero-bezel">
             <div className="dossier-hero-inner">
-            <AlbumArchiveCover src={coverUrl} title={identity.album} className="dossier-cover-frame--hero" />
+              <AlbumArchiveCover src={coverUrl} title={identity.album} className="dossier-cover-frame--hero" />
             </div>
           </div>
 
-          <section className="dossier-readout">
-            <h1 className="dossier-title">{identity.album}</h1>
-            <p className="dossier-artist">
-              <Link href={artistRoute(identity.artist)}>{identity.artist}</Link>
-            </p>
-            {browseYear != null ? (
-              <p className="dossier-provenance">
-                Released {browseYear}
-              </p>
-            ) : null}
-            <p className="dossier-provenance-label">Billboard 200</p>
-            <dl className="dossier-chart-glance">
-              <div>
-                <dt>Peak position</dt>
-                <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
-              </div>
-              <div className="dossier-chart-glance-depth">
-                <dt>Weeks on chart</dt>
-                <dd>{chartWeeks ?? "—"}</dd>
-              </div>
-              <div className="dossier-chart-glance-depth">
-                <dt>Chart run</dt>
-                <dd>
-                  {formatArchiveDate(chartFirst)}
-                  {chartLast && chartLast !== chartFirst ? ` – ${formatArchiveDate(chartLast)}` : ""}
-                </dd>
-              </div>
-            </dl>
-          </section>
+          <AlbumDossierReadout
+            albumTitle={identity.album}
+            artistName={identity.artist}
+            releaseYear={browseYear}
+            peakRank={chartPeak}
+            weeksOnChart={chartWeeksCount}
+            chartWeeks={chartWeeks}
+            chartFirst={chartFirst}
+            chartLast={chartLast}
+          />
         </div>
 
         <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank dossier-mobile-reveal-panel">
           <h2 className="dossier-panel-label">Tracks</h2>
-          {displayTracks.length ? (
-            <ol className="rv-public-track-list">
-              {displayTracks.map((tr, i) => {
-                const trackHref =
-                  tr.spotify_track_id && /^RVTR\d{6}$/i.test(tr.spotify_track_id)
-                    ? hrefForTrack(tr.spotify_track_id)
-                    : homeSearchHref(`${tr.title} ${identity.artist}`);
-                return (
-                  <li key={`${tr.spotify_track_id ?? tr.title}-${i}`}>
-                    <Link href={trackHref}>
-                      <span className="rv-track-num">{canonicalTrackPosition(tr, i)}</span>
-                      <span>{tr.title}</span>
-                      <span className="rv-track-dur">{formatDurationMs(tr.duration_ms ?? undefined)}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
-          ) : (
-            <p className="dossier-provenance">Tracks not listed yet.</p>
-          )}
+          <AlbumDossierTracklist rows={trackRows} artistName={identity.artist} />
         </section>
 
         <section className="dossier-panel dossier-panel--coordinates dossier-panel--paths dossier-panel--band-violet">
           <div className="dossier-tunnels">
             <div className="dossier-tunnel">
-              <h3 className="dossier-subhead dossier-subhead--tunnel">
-                More by this artist
-              </h3>
+              <h3 className="dossier-subhead dossier-subhead--tunnel">More by this artist</h3>
               <ul className="dossier-related">
                 {related.same_artist_albums.map((r) => (
                   <li key={r.albumId}>
-                <Link href={`/albums/${r.albumId}`} className="dossier-a">
-                  {r.album}
-                </Link>
-                <span className="dossier-related-meta">
-                  {" "}
-                  ({r.chartYear} · #{r.chartRank})
-                </span>
-              </li>
-            ))}
+                    <Link href={`/albums/${r.albumId}`} className="dossier-a">
+                      {r.album}
+                    </Link>
+                    <span className="dossier-related-meta">
+                      {" "}
+                      ({r.chartYear} · #{r.chartRank})
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
             <div className="dossier-tunnel">
-              <h3 className="dossier-subhead dossier-subhead--tunnel">
-                Related albums
-              </h3>
+              <h3 className="dossier-subhead dossier-subhead--tunnel">Related albums</h3>
               <ul className="dossier-related">
                 {[...related.adjacent_year_same_rank, ...related.adjacent_rank_same_year].map((r, i) => (
                   <li key={`${r.albumId}-${i}`}>
@@ -282,7 +160,6 @@ export default async function AlbumDossierPage({ params }: Props) {
         </section>
 
         <AlbumExploreLoop artistName={identity.artist} chartYear={browseYear} />
-
       </div>
     </>
   );

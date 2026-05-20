@@ -5,21 +5,20 @@ function clamp01(x: number | null | undefined): number {
   return Math.max(0, Math.min(1, x));
 }
 
-/** Placeholder Retroverse dial readout until canonical RS exists in dossier JSON — mean of pooled 0–1 features. */
-function retroverseDialReadout(profile: AggregatedAcousticProfile): number {
-  const pts: number[] = [];
-  for (const n of [
-    profile.valence,
-    profile.energy,
-    profile.danceability,
-    profile.acousticness != null ? 1 - profile.acousticness : null,
-    profile.instrumentalness != null ? 1 - profile.instrumentalness : null,
-    profile.liveness,
-  ]) {
-    if (n != null && Number.isFinite(n)) pts.push(n);
-  }
-  if (!pts.length) return 0;
-  return Math.min(99, Math.round((pts.reduce((a, b) => a + b, 0) / pts.length) * 100));
+function mean01(...vals: Array<number | null | undefined>): number {
+  const ok = vals.filter((x): x is number => x != null && Number.isFinite(x));
+  if (!ok.length) return 0;
+  return ok.reduce((a, b) => a + b, 0) / ok.length;
+}
+
+/** Cultural presence — broadcast/liveness pulse from acoustic features (not chart data). */
+function culturalPresenceMetric(profile: AggregatedAcousticProfile): number {
+  return clamp01(mean01(profile.liveness, profile.speechiness, profile.danceability));
+}
+
+/** Replay pull — rhythmic + energy lift (not raw Spotify labels). */
+function replayabilityMetric(profile: AggregatedAcousticProfile): number {
+  return clamp01(mean01(profile.danceability, profile.energy, profile.valence != null ? profile.valence * 0.85 : null));
 }
 
 function polar(cx: number, cy: number, r: number, angRad: number): { x: number; y: number } {
@@ -78,8 +77,10 @@ type Props = {
   a11yLabel: string;
   /** Reserved for keyed gradients / defs when we add them back. */
   domIdSlug: string;
+  /** Center Retroverse signal readout (0–99). */
+  retroverseDial?: number;
   /** Larger ring + type for the Rumours strip hero dial. */
-  presentation?: "default" | "arcade";
+  presentation?: "default" | "arcade" | "track-row";
 };
 
 /**
@@ -90,31 +91,46 @@ export function RetroverseAcousticInstrumentation({
   profile,
   a11yLabel,
   domIdSlug,
+  retroverseDial,
   presentation = "default",
 }: Props) {
   void domIdSlug;
   const arcade = presentation === "arcade";
-  const telematics = telematicsLine(profile);
-  const rs = retroverseDialReadout(profile);
+  const trackRow = presentation === "track-row";
+  const telematics = trackRow ? null : telematicsLine(profile);
+  const rs =
+    retroverseDial != null && Number.isFinite(retroverseDial)
+      ? Math.min(99, Math.max(0, Math.round(retroverseDial)))
+      : Math.min(
+          99,
+          Math.round(
+            mean01(
+              profile.energy,
+              profile.valence,
+              culturalPresenceMetric(profile),
+              replayabilityMetric(profile),
+            ) * 100,
+          ),
+        );
 
   const cx = 50;
   const cy = 50;
-  const rTrack = arcade ? 37 : 36;
-  const rSignal = arcade ? 30.5 : 30;
-  const wTrack = arcade ? 6.35 : 5.5;
-  const wSignal = arcade ? 5.6 : 5;
+  const rTrack = trackRow ? 38 : arcade ? 37 : 36;
+  const rSignal = trackRow ? 31 : arcade ? 30.5 : 30;
+  const wTrack = trackRow ? 5.8 : arcade ? 6.35 : 5.5;
+  const wSignal = trackRow ? 5.2 : arcade ? 5.6 : 5;
 
   const quads = [
-    { m: clamp01(profile.valence), start: (-3 * Math.PI) / 4, track: "rgba(199,107,143,0.14)", signal: "rgba(199,107,143,0.92)" },
-    { m: clamp01(profile.energy), start: -Math.PI / 4, track: "rgba(232,107,79,0.14)", signal: "rgba(232,107,79,0.92)" },
-    { m: clamp01(profile.danceability), start: Math.PI / 4, track: "rgba(94,196,207,0.14)", signal: "rgba(94,196,207,0.92)" },
-    { m: clamp01(profile.acousticness), start: (3 * Math.PI) / 4, track: "rgba(255,200,120,0.14)", signal: "rgba(255,200,120,0.88)" },
+    { m: clamp01(profile.energy), start: (-3 * Math.PI) / 4, track: "rgba(232,107,79,0.14)", signal: "rgba(232,107,79,0.92)", label: "E", title: `Energy ${fmtRatio01Pct(profile.energy)}` },
+    { m: clamp01(profile.valence), start: -Math.PI / 4, track: "rgba(199,107,143,0.14)", signal: "rgba(199,107,143,0.92)", label: "Em", title: `Emotion ${fmtRatio01Pct(profile.valence)}` },
+    { m: culturalPresenceMetric(profile), start: Math.PI / 4, track: "rgba(94,196,207,0.14)", signal: "rgba(94,196,207,0.92)", label: "C", title: `Cultural presence ${fmtRatio01Pct(culturalPresenceMetric(profile))}` },
+    { m: replayabilityMetric(profile), start: (3 * Math.PI) / 4, track: "rgba(255,200,120,0.14)", signal: "rgba(255,200,120,0.88)", label: "R", title: `Replayability ${fmtRatio01Pct(replayabilityMetric(profile))}` },
   ];
 
   const ariaCore = `${a11yLabel}. Retroverse signal ${rs}.`;
 
   return (
-    <figure className={`dossier-inst${arcade ? " dossier-inst--arcade" : ""}`}>
+    <figure className={`dossier-inst${arcade ? " dossier-inst--arcade" : ""}${trackRow ? " dossier-inst--track-row" : ""}`}>
       <svg
         className="dossier-inst-svg"
         viewBox="0 0 100 100"
@@ -150,7 +166,7 @@ export function RetroverseAcousticInstrumentation({
           textAnchor="middle"
           dominantBaseline="central"
           fill="rgba(245,235,224,0.96)"
-          fontSize={arcade ? 32.3 : 25.65}
+          fontSize={trackRow ? 22 : arcade ? 32.3 : 25.65}
           fontWeight="700"
           fontFamily="ui-monospace, system-ui, monospace"
           letterSpacing="-0.05em"
@@ -158,20 +174,22 @@ export function RetroverseAcousticInstrumentation({
           {rs}
         </text>
       </svg>
-      <figcaption className="dossier-inst-glyph">
-        <span style={{ color: "rgba(199,107,143,0.85)" }} title={`Valence ${fmtRatio01Pct(profile.valence)}`}>
-          V
-        </span>
-        <span style={{ color: "rgba(232,107,79,0.85)" }} title={`Energy ${fmtRatio01Pct(profile.energy)}`}>
-          E
-        </span>
-        <span style={{ color: "rgba(94,196,207,0.85)" }} title={`Danceability ${fmtRatio01Pct(profile.danceability)}`}>
-          D
-        </span>
-        <span style={{ color: "rgba(255,200,120,0.75)" }} title={`Acousticness ${fmtRatio01Pct(profile.acousticness)}`}>
-          A
-        </span>
-      </figcaption>
+      {!trackRow ? (
+        <figcaption className="dossier-inst-glyph">
+          <span style={{ color: "rgba(232,107,79,0.85)" }} title={quads[0]!.title}>
+            E
+          </span>
+          <span style={{ color: "rgba(199,107,143,0.85)" }} title={quads[1]!.title}>
+            Em
+          </span>
+          <span style={{ color: "rgba(94,196,207,0.85)" }} title={quads[2]!.title}>
+            C
+          </span>
+          <span style={{ color: "rgba(255,200,120,0.75)" }} title={quads[3]!.title}>
+            R
+          </span>
+        </figcaption>
+      ) : null}
       {telematics ? <p className="dossier-inst-telem">{telematics}</p> : null}
     </figure>
   );

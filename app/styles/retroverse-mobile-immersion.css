@@ -150,46 +150,43 @@
     text-underline-offset: 0.18em;
   }
 
-  .dossier-chart-glance {
-    grid-template-columns: 1fr;
-    gap: 0;
-    margin-top: 0.85rem;
-    padding-top: 0;
-    border-top: none;
-    justify-items: center;
+  .dossier-shell--dossier {
+    padding-top: max(0.2rem, env(safe-area-inset-top, 0px));
   }
 
-  .dossier-chart-glance > div {
+  .dossier-top--compact {
+    margin-bottom: 0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .dossier-readout--compact {
     text-align: center;
-    width: 100%;
+    padding-top: 0.25rem;
   }
 
-  .dossier-chart-glance-depth {
-    display: block;
+  .dossier-readout--compact .dossier-title {
+    font-size: clamp(1.35rem, 6.5vw, 1.85rem);
+    margin-bottom: 0.15rem;
   }
 
-  .dossier-chart-glance-depth dt {
-    font-size: 0.62rem;
-    letter-spacing: 0.28em;
-    color: rgba(200, 180, 160, 0.55);
+  .dossier-readout--compact .dossier-artist {
+    font-size: clamp(0.92rem, 4vw, 1.05rem);
+    margin-bottom: 0.35rem;
   }
 
-  .dossier-chart-glance > div:first-child dd {
-    font-size: clamp(2.4rem, 14vw, 3.4rem);
-    font-weight: 650;
-    font-family: var(--d-font-editorial), ui-serif, Georgia, serif;
-    letter-spacing: -0.03em;
-    color: rgba(248, 246, 255, 0.98);
-    margin-top: 0.2rem;
+  .dossier-info-band {
+    justify-items: center;
+    text-align: center;
+    padding-top: 0.35rem;
   }
 
-  .dossier-chart-glance-depth dd {
-    font-size: 0.92rem;
-    margin-top: 0.15rem;
+  .dossier-info-band-num {
+    font-size: clamp(1.15rem, 5.5vw, 1.4rem);
   }
 
-  .dossier-chart-glance-depth + .dossier-chart-glance-depth {
-    margin-top: 0.35rem;
+  .dossier-chart-run-toggle {
+    margin-inline: auto;
+    max-width: 14rem;
   }
 
   .dossier-mobile-reveal-panel {
