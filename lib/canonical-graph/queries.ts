@@ -116,6 +116,9 @@ export async function getAlbumDetail(pgAlbumId: number): Promise<GraphAlbumDetai
     chart_week_count: number;
     track_family_count: number;
     media_asset_count: number;
+    has_video_media: boolean;
+    has_audio_media: boolean;
+    has_youtube_enrichment: boolean;
     canonical_cover_path: string | null;
     r2_cover_key: string | null;
     cover_review_flag: string | null;
@@ -134,6 +137,9 @@ export async function getAlbumDetail(pgAlbumId: number): Promise<GraphAlbumDetai
       stats.chart_week_count,
       coalesce(tf.track_family_count, 0)::int AS track_family_count,
       coalesce(ma.media_asset_count, 0)::int AS media_asset_count,
+      coalesce(ma.has_video_media, false) AS has_video_media,
+      coalesce(ma.has_audio_media, false) AS has_audio_media,
+      coalesce(yt.has_youtube_enrichment, false) AS has_youtube_enrichment,
       coalesce(aal.canonical_cover_path, al.canonical_cover_path) AS canonical_cover_path,
       aal.r2_cover_key,
       aal.review_flag AS cover_review_flag
@@ -156,15 +162,27 @@ export async function getAlbumDetail(pgAlbumId: number): Promise<GraphAlbumDetai
       WHERE ctal.album_id = al.id
     ) tf ON true
     LEFT JOIN LATERAL (
-      SELECT count(*)::int AS media_asset_count
+      SELECT
+        count(*)::int AS media_asset_count,
+        bool_or(ma.source_path ~* '\\.(mp4|mov|m4v|mkv)$') AS has_video_media,
+        bool_or(ma.source_path IS NOT NULL AND ma.source_path !~* '\\.(mp4|mov|m4v|mkv)$') AS has_audio_media
       FROM media_track_links mtl
       JOIN media_assets ma ON ma.id = mtl.media_asset_id
-      JOIN tracks t ON t.id = mtl.track_id
+      LEFT JOIN tracks t ON t.id = mtl.track_id
       WHERE t.album_id = al.id OR EXISTS (
         SELECT 1 FROM canonical_track_album_links c
         WHERE c.album_id = al.id AND c.track_family_id = mtl.track_family_id
       )
     ) ma ON true
+    LEFT JOIN LATERAL (
+      SELECT true AS has_youtube_enrichment
+      FROM album_external_keys ek2
+      JOIN staging_youtube_link_imports s
+        ON lower(trim(s.artist_text)) = lower(trim(ar.canonical_name))
+       AND lower(trim(s.title_text)) = lower(trim(al.title))
+      WHERE ek2.album_id = al.id
+      LIMIT 1
+    ) yt ON true
     LEFT JOIN LATERAL (
       SELECT aal.canonical_cover_path, aal.r2_cover_key, aal.review_flag
       FROM album_artwork_links aal
@@ -191,6 +209,9 @@ export async function getAlbumDetail(pgAlbumId: number): Promise<GraphAlbumDetai
     chartWeekCount: row.chart_week_count,
     trackFamilyCount: row.track_family_count,
     mediaAssetCount: row.media_asset_count,
+    hasVideoMedia: row.has_video_media,
+    hasAudioMedia: row.has_audio_media,
+    hasYoutubeEnrichment: row.has_youtube_enrichment,
     canonicalCoverPath: row.canonical_cover_path,
     r2CoverKey: row.r2_cover_key,
     coverReviewFlag: row.cover_review_flag,

@@ -1,5 +1,7 @@
 export { canonicalGraphPing, getIntegrityPool, integrityQuery, isCanonicalGraphEnabled } from "./pg";
 export { resolveAlbumCoverUrl, getGraphCoverLinkForPgAlbum } from "./cover";
+export { attachCoverUrlsToYearAlbums } from "./cover-batch";
+export type { YearAlbumWithCover } from "./cover-batch";
 export {
   getYearAlbums,
   getChartWeekAlbums,

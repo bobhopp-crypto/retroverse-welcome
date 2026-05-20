@@ -14,6 +14,9 @@ import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/ca
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { artistRoute } from "@/lib/retroverse-routes";
 
+import { AlbumArchiveCover } from "../album-archive-cover";
+import { AlbumExploreLoop } from "../album-explore-loop";
+import { AlbumMediaSignals } from "../album-media-signals";
 import { AlbumDossierOperatorOverlay } from "./album-dossier-operator-overlay";
 
 export const dynamic = "force-dynamic";
@@ -117,10 +120,6 @@ function resolveCanonicalSequenceTracks(
   return { tracks, unresolvedTrackCount };
 }
 
-function canonicalSequenceSourceLabel(sequence: CanonicalAlbumSequence | null): string {
-  return sequence?.source_label ?? "canonical_sequence_unresolved";
-}
-
 export default async function AlbumDossierPage({ params }: Props) {
   const { slug } = await params;
   const dossier = getAlbumDossier(slug);
@@ -144,9 +143,16 @@ export default async function AlbumDossierPage({ params }: Props) {
   const { identity, chart, acoustic, related, musicbrainz } = dossier;
   const graphDetail = await getAlbumDetailByExternalKey(dossier.albumId);
   const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
+  const graphCoverUrl = graphDetail?.canonicalCoverPath
+    ? canonicalCoverPathToUrl(graphDetail.canonicalCoverPath)
+    : graphDetail?.r2CoverKey
+      ? canonicalCoverPathToUrl(graphDetail.r2CoverKey)
+      : null;
   const coverUrl =
+    graphCoverUrl ??
     (await resolveAlbumCoverUrl(dossier.albumId, { pgAlbumId: graphDetail?.pgAlbumId })) ??
     canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
+  const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
   const chartWeeks = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
   const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date;
@@ -157,7 +163,6 @@ export default async function AlbumDossierPage({ params }: Props) {
     ? resolveCanonicalSequenceTracks(canonicalSequence, acoustic.tracks)
     : { tracks: [], unresolvedTrackCount: acoustic.tracks.length };
   const canonicalTracks = resolvedSequence.tracks;
-  const sequenceSourceLabel = canonicalSequenceSourceLabel(canonicalSequence);
 
   return (
     <>
@@ -182,19 +187,40 @@ export default async function AlbumDossierPage({ params }: Props) {
           <div className="dossier-hero-bezel">
             <div className="dossier-hero-inner">
             <Link href="/album-retroscope" className="dossier-hero-archive-link" aria-label="Open spatial archive (RetroScope)" prefetch={false}>
-              {coverUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- R2 / public URLs from canonical path
-                <img src={coverUrl} alt="" className="dossier-cover" draggable={false} decoding="async" />
-              ) : (
-                <div className="dossier-cover-void">No cover in archive path</div>
-              )}
+              <AlbumArchiveCover src={coverUrl} title={identity.album} className="dossier-cover-frame--hero" />
             </Link>
             </div>
           </div>
 
           <section className="dossier-readout">
             <h1 className="dossier-title">{identity.album}</h1>
-            <p className="dossier-artist">{identity.artist}</p>
+            <p className="dossier-artist">
+              <Link href={artistRoute(identity.artist)}>{identity.artist}</Link>
+            </p>
+            <dl className="dossier-chart-glance">
+              <div>
+                <dt>Peak</dt>
+                <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
+              </div>
+              <div>
+                <dt>Weeks</dt>
+                <dd>{chartWeeks ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>On chart</dt>
+                <dd>
+                  {formatArchiveDate(chartFirst)}
+                  {chartLast && chartLast !== chartFirst ? ` – ${formatArchiveDate(chartLast)}` : ""}
+                </dd>
+              </div>
+            </dl>
+            <AlbumMediaSignals
+              hasVideo={graphDetail?.hasVideoMedia}
+              hasAudio={graphDetail?.hasAudioMedia}
+              hasYoutube={graphDetail?.hasYoutubeEnrichment}
+              mediaCount={graphDetail?.mediaAssetCount}
+              trackFamilyCount={graphDetail?.trackFamilyCount}
+            />
           </section>
         </div>
 
@@ -205,36 +231,16 @@ export default async function AlbumDossierPage({ params }: Props) {
           </p>
         ) : null}
 
-        <section className="dossier-panel dossier-panel--chart dossier-panel--band-teal">
-          <h2 className="dossier-panel-label">Billboard album presence</h2>
-          <dl className="dossier-dl">
-            <div>
-              <dt>Billboard 200 peak</dt>
-              <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
-            </div>
-            <div>
-              <dt>Weeks charted</dt>
-              <dd>{chartWeeks ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>First charted</dt>
-              <dd>{formatArchiveDate(chartFirst)}</dd>
-            </div>
-            <div>
-              <dt>Last charted</dt>
-              <dd>{formatArchiveDate(chartLast)}</dd>
-            </div>
-          </dl>
-        </section>
-
         <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank">
-          <h2 className="dossier-panel-label">Canonical tracks</h2>
+          <h2 className="dossier-panel-label">
+            Canonical tracks
+            {graphDetail?.trackFamilyCount ? (
+              <span className="dossier-panel-label-meta"> · {graphDetail.trackFamilyCount} families linked</span>
+            ) : null}
+          </h2>
           <p className="dossier-provenance dossier-canonical-note">
             {canonicalSequence?.source_note ??
               "Canonical sequence unresolved. Track rows are withheld until an original listening sequence is available."}
-          </p>
-          <p className="dossier-provenance dossier-sequence-debug">
-            Source used: {sequenceSourceLabel} · canonical sequence count: {canonicalTracks.length} · fallback source used: none · unresolved tracks: {resolvedSequence.unresolvedTrackCount}
           </p>
           {canonicalTracks.length ? (
             <div className="dossier-track-scroll">
@@ -332,6 +338,12 @@ export default async function AlbumDossierPage({ params }: Props) {
             </div>
           </div>
         </section>
+
+        <AlbumExploreLoop
+          artistName={identity.artist}
+          chartYear={browseYear}
+          albumId={dossier.albumId}
+        />
 
         <footer className="dossier-foot">
           <Link href={curateHref} className="dossier-a dossier-a--quiet">

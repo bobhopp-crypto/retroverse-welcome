@@ -2,14 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BodyClassName } from "@/app/components/body-class-name";
-import { getYearAlbums, isCanonicalGraphEnabled, resolveAlbumCoverUrl } from "@/lib/canonical-graph";
+import { attachCoverUrlsToYearAlbums, getYearAlbums, isCanonicalGraphEnabled } from "@/lib/canonical-graph";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { getCanonicalAlbumSequencesBundleOrNull } from "@/lib/canonical-album-sequences";
-import { getAlbumDossier, getAlbumDossiersBundleOrNull } from "@/lib/load-album-dossier";
-import type { GraphYearAlbum } from "@/lib/canonical-graph";
+import { getAlbumDossiersBundleOrNull } from "@/lib/load-album-dossier";
 import type { AlbumDossier } from "@/lib/album-dossier-schema";
 import { artistRoute } from "@/lib/retroverse-routes";
 
+import { AlbumArchiveCover } from "./album-archive-cover";
+import { YearTimelineNav } from "./year-timeline-nav";
 import "./album-dossier.css";
 
 export const metadata: Metadata = {
@@ -83,16 +84,6 @@ function withParams(searchParams: Awaited<AlbumsPageProps["searchParams"]>, offs
   return `/albums?${params.toString()}`;
 }
 
-async function graphYearRows(year: number): Promise<GraphYearAlbum[]> {
-  if (!isCanonicalGraphEnabled()) return [];
-  try {
-    const rows = await getYearAlbums(year);
-    return rows;
-  } catch {
-    return [];
-  }
-}
-
 export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps) {
   const params = await searchParams;
   const query = norm(params.q);
@@ -100,8 +91,11 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
   const year = parseYear(params.year);
   const offset = parseOffset(params.offset);
 
-  const graphRows = year != null && !query && !artist ? await graphYearRows(year) : [];
-  const useGraphYear = graphRows.length > 0;
+  const graphRowsRaw =
+    year != null && !query && !artist && isCanonicalGraphEnabled() ? await getYearAlbums(year) : [];
+  const useGraphYear = graphRowsRaw.length > 0;
+  const graphSlice = useGraphYear ? graphRowsRaw.slice(0, offset + PAGE_SIZE) : [];
+  const graphRows = useGraphYear ? await attachCoverUrlsToYearAlbums(graphSlice) : [];
 
   const bundle = getAlbumDossiersBundleOrNull();
   const sequenceBundle = getCanonicalAlbumSequencesBundleOrNull();
@@ -110,22 +104,11 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
   const filteredAlbums = useGraphYear
     ? []
     : allAlbums.filter((album) => searchMatches(album, query, artist, year)).sort(albumSort);
-  const visibleGraphRows = useGraphYear ? graphRows.slice(0, offset + PAGE_SIZE) : [];
   const visibleAlbums = useGraphYear ? [] : filteredAlbums.slice(0, offset + PAGE_SIZE);
   const hasMore = useGraphYear
-    ? visibleGraphRows.length < graphRows.length
+    ? graphSlice.length < graphRowsRaw.length
     : visibleAlbums.length < filteredAlbums.length;
-
-  const visibleMissingArtwork = useGraphYear
-    ? 0
-    : visibleAlbums.filter((album) => !album.identity.canonical_cover_path).length;
-  const visibleUnresolvedSequence = useGraphYear
-    ? 0
-    : visibleAlbums.filter((album) => !sequenceIds.has(album.albumId)).length;
-  const visibleMissingChart = useGraphYear
-    ? 0
-    : visibleAlbums.filter((album) => album.chart.peak_rank == null || album.chart.weeks_on_chart == null).length;
-  const listCount = useGraphYear ? graphRows.length : filteredAlbums.length;
+  const listCount = useGraphYear ? graphRowsRaw.length : filteredAlbums.length;
 
   return (
     <>
@@ -135,12 +118,19 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
           <Link href="/" className="dossier-a dossier-a--quiet">
             Home
           </Link>
+          <Link href="/portal-v2" className="dossier-a dossier-a--quiet">
+            Portal
+          </Link>
         </header>
 
         <section className="dossier-readout dossier-index-readout">
-          <p className="dossier-provenance-label">Canonical album archive</p>
-          <h1 className="dossier-title">Albums</h1>
+          <p className="dossier-provenance-label">
+            {useGraphYear && year ? `Billboard 200 · ${year}` : "Canonical album archive"}
+          </p>
+          <h1 className="dossier-title">{useGraphYear && year ? String(year) : "Albums"}</h1>
         </section>
+
+        {useGraphYear && year != null ? <YearTimelineNav year={year} albumCount={listCount} /> : null}
 
         <form action="/albums" method="get" className="dossier-panel dossier-panel--band-teal dossier-index-search">
           <label>
@@ -158,124 +148,112 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
           <button type="submit">Search archive</button>
         </form>
 
-        <section className="dossier-index-status" aria-label="Album archive integrity">
-          <span>{listCount.toLocaleString()} canonical album identities</span>
-          {useGraphYear ? <span>Billboard 200 graph · {year}</span> : null}
-          <span>{visibleUnresolvedSequence} sequence unresolved</span>
-          <span>{visibleMissingArtwork} missing artwork</span>
-          <span>{visibleMissingChart} chart unresolved</span>
-        </section>
+        {!useGraphYear ? (
+          <section className="dossier-index-status" aria-label="Album archive integrity">
+            <span>{listCount.toLocaleString()} canonical album identities</span>
+            <span>
+              {visibleAlbums.filter((a) => !a.identity.canonical_cover_path).length} missing artwork
+            </span>
+          </section>
+        ) : null}
 
         <section className="dossier-index-grid" aria-label="Canonical album index">
           {useGraphYear
-            ? await Promise.all(
-                visibleGraphRows.map(async (row) => {
-                  const dossier = getAlbumDossier(row.albumId);
-                  const coverUrl =
-                    (await resolveAlbumCoverUrl(row.albumId, { pgAlbumId: row.pgAlbumId })) ??
-                    canonicalCoverPathToUrl(dossier?.identity.canonical_cover_path ?? null);
-                  const peak = row.peakChartPosition != null ? `#${row.peakChartPosition}` : "—";
-                  return (
-                    <article key={row.albumId} className="dossier-index-card">
-                      <Link
-                        href={`/albums/${row.albumId}`}
-                        className="dossier-index-cover-link"
-                        aria-label={`${row.albumTitle} by ${row.artistName}`}
-                      >
-                        {coverUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={coverUrl} alt="" loading="lazy" decoding="async" />
-                        ) : (
-                          <span className="dossier-index-cover-missing">No cover</span>
-                        )}
-                      </Link>
-                      <div className="dossier-index-card-copy">
-                        <h2>
-                          <Link href={`/albums/${row.albumId}`}>{row.albumTitle}</Link>
-                        </h2>
-                        <p>{row.artistName}</p>
-                        <dl>
-                          <div>
-                            <dt>Year</dt>
-                            <dd>{year}</dd>
-                          </div>
-                          <div>
-                            <dt>Peak</dt>
-                            <dd>{peak}</dd>
-                          </div>
-                          <div>
-                            <dt>Weeks</dt>
-                            <dd>{row.weeksOnChart ?? "—"}</dd>
-                          </div>
-                        </dl>
-                        <p className="dossier-index-flags dossier-index-flags--clear">graph linked</p>
-                      </div>
-                    </article>
-                  );
-                }),
-              )
-            : null}
-          {!useGraphYear
-            ? visibleAlbums.map((album) => {
-            const coverUrl = canonicalCoverPathToUrl(album.identity.canonical_cover_path);
-            const flags = integrityFlags(album, sequenceIds);
-            const yearLabel = albumYear(album) ?? "Year ?";
-            return (
-              <article key={album.albumId} className="dossier-index-card">
-                <Link href={`/albums/${album.albumId}`} className="dossier-index-cover-link" aria-label={`${album.identity.album} by ${album.identity.artist}`}>
-                  {coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- canonical archive URLs are already resolved for browser use
-                    <img src={coverUrl} alt="" loading="lazy" decoding="async" />
-                  ) : (
-                    <span className="dossier-index-cover-missing">No cover</span>
-                  )}
-                </Link>
-                <div className="dossier-index-card-copy">
-                  <h2>
-                    <Link href={`/albums/${album.albumId}`}>{album.identity.album}</Link>
-                  </h2>
-                  <p>
-                    <Link href={artistRoute(album.identity.artist)}>{album.identity.artist}</Link>
-                  </p>
-                  <dl>
-                    <div>
-                      <dt>Year</dt>
-                      <dd>{yearLabel}</dd>
+            ? graphRows.map((row) => {
+                const peak = row.peakChartPosition != null ? `#${row.peakChartPosition}` : null;
+                return (
+                  <article key={row.albumId} className="dossier-index-card" style={{ order: row.displayRank }}>
+                    <Link
+                      href={`/albums/${row.albumId}`}
+                      className="dossier-index-cover-link"
+                      aria-label={`${row.albumTitle} by ${row.artistName}`}
+                    >
+                      <AlbumArchiveCover
+                        src={row.coverUrl}
+                        title={row.albumTitle}
+                        rankLabel={peak}
+                      />
+                    </Link>
+                    <div className="dossier-index-card-copy">
+                      <p className="dossier-index-rank-line">
+                        <span className="dossier-index-rank">{row.displayRank}</span>
+                        {peak ? <span className="dossier-index-peak">{peak}</span> : null}
+                      </p>
+                      <h2>
+                        <Link href={`/albums/${row.albumId}`}>{row.albumTitle}</Link>
+                      </h2>
+                      <p>
+                        <Link href={artistRoute(row.artistName)}>{row.artistName}</Link>
+                      </p>
+                      <dl>
+                        <div>
+                          <dt>Weeks</dt>
+                          <dd>{row.weeksOnChart ?? "—"}</dd>
+                        </div>
+                        <div>
+                          <dt>First</dt>
+                          <dd>{row.firstChartDate?.slice(0, 4) ?? "—"}</dd>
+                        </div>
+                      </dl>
                     </div>
-                    <div>
-                      <dt>Peak</dt>
-                      <dd>{chartPeakLabel(album)}</dd>
+                  </article>
+                );
+              })
+            : visibleAlbums.map((album) => {
+                const coverUrl = canonicalCoverPathToUrl(album.identity.canonical_cover_path);
+                const flags = integrityFlags(album, sequenceIds);
+                const yearLabel = albumYear(album) ?? "—";
+                const peak = chartPeakLabel(album);
+                return (
+                  <article key={album.albumId} className="dossier-index-card">
+                    <Link
+                      href={`/albums/${album.albumId}`}
+                      className="dossier-index-cover-link"
+                      aria-label={`${album.identity.album} by ${album.identity.artist}`}
+                    >
+                      <AlbumArchiveCover
+                        src={coverUrl}
+                        title={album.identity.album}
+                        rankLabel={peak !== "—" ? peak : null}
+                      />
+                    </Link>
+                    <div className="dossier-index-card-copy">
+                      <h2>
+                        <Link href={`/albums/${album.albumId}`}>{album.identity.album}</Link>
+                      </h2>
+                      <p>
+                        <Link href={artistRoute(album.identity.artist)}>{album.identity.artist}</Link>
+                      </p>
+                      <dl>
+                        <div>
+                          <dt>Year</dt>
+                          <dd>{yearLabel}</dd>
+                        </div>
+                        <div>
+                          <dt>Peak</dt>
+                          <dd>{peak}</dd>
+                        </div>
+                        <div>
+                          <dt>Weeks</dt>
+                          <dd>{album.chart.weeks_on_chart ?? "—"}</dd>
+                        </div>
+                      </dl>
+                      {flags.length ? (
+                        <p className="dossier-index-flags">{flags.join(" · ")}</p>
+                      ) : null}
                     </div>
-                    <div>
-                      <dt>Weeks</dt>
-                      <dd>{album.chart.weeks_on_chart ?? "—"}</dd>
-                    </div>
-                  </dl>
-                  {flags.length ? (
-                    <p className="dossier-index-flags">{flags.join(" · ")}</p>
-                  ) : (
-                    <p className="dossier-index-flags dossier-index-flags--clear">identity linked</p>
-                  )}
-                </div>
-              </article>
-            );
-          })
-            : null}
+                  </article>
+                );
+              })}
         </section>
 
         {hasMore ? (
           <p className="dossier-index-more">
             <Link
-              href={withParams(params, useGraphYear ? visibleGraphRows.length : visibleAlbums.length)}
+              href={withParams(params, useGraphYear ? graphSlice.length : visibleAlbums.length)}
               className="dossier-a"
             >
-              Load next{" "}
-              {Math.min(
-                PAGE_SIZE,
-                (useGraphYear ? graphRows.length : filteredAlbums.length) -
-                  (useGraphYear ? visibleGraphRows.length : visibleAlbums.length),
-              )}{" "}
-              albums
+              Continue through {year ?? "the archive"}…
             </Link>
           </p>
         ) : null}

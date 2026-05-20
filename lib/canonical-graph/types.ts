@@ -23,6 +23,9 @@ export type GraphAlbumDetail = {
   chartWeekCount: number;
   trackFamilyCount: number;
   mediaAssetCount: number;
+  hasVideoMedia: boolean;
+  hasAudioMedia: boolean;
+  hasYoutubeEnrichment: boolean;
   canonicalCoverPath: string | null;
   r2CoverKey: string | null;
   coverReviewFlag: string | null;
