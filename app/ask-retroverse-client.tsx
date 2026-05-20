@@ -9,10 +9,33 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { HomeSearchPayload } from "@/lib/home-search/types";
 import { normalizeHomeSearchPayload } from "@/lib/home-search/normalize-client";
 
-const PLACEHOLDER = "Thriller, Michael Jackson, Eagles, 1977…";
+const PLACEHOLDER = "Thriller, 1984, Fleetwood Mac, Purple Rain, Eagles";
 const DEBOUNCE_MS = 280;
 
-const EXAMPLES = ["Thriller", "Michael Jackson", "Eagles", "1977", "Purple Rain"] as const;
+const EXAMPLES = ["Thriller", "1984", "Fleetwood Mac", "Purple Rain", "Eagles"] as const;
+
+const HOME_MODES = [
+  {
+    title: "Retroscope",
+    href: "/album-retroscope",
+    body: "Explore music history through time.",
+  },
+  {
+    title: "Search",
+    href: "/search",
+    body: "Look up songs, albums, artists, and chart history.",
+  },
+  {
+    title: "Eras",
+    href: "/eras",
+    body: "Explore Retroverse collections and musical eras.",
+  },
+] as const;
+
+const HOME_PLACEHOLDERS = [
+  { title: "Playlists", body: "Build and share lists from chart history." },
+  { title: "Your library", body: "Connect a DJ library to chart titles." },
+] as const;
 
 const EMPTY: HomeSearchPayload = {
   ok: true,
@@ -81,9 +104,7 @@ export default function AskRetroverseClient() {
       <div className="rv-home-inner">
         <header className="rv-home-hero">
           <h1 className="rv-home-title">Retroverse</h1>
-          <p className="rv-home-tagline">
-            Wikipedia for music culture — search artists, albums, and chart history.
-          </p>
+          <p className="rv-home-tagline">A music time machine.</p>
         </header>
 
         <div className="rv-home-search-wrap">
@@ -105,7 +126,7 @@ export default function AskRetroverseClient() {
                 ? "Some results may be missing — try another spelling."
                 : active
                   ? "Albums · tracks · artists"
-                  : "What do you want to explore?"}
+                  : "Search songs, albums, artists, and years"}
           </p>
           {!active ? (
             <div className="rv-home-examples" aria-label="Example searches">
@@ -179,7 +200,22 @@ export default function AskRetroverseClient() {
               </section>
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <nav className="rv-home-magazine" aria-label="Explore Retroverse">
+            {HOME_MODES.map((section) => (
+              <Link key={section.title} href={section.href} className="rv-home-card">
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </Link>
+            ))}
+            {HOME_PLACEHOLDERS.map((section) => (
+              <div key={section.title} className="rv-home-card rv-home-card--muted">
+                <h2>{section.title}</h2>
+                <p>{section.body}</p>
+              </div>
+            ))}
+          </nav>
+        )}
       </div>
     </div>
   );

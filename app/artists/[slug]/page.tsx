@@ -783,12 +783,12 @@ function chartMomentLabel(album: AlbumAppearance): string {
   if (album.chartPeak && album.chartPeak <= 10) return "Breakthrough";
   if ((album.chartWeeks ?? 0) >= 20) return "Long chart life";
   if ((album.trackCount ?? 0) >= 8) return "Deep cut field";
-  return "Catalog signal";
+  return "On chart";
 }
 
 function trackCountLabel(count: number | null | undefined): string {
   if (count && count > 0) return `${count} tracks`;
-  return "tracks resolving";
+  return "—";
 }
 
 function trackSignalLabel(track: Pick<ArtistChartTrack, "peakChartPosition" | "chartWeeks" | "contextLabel">): string {
@@ -835,7 +835,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
     return (
       <EntityStatus
         title="Entity unavailable"
-        message="This artist could not be loaded. Try search or browse the archive."
+        message="This artist could not be loaded. Try search or browse artists."
         backHref="/artists"
         backLabel="Artists"
       />
@@ -942,8 +942,8 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
               <p className="artist-uni-eyebrow">Artist · albums &amp; chart highlights</p>
               <h1 className="artist-uni-title text-[2.55rem] sm:text-[3.35rem]">{data.artist.canonical_artist_name}</h1>
               <p className="artist-uni-sub text-[1.02rem] sm:text-[1.08rem]">
-                {hasYearRange ? `${firstActiveYear}-${lastActiveYear}` : "Career years resolving"} · {data.connectedAlbums.length} album
-                {data.connectedAlbums.length === 1 ? "" : "s"} · {data.connectedTrackRows.length} tracks in the archive
+                {hasYearRange ? `${firstActiveYear}-${lastActiveYear}` : "Years unknown"} · {data.connectedAlbums.length} album
+                {data.connectedAlbums.length === 1 ? "" : "s"} · {data.connectedTrackRows.length} tracks
                 {peakChartYear ? ` · peak chart year ${peakChartYear}` : ""}
               </p>
             </div>
@@ -970,7 +970,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
               </div>
             ) : null}
           </div>
-          <div className="artist-uni-hero-facts" aria-label="Career signals">
+          <div className="artist-uni-hero-facts" aria-label="Chart highlights">
             {strongestYears.length > 0 ? (
               <div>
                 <span className="artist-uni-fact-label">Strongest years</span>
@@ -1011,8 +1011,8 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           <section className="artist-uni-discography mb-12 space-y-4" aria-labelledby="visual-discography">
             <div className="artist-uni-section-intro">
               <p className="artist-uni-section-label">Visual discography</p>
-              <h2 id="visual-discography" className="artist-uni-h2 !mb-0">Career trajectory</h2>
-              <div className="artist-uni-trajectory-key" aria-label="Trajectory legend">
+              <h2 id="visual-discography" className="artist-uni-h2 !mb-0">Albums</h2>
+              <div className="artist-uni-trajectory-key" aria-label="Chart legend">
                 <span>Weeks = length</span>
                 <span>Peak = glow</span>
                 <span>Tracks = texture</span>
@@ -1059,7 +1059,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
                         </div>
                         <span className="artist-uni-album-type">{chartMomentLabel(album)}</span>
                       </div>
-                      <div className="artist-uni-chart-bar" aria-label={`${album.title} chart trajectory`}>
+                      <div className="artist-uni-chart-bar" aria-label={`${album.title} chart run`}>
                         <span
                           className="artist-uni-chart-bar-fill"
                           style={{ width: `${hasChartSignal ? peakPlacement : 100}%` }}
@@ -1181,7 +1181,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
         {keySongs.length > 0 ? (
           <section className="artist-uni-major-tracks mb-10 space-y-3">
             <p className="artist-uni-section-label -mt-1 !mb-1">
-              {hasChartedKeySongs ? "Hot 100 public signal" : "Album landmarks"}
+              {hasChartedKeySongs ? "Hot 100 hits" : "Album highlights"}
             </p>
             <h2 className="artist-uni-h2">Major tracks</h2>
             <div className="artist-uni-track-grid">
@@ -1231,12 +1231,12 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
           </section>
         ) : (
           <section className="artist-uni-plate mb-10 max-w-[36rem] px-5 py-5">
-            <h2 className="artist-uni-h2 !mb-1">Track relationships</h2>
+            <h2 className="artist-uni-h2 !mb-1">Tracks</h2>
             <p className="artist-uni-muted text-[0.9rem] leading-relaxed">
-              Track-level links for this artist are still resolving. Album relationships remain available above, and the canonical track index stays reachable through the archive.
+              Track links for this artist are not available yet. Browse albums above or search for a song.
             </p>
             <Link href="/tracks" className="artist-uni-inline-link mt-3 inline-block">
-              Open track index
+              Browse tracks
             </Link>
           </section>
         )}
@@ -1283,7 +1283,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
 
         {data.eraConnections.length > 0 ? (
           <section className="mb-10 space-y-4">
-            <h2 className="artist-uni-h2">Era signal detail</h2>
+            <h2 className="artist-uni-h2">By era</h2>
             <p className="artist-uni-muted -mt-1 text-[0.85rem] leading-relaxed">
               How this voice maps across Retroverse time corridors (same chips also ring the hero — follow any thread).
             </p>
@@ -1331,7 +1331,7 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
               Random doorway
             </Link>
             <Link href="/search" className="artist-uni-inline-link">
-              Search the archive
+              Search
             </Link>
             <Link href="/eras" className="artist-uni-inline-link">
               Era stack

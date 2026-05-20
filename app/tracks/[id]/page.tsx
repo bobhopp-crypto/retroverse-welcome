@@ -3,7 +3,6 @@ import type { CSSProperties } from "react";
 import Link from "next/link";
 import { BodyClassName } from "@/app/components/body-class-name";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
-import { CompactArtworkThumb } from "@/app/components/compact-artwork-thumb";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildTrackContextLine, buildTrackCulturalRole } from "@/lib/retroverse-editorial";
 import { getEraBySlug } from "@/lib/eras";
@@ -15,8 +14,7 @@ import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-hea
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
 import { EntityStatus } from "@/app/components/entity-status";
-import { ArtworkFrame } from "@/app/components/artwork-frame";
-
+import "@/app/retroverse-public.css";
 import "@/app/albums/album-dossier.css";
 
 export const metadata: Metadata = {
@@ -588,7 +586,7 @@ function renderTrajectoryPage(data: TrackTrajectory) {
         </header>
 
         <section className="dossier-readout dossier-trajectory-readout">
-          <p className="dossier-provenance-label">Hot 100 trajectory</p>
+          <p className="dossier-provenance-label">Hot 100</p>
           <h1 className="dossier-title">{data.canonicalTitle}</h1>
           <p className="dossier-byline">
             <Link href={data.artistHref}>{data.canonicalArtist}</Link>
@@ -621,7 +619,7 @@ function renderTrajectoryPage(data: TrackTrajectory) {
           </dl>
         </section>
 
-        <section className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel" aria-label="Weekly Hot 100 trajectory">
+        <section className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel" aria-label="Hot 100 chart run">
           <div className="dossier-trajectory-scale" aria-hidden>
             <span>#100</span>
             <span>#50</span>
@@ -663,7 +661,7 @@ function renderTrajectoryPage(data: TrackTrajectory) {
 
         <section className="dossier-track-support">
           <article className="dossier-panel dossier-panel--band-plank">
-            <h2 className="dossier-panel-label">Connected albums</h2>
+            <h2 className="dossier-panel-label">Related albums</h2>
             {data.connectedAlbums.length ? (
               <ul className="dossier-support-list">
                 {data.connectedAlbums.map((album) => (
@@ -717,363 +715,101 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
   if (!data) {
     return (
       <EntityStatus
-        title="Entity unavailable"
-        message="This track could not be loaded. Try search or browse charts."
+        title="Track not found"
+        message="This track could not be loaded. Try search or browse tracks."
         backHref="/"
       />
     );
   }
 
-  const {
-    track,
-    artist,
-    charts,
-    peakChartPosition,
-    maxWeeksOnChart,
-    contextLine,
-    culturalRoleLines,
-    appearancesWithAlbum,
-    originalAppearance,
-    directTrackAlbum,
-    erasConnected,
-    firstEra,
-    dominantEra,
-    reuseIntoLaterEra,
-    relatedRows,
-    pathways,
-    partial,
-  } = data;
+  const { track, artist, charts, peakChartPosition, maxWeeksOnChart, originalAppearance, directTrackAlbum, relatedRows } =
+    data;
 
-  const chartYearLabel =
-    charts.length > 0
-      ? `${new Date(charts[0].chart_date).getFullYear()}-${new Date(charts[charts.length - 1].chart_date).getFullYear()}`
-      : "No chart years available";
-  const firstEraRecord = firstEra ? getEraBySlug(firstEra.slug) : undefined;
-  const eraAccent = firstEraRecord?.accent ?? "#b9a48a";
-  const atmosphericPanelStyle = {
-    borderLeftColor: eraAccent,
-    background: `color-mix(in srgb, var(--surface-raised) 86%, ${eraAccent} 14%)`,
-  } as const;
   const artistHref = hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name);
-  const primaryAlbumHref = originalAppearance
-    ? hrefForAlbum(originalAppearance.retroverseAlbumId, originalAppearance.canonicalAlbumTitle)
-    : directTrackAlbum
-    ? hrefForAlbum(directTrackAlbum.retroverse_album_id, directTrackAlbum.canonical_album_title)
-    : "/albums";
+  const albumTitle =
+    originalAppearance?.canonicalAlbumTitle ?? directTrackAlbum?.canonical_album_title ?? null;
+  const primaryAlbumHref = albumTitle
+    ? originalAppearance
+      ? hrefForAlbum(originalAppearance.retroverseAlbumId, originalAppearance.canonicalAlbumTitle)
+      : hrefForAlbum(directTrackAlbum!.retroverse_album_id, directTrackAlbum!.canonical_album_title)
+    : null;
 
   return (
-    <div className="min-h-full bg-[var(--page-gradient)]">
-      <article className="mx-auto max-w-[44rem] px-4 py-9 pb-14 sm:px-6 sm:py-[4rem]">
-        <header className="mb-7 space-y-2.5 border-b border-[var(--card-border)]/65 pb-4 sm:mb-8 sm:pb-5">
-          <p className="text-[0.74rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-            <Link href="/artists" className="underline-offset-2 hover:underline">
-              Artists
-            </Link>
-            {" → "}
-            <Link href={artistHref} className="underline-offset-2 hover:underline">
-              {artist.canonical_artist_name}
-            </Link>
-            {" → "}
-            {track.canonical_title}
-            {originalAppearance || directTrackAlbum ? (
+    <div className="rv-public-surface min-h-full">
+      <article className="rv-entity-page">
+        <RetroverseEntityNav
+          back={{ href: "/tracks", label: "Tracks" }}
+          items={[
+            { href: "/", label: "Search" },
+            { href: artistHref, label: "Artist" },
+            ...(primaryAlbumHref ? [{ href: primaryAlbumHref, label: "Album" }] : []),
+          ]}
+        />
+
+        <header className="rv-entity-section">
+          <h1>{track.canonical_title}</h1>
+          <p className="rv-entity-meta">
+            <Link href={artistHref}>{artist.canonical_artist_name}</Link>
+            {albumTitle && primaryAlbumHref ? (
               <>
-                {" → "}
-                <Link
-                  href={primaryAlbumHref}
-                  className="underline-offset-2 hover:underline"
-                >
-                  {originalAppearance?.canonicalAlbumTitle ?? directTrackAlbum?.canonical_album_title}
-                </Link>
+                {" · "}
+                <Link href={primaryAlbumHref}>{albumTitle}</Link>
               </>
             ) : null}
-            {firstEra ? (
-              <>
-                {" → "}
-                <Link href={eraHref(firstEra)} className="underline-offset-2 hover:underline">
-                  {firstEra.display_name}
-                </Link>
-              </>
-            ) : null}
+            {track.release_year !== null ? <> · Released {track.release_year}</> : null}
           </p>
-          <p className="text-[0.88rem] tracking-[0.04em] text-[var(--text-secondary)]">
-            Track record
-          </p>
-          <h1 className="font-serif text-[2.55rem] leading-[1.02] tracking-tight text-[var(--text-primary)] sm:text-[3.15rem]">
-            {track.canonical_title}
-          </h1>
-          <p className="font-serif text-[1.22rem] italic text-[var(--text-secondary)] sm:text-[1.35rem]">
-            <Link href={artistHref} className="underline-offset-4 hover:underline">
-              {artist.canonical_artist_name}
-            </Link>
-          </p>
-          <p className="text-[0.9rem] tracking-[0.02em] text-[var(--text-secondary)]">
-            {track.release_year !== null ? `${track.release_year} release` : "Release year unknown"}
-            {peakChartPosition !== null ? ` · peak #${peakChartPosition}` : ""}
-            {charts.length > 0 ? ` · ${charts.length} chart entries` : ""}
-          </p>
-          {partial ? (
-            <p className="text-[0.82rem] text-[var(--text-secondary)]">Some details are still being filled in.</p>
-          ) : null}
-          <p className="max-w-[40ch] text-[1.03rem] leading-[1.7] text-[var(--text-secondary)] sm:text-[1.08rem]">
-            {contextLine}
-          </p>
+          <ul className="rv-entity-stats">
+            <li>
+              <span>Peak position</span>
+              <strong>{peakChartPosition !== null ? `#${peakChartPosition}` : "—"}</strong>
+            </li>
+            <li>
+              <span>Weeks on chart</span>
+              <strong>{maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? "—"}</strong>
+            </li>
+            <li>
+              <span>Chart entries</span>
+              <strong>{charts.length || "—"}</strong>
+            </li>
+          </ul>
         </header>
 
-        <div className="mb-8">
-          <RetroverseEntityNav
-            back={{ href: "/tracks", label: "Tracks" }}
-            items={[
-              { href: "/", label: "Search" },
-              { href: artistHref, label: "Artist" },
-              { href: primaryAlbumHref, label: "Album" },
-            ]}
-          />
-        </div>
-
         {charts.length > 0 ? (
-          <section id="track-charts" className="mb-8 space-y-2.5">
-            <h2 className="font-serif text-[1.62rem] leading-[1.1] tracking-[0.006em] text-[var(--text-primary)] sm:text-[1.8rem]">
-              Chart Movement
-            </h2>
-            <p className="text-[0.9rem] tracking-[0.02em] text-[var(--text-secondary)]">
-              {peakChartPosition !== null ? `Peak #${peakChartPosition}` : "No chart position linked"}
-              {maxWeeksOnChart !== null ? ` · up to ${maxWeeksOnChart} weeks` : ""}
-              {charts.length > 0 ? ` · ${chartYearLabel}` : ""}
-            </p>
-            <ul className="border-l-2 border-[var(--card-border)]/60 pl-3">
+          <section className="rv-entity-section">
+            <h2>Hot 100 chart run</h2>
+            <ul className="rv-entity-chart-list">
               {charts.map((row) => (
-                <li key={row.retroverse_chart_id} className="py-2.5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-[1rem] font-medium text-[var(--text-primary)]">{row.chart_name}</p>
-                    <span className="text-[0.74rem] uppercase tracking-[0.11em] text-[var(--text-secondary)]">
-                      #{row.chart_position}
-                    </span>
-                  </div>
-                  <p className="text-[0.9rem] text-[var(--text-secondary)]">
-                    {new Date(row.chart_date).toISOString().slice(0, 10)}
-                    {row.weeks_on_chart !== null ? ` · ${row.weeks_on_chart} weeks` : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section id="track-anchor" className="mb-8 space-y-3">
-          <h2 className="font-serif text-[1.56rem] leading-[1.14] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.82rem]">
-            From the Album
-          </h2>
-          {originalAppearance ? (
-            <div className="grid gap-3 sm:grid-cols-[12.25rem_1fr] sm:items-start">
-              <ArtworkFrame
-                title={originalAppearance.canonicalAlbumTitle}
-                canonicalCoverPath={originalAppearance.coverPath}
-                albumId={originalAppearance.retroverseAlbumId}
-                artist={artist.canonical_artist_name}
-                year={originalAppearance.editionReleaseYear ?? originalAppearance.albumReleaseYear ?? null}
-              />
-              <div className="space-y-2.5">
-                <p className="font-serif text-[1.2rem] leading-tight text-[var(--text-primary)]">
-                  <Link
-                    href={primaryAlbumHref}
-                    className="underline-offset-4 hover:underline"
-                  >
-                    {originalAppearance.canonicalAlbumTitle}
-                  </Link>
-                </p>
-                <p className="text-[0.88rem] tracking-[0.02em] text-[var(--text-secondary)]">
-                  {albumTypeLabel(originalAppearance.albumType, originalAppearance.soundtrackFlag)}
-                  {(originalAppearance.editionReleaseYear ?? originalAppearance.albumReleaseYear) !== null
-                    ? ` · ${originalAppearance.editionReleaseYear ?? originalAppearance.albumReleaseYear}`
-                    : ""}
-                </p>
-                <p className="text-[0.95rem] leading-[1.62] text-[var(--text-secondary)]">
-                  Disc {originalAppearance.discNumber}, {originalAppearance.sideCode ? `Side ${originalAppearance.sideCode}, ` : ""}
-                  Track {originalAppearance.trackNumber}.
-                </p>
-                <p className="text-[0.95rem] leading-[1.62] text-[var(--text-secondary)]">
-                  {lineageSentence(originalAppearance, 0)}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-[0.94rem] leading-[1.68] text-[var(--text-secondary)]">
-                Album placement is still resolving.
-              </p>
-              {directTrackAlbum ? (
-                <p className="text-[0.95rem] text-[var(--text-secondary)]">
-                  Album link:{" "}
-                  <Link href={hrefForAlbum(directTrackAlbum.retroverse_album_id, directTrackAlbum.canonical_album_title)} className="underline-offset-2 hover:underline">
-                    {directTrackAlbum.canonical_album_title}
-                  </Link>
-                </p>
-              ) : null}
-            </div>
-          )}
-        </section>
-
-        {appearancesWithAlbum.length > 0 ? (
-          <section id="track-lineage" className="mb-8 space-y-3">
-            <h2 className="font-serif text-[1.5rem] leading-[1.15] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.72rem]">
-              Across Releases
-            </h2>
-            <ol className="max-w-[38rem] space-y-1.5 text-[0.96rem] leading-[1.58] text-[var(--text-secondary)]">
-              {appearancesWithAlbum.map((appearance, index) => (
-                <li key={`${appearance.retroverseAlbumEditionId}-${appearance.discNumber}-${appearance.trackNumber}-${index}`}>
-                  {lineageSentence(appearance, index)}
-                </li>
-              ))}
-            </ol>
-          </section>
-        ) : null}
-
-        {appearancesWithAlbum.length > 0 ? (
-          <section className="mb-8 space-y-3 rounded-md p-3 sm:p-4" style={atmosphericPanelStyle}>
-            <h2 className="font-serif text-[1.5rem] leading-[1.15] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.72rem]">
-              Also Playing
-            </h2>
-            <ul className="border-y border-[var(--card-border)]/56">
-              {appearancesWithAlbum.map((appearance, index) => (
-                <li
-                  key={`${appearance.retroverseAlbumEditionId}-${appearance.discNumber}-${appearance.trackNumber}-${index}`}
-                  className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0"
-                >
-                  <div className="grid gap-3 sm:grid-cols-[5rem_1fr] sm:items-start">
-                    <ArtworkFrame
-                      title={appearance.canonicalAlbumTitle}
-                      canonicalCoverPath={appearance.coverPath}
-                      albumId={appearance.retroverseAlbumId}
-                      artist={artist.canonical_artist_name}
-                      year={appearance.editionReleaseYear ?? appearance.albumReleaseYear ?? null}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-[0.98rem] font-medium text-[var(--text-primary)] sm:text-[1.01rem]">
-                        <Link href={hrefForAlbum(appearance.retroverseAlbumId, appearance.canonicalAlbumTitle)} className="underline-offset-4 hover:underline">
-                          {appearance.canonicalAlbumTitle}
-                        </Link>
-                      </p>
-                      <p className="text-[0.9rem] text-[var(--text-secondary)]">
-                        {appearance.editionReleaseYear ?? appearance.albumReleaseYear ?? "Year unknown"} ·{" "}
-                        {albumTypeLabel(appearance.albumType, appearance.soundtrackFlag)}
-                      </p>
-                      <p className="text-[0.85rem] tracking-[0.02em] text-[var(--text-secondary)]">
-                        {appearanceContextLabel(appearance.appearanceContext)}
-                      </p>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        <section className="mb-8 space-y-3 p-1 sm:p-2">
-          <h2 className="font-serif text-[1.42rem] leading-[1.18] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.5rem]">
-            Around This Time
-          </h2>
-          {firstEra || dominantEra || reuseIntoLaterEra ? (
-            <p className="max-w-[40ch] text-[0.96rem] leading-[1.58] text-[var(--text-secondary)]">
-              {firstEra ? `First heard in ${firstEra.display_name}. ` : ""}
-              {dominantEra ? `Most often heard in ${dominantEra.display_name}. ` : ""}
-              {reuseIntoLaterEra ? "Later years include new appearances." : ""}
-            </p>
-          ) : null}
-          <ul className="max-w-[36rem] border-y border-[var(--card-border)]/50">
-            {erasConnected.map((row) => (
-              <li key={row.era.retroverse_era_id} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                <Link href={eraHref(row.era)} className="flex items-center justify-between gap-2 hover:underline">
-                  <span className="text-[0.95rem] text-[var(--text-primary)]">{row.era.display_name}</span>
-                  <span className="text-[0.68rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/82">
-                    {row.count} appearances
+                <li key={row.retroverse_chart_id}>
+                  <span>
+                    {formatChartDate(row.chart_date)}
+                    {row.weeks_on_chart !== null ? ` · ${row.weeks_on_chart} weeks on chart` : ""}
                   </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          <ul className="space-y-2 text-[0.96rem] leading-[1.58] text-[var(--text-secondary)]">
-            {culturalRoleLines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </section>
+                  <strong>#{row.chart_position}</strong>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         {relatedRows.length > 0 ? (
-          <section id="track-related" className="mb-10 space-y-3">
-            <h2 className="font-serif text-[1.42rem] leading-[1.18] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.5rem]">
-              Neighboring Singles
-            </h2>
-            <ul className="max-w-[38rem] border-y border-[var(--card-border)]/50">
-              {relatedRows.map((row) => {
-                return (
-                <li key={row.retroverseTrackId} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-2.5 pr-2">
-                      <CompactArtworkThumb
-                        title={row.albumTitle}
-                        canonicalCoverPath={row.coverPath}
-                        albumId={row.albumId ?? undefined}
-                        artist={row.artist}
-                        year={row.releaseYear}
-                        artworkStatus={row.artworkStatus}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-[0.98rem] font-medium text-[var(--text-primary)] sm:text-[1.01rem]">
-                          <Link href={`/tracks/${row.retroverseTrackId}`} className="underline-offset-4 hover:underline">
-                            {row.title}
-                          </Link>{" "}
-                          -{" "}
-                          <Link href={hrefForArtist(row.retroverseArtistId, row.artist)} className="underline-offset-2 hover:underline">
-                            {row.artist}
-                          </Link>
-                        </p>
-                        <p className="truncate text-[0.82rem] text-[var(--text-secondary)]/86 sm:text-[0.86rem]">
-                          <Link href={row.albumHref} className="underline-offset-2 hover:underline">
-                            {row.albumTitle}
-                          </Link>
-                          {row.releaseYear !== null ? ` · ${row.releaseYear}` : ""}
-                        </p>
-                        <p className="text-[0.82rem] text-[var(--text-secondary)]/84 sm:text-[0.86rem]">{row.reasons.join(" · ")}</p>
-                      </div>
-                    </div>
-                    {row.peakChartPosition !== null ? (
-                      <span className="text-[0.68rem] uppercase tracking-[0.12em] text-[var(--text-secondary)]/82">
-                        Peak #{row.peakChartPosition}
-                      </span>
-                    ) : null}
-                  </div>
+          <section className="rv-entity-section">
+            <h2>Related tracks</h2>
+            <ul className="rv-public-track-list">
+              {relatedRows.map((row) => (
+                <li key={row.retroverseTrackId}>
+                  <Link href={`/tracks/${row.retroverseTrackId}`}>
+                    <span className="rv-track-num">
+                      {row.peakChartPosition !== null ? `#${row.peakChartPosition}` : "—"}
+                    </span>
+                    <span>
+                      {row.title} — {row.artist}
+                    </span>
+                  </Link>
                 </li>
-              )})}
+              ))}
             </ul>
           </section>
         ) : null}
-
-        <section className="space-y-4">
-          <h2 className="font-serif text-[1.42rem] leading-[1.18] tracking-[0.008em] text-[var(--text-primary)] sm:text-[1.5rem]">
-            Continue Through...
-          </h2>
-          <ul className="max-w-[36rem] border-y border-[var(--card-border)]/50">
-            {pathways.length > 0 ? (
-              pathways.map((pathway) => (
-                <li key={pathway.key} className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                  <Link href={pathway.href} className="block hover:underline">
-                    <p className="text-[0.95rem] text-[var(--text-primary)]">{pathway.label}</p>
-                    <p className="text-[0.84rem] text-[var(--text-secondary)]/85 sm:text-[0.88rem]">{pathway.summary}</p>
-                  </Link>
-                </li>
-              ))
-            ) : (
-              <li className="border-b border-[var(--card-border)]/42 py-2.5 last:border-b-0">
-                <Link href="/random" className="block hover:underline">
-                  <p className="text-[0.95rem] text-[var(--text-primary)]">Explore Randomly</p>
-                  <p className="text-[0.84rem] text-[var(--text-secondary)]/85 sm:text-[0.88rem]">
-                    Follow a random jump to keep moving.
-                  </p>
-                </Link>
-              </li>
-            )}
-          </ul>
-        </section>
       </article>
     </div>
   );

@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "Retroverse",
-  description: "Search music history — artists, albums, and chart runs.",
+  description: "A music time machine — search artists, albums, and chart history.",
   applicationName: "Retroverse",
   appleWebApp: {
     capable: true,

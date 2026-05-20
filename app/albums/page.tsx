@@ -136,12 +136,12 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
             <span>Artist</span>
             <input name="artist" defaultValue={params.artist ?? ""} placeholder="Fleetwood Mac" />
           </label>
-          <button type="submit">Search archive</button>
+          <button type="submit">Search</button>
         </form>
 
         {!useGraphYear && listCount > 0 ? (
           <p className="dossier-provenance dossier-index-count">
-            {listCount.toLocaleString()} albums in the archive
+            {listCount.toLocaleString()} albums
           </p>
         ) : null}
 
@@ -237,7 +237,7 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
               href={withParams(params, useGraphYear ? graphSlice.length : visibleAlbums.length)}
               className="dossier-a"
             >
-              Continue through {year ?? "the archive"}…
+              More from {year ?? "this browse"}…
             </Link>
           </p>
         ) : null}

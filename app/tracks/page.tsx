@@ -32,12 +32,6 @@ function withParams(searchParams: Awaited<TracksPageProps["searchParams"]>, offs
   return `/tracks?${params.toString()}`;
 }
 
-function confidenceLabel(value: "high" | "medium" | "low"): string {
-  if (value === "high") return "verified";
-  if (value === "medium") return "needs review";
-  return "tentative match";
-}
-
 export default async function TracksIndexPage({ searchParams }: TracksPageProps) {
   const params = await searchParams;
   const offset = parseOffset(params.offset);
@@ -60,7 +54,7 @@ export default async function TracksIndexPage({ searchParams }: TracksPageProps)
         </header>
 
         <section className="dossier-readout dossier-index-readout">
-          <p className="dossier-provenance-label">Canonical track archive</p>
+          <p className="dossier-provenance-label">Chart tracks</p>
           <h1 className="dossier-title">Tracks</h1>
         </section>
 
@@ -73,27 +67,19 @@ export default async function TracksIndexPage({ searchParams }: TracksPageProps)
             <span>Artist</span>
             <input name="artist" defaultValue={params.artist ?? ""} placeholder="Creedence Clearwater Revival" />
           </label>
-          <button type="submit">Inspect tracks</button>
+          <button type="submit">Search</button>
         </form>
 
-        <section className="dossier-index-status" aria-label="Track identity integrity">
-          <span>{index.totalRows.toLocaleString()} canonical track candidates</span>
-          <span>{index.unresolvedAlbumCount} unresolved album</span>
-          <span>{index.duplicateCandidateCount} duplicate candidate</span>
-          <span>{index.unresolvedChartCount} chart unresolved</span>
-          <span>{index.unresolvedVdjCount} VDJ unresolved</span>
-          <span>{index.pairedAliasCount} paired alias</span>
-          <span>{index.liveAmbiguityCount} live/studio</span>
-          <span>{index.soundtrackContaminationCount} soundtrack</span>
-        </section>
+        <p className="dossier-provenance dossier-index-count">
+          {index.totalRows.toLocaleString()} tracks
+        </p>
 
-        <section className="dossier-track-table" aria-label="Canonical track identity index">
+        <section className="dossier-track-table" aria-label="Track index">
           <div className="dossier-track-head" aria-hidden>
-            <span>Track identity</span>
+            <span>Track</span>
             <span>Album</span>
             <span>Hot 100</span>
             <span>Links</span>
-            <span>Integrity</span>
           </div>
           {index.rows.map((row) => (
             <article key={row.identityId} className="dossier-track-row">
@@ -113,25 +99,17 @@ export default async function TracksIndexPage({ searchParams }: TracksPageProps)
                 {row.connectedAlbumId && row.connectedAlbumTitle ? (
                   <Link href={`/albums/${row.connectedAlbumId}`}>{row.connectedAlbumTitle}</Link>
                 ) : (
-                  <span>album unresolved</span>
+                  <span>—</span>
                 )}
                 {row.connectedAlbumYear != null ? <small>{row.connectedAlbumYear}</small> : null}
               </div>
               <div className="dossier-track-chart">
                 <span>{row.hot100Peak != null ? `#${row.hot100Peak}` : "—"}</span>
-                <small>{row.hot100Weeks != null ? `${row.hot100Weeks} weeks` : "chart unresolved"}</small>
+                <small>{row.hot100Weeks != null ? `${row.hot100Weeks} weeks on chart` : "—"}</small>
               </div>
               <div className="dossier-track-links">
                 <span>{row.linkedAlbumCount} album</span>
                 <span>{row.linkedVdjCount} VDJ</span>
-              </div>
-              <div className="dossier-track-integrity">
-                <span className={`dossier-track-confidence dossier-track-confidence--${row.identityConfidence}`}>
-                  {confidenceLabel(row.identityConfidence)}
-                </span>
-                {(row.integrityStates.length ? row.integrityStates : ["linked"]).slice(0, 4).map((state) => (
-                  <span key={state}>{state}</span>
-                ))}
               </div>
             </article>
           ))}

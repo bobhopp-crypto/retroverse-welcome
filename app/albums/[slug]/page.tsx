@@ -17,7 +17,6 @@ import { artistRoute, hrefForTrack } from "@/lib/retroverse-routes";
 
 import { AlbumArchiveCover } from "../album-archive-cover";
 import { AlbumExploreLoop } from "../album-explore-loop";
-import { AlbumMediaSignals } from "../album-media-signals";
 
 export const dynamic = "force-dynamic";
 
@@ -122,11 +121,11 @@ export default async function AlbumDossierPage({ params }: Props) {
     const isCanonicalId = /^RVAL\d{6}$/.test(id);
     return (
       <EntityStatus
-        title={isCanonicalId ? "Partial data" : "Entity unavailable"}
+        title={isCanonicalId ? "Album not loaded" : "Album not found"}
         message={
           isCanonicalId
-            ? "This album ID is recognized but the local dossier is not loaded yet."
-            : "No album dossier matches this link. Try search or browse albums."
+            ? "This album is in the system but its page is not available yet."
+            : "No album matches this link. Try search or browse albums."
         }
         backHref="/albums"
         backLabel="Albums"
@@ -134,7 +133,7 @@ export default async function AlbumDossierPage({ params }: Props) {
     );
   }
 
-  const { identity, chart, acoustic, related, musicbrainz } = dossier;
+  const { identity, chart, acoustic, related } = dossier;
   const graphDetail = await getAlbumDetailByExternalKey(dossier.albumId);
   const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
   const graphCoverUrl = graphDetail?.canonicalCoverPath
@@ -186,42 +185,34 @@ export default async function AlbumDossierPage({ params }: Props) {
             <p className="dossier-artist">
               <Link href={artistRoute(identity.artist)}>{identity.artist}</Link>
             </p>
+            {browseYear != null ? (
+              <p className="dossier-provenance">
+                Released {browseYear}
+              </p>
+            ) : null}
+            <p className="dossier-provenance-label">Billboard 200</p>
             <dl className="dossier-chart-glance">
               <div>
-                <dt>Peak</dt>
+                <dt>Peak position</dt>
                 <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
               </div>
               <div className="dossier-chart-glance-depth">
-                <dt>Weeks</dt>
+                <dt>Weeks on chart</dt>
                 <dd>{chartWeeks ?? "—"}</dd>
               </div>
               <div className="dossier-chart-glance-depth">
-                <dt>On chart</dt>
+                <dt>Chart run</dt>
                 <dd>
                   {formatArchiveDate(chartFirst)}
                   {chartLast && chartLast !== chartFirst ? ` – ${formatArchiveDate(chartLast)}` : ""}
                 </dd>
               </div>
             </dl>
-            <AlbumMediaSignals
-              hasVideo={graphDetail?.hasVideoMedia}
-              hasAudio={graphDetail?.hasAudioMedia}
-              hasYoutube={graphDetail?.hasYoutubeEnrichment}
-              mediaCount={graphDetail?.mediaAssetCount}
-              trackFamilyCount={graphDetail?.trackFamilyCount}
-            />
           </section>
         </div>
 
-        {musicbrainz?.release_mbid ? (
-          <p className="dossier-provenance dossier-provenance-strip">
-            <span className="dossier-provenance-label">MusicBrainz release</span>
-            <code className="dossier-mbid">{musicbrainz.release_mbid}</code>
-          </p>
-        ) : null}
-
         <section className="dossier-panel dossier-panel--tracks dossier-panel--band-plank dossier-mobile-reveal-panel">
-          <h2 className="dossier-panel-label">Track listing</h2>
+          <h2 className="dossier-panel-label">Tracks</h2>
           {displayTracks.length ? (
             <ol className="rv-public-track-list">
               {displayTracks.map((tr, i) => {
@@ -241,7 +232,7 @@ export default async function AlbumDossierPage({ params }: Props) {
               })}
             </ol>
           ) : (
-            <p className="dossier-provenance">Track listing not available for this album yet.</p>
+            <p className="dossier-provenance">Tracks not listed yet.</p>
           )}
         </section>
 
@@ -249,7 +240,7 @@ export default async function AlbumDossierPage({ params }: Props) {
           <div className="dossier-tunnels">
             <div className="dossier-tunnel">
               <h3 className="dossier-subhead dossier-subhead--tunnel">
-                Discography<span className="dossier-tunnel-glyph" aria-hidden />
+                More by this artist
               </h3>
               <ul className="dossier-related">
                 {related.same_artist_albums.map((r) => (
@@ -267,8 +258,7 @@ export default async function AlbumDossierPage({ params }: Props) {
             </div>
             <div className="dossier-tunnel">
               <h3 className="dossier-subhead dossier-subhead--tunnel">
-                Nearby on the charts
-                <span className="dossier-tunnel-glyph dossier-tunnel-glyph--grid" aria-hidden />
+                Related albums
               </h3>
               <ul className="dossier-related">
                 {[...related.adjacent_year_same_rank, ...related.adjacent_rank_same_year].map((r, i) => (
@@ -291,11 +281,7 @@ export default async function AlbumDossierPage({ params }: Props) {
           </div>
         </section>
 
-        <AlbumExploreLoop
-          artistName={identity.artist}
-          chartYear={browseYear}
-          albumId={dossier.albumId}
-        />
+        <AlbumExploreLoop artistName={identity.artist} chartYear={browseYear} />
 
       </div>
     </>

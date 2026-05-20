@@ -371,3 +371,148 @@ body.rv-public-surface {
   font-weight: 400;
   color: var(--rv-pub-fg-muted);
 }
+
+/* —— Home magazine sections —— */
+.rv-home-magazine {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.rv-home-card {
+  border: 1px solid var(--rv-pub-border);
+  border-radius: var(--rv-pub-radius);
+  padding: 1rem 1.1rem;
+  background: var(--rv-pub-bg-elevated);
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.rv-home-card:hover {
+  border-color: var(--rv-pub-accent);
+}
+
+.rv-home-card h2 {
+  font-family: var(--rv-pub-font-display);
+  font-size: clamp(1.25rem, 5vw, 1.5rem);
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--rv-pub-fg);
+}
+
+.rv-home-card p {
+  font-size: max(1.0625rem, 17px);
+  line-height: 1.5;
+  margin: 0;
+  color: var(--rv-pub-fg-muted);
+}
+
+.rv-home-card--muted {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.rv-home-card--muted h2::after {
+  content: " · soon";
+  font-family: var(--rv-pub-font-body);
+  font-size: max(0.9375rem, 15px);
+  font-weight: 400;
+  color: var(--rv-pub-fg-muted);
+}
+
+/* —— Simple entity pages (tracks) —— */
+.rv-entity-page {
+  max-width: var(--rv-pub-content-max);
+  margin: 0 auto;
+  padding: var(--rv-pub-pad-y) var(--rv-pub-pad-x) 3rem;
+}
+
+.rv-entity-page h1 {
+  font-family: var(--rv-pub-font-display);
+  font-size: clamp(2rem, 9vw, 2.75rem);
+  line-height: 1.08;
+  margin: 0 0 0.5rem;
+  color: var(--rv-pub-fg);
+}
+
+.rv-entity-page h2 {
+  font-family: var(--rv-pub-font-display);
+  font-size: clamp(1.35rem, 5vw, 1.65rem);
+  margin: 0 0 0.75rem;
+  color: var(--rv-pub-fg);
+}
+
+.rv-entity-page .rv-entity-meta {
+  font-size: max(1.0625rem, 17px);
+  color: var(--rv-pub-fg-muted);
+  margin: 0 0 1.25rem;
+  line-height: 1.55;
+}
+
+.rv-entity-page .rv-entity-meta a {
+  color: var(--rv-pub-link);
+  font-weight: 600;
+}
+
+.rv-entity-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-entity-stats li {
+  border: 1px solid var(--rv-pub-border);
+  border-radius: var(--rv-pub-radius);
+  padding: 0.75rem 0.85rem;
+  background: var(--rv-pub-bg-elevated);
+}
+
+.rv-entity-stats span {
+  display: block;
+  font-size: max(0.9375rem, 15px);
+  color: var(--rv-pub-fg-muted);
+  margin-bottom: 0.2rem;
+}
+
+.rv-entity-stats strong {
+  font-size: max(1.125rem, 18px);
+  color: var(--rv-pub-fg);
+}
+
+.rv-entity-chart-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--rv-pub-border);
+  border-radius: var(--rv-pub-radius);
+  overflow: hidden;
+}
+
+.rv-entity-chart-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  font-size: max(1.0625rem, 17px);
+  border-bottom: 1px solid color-mix(in srgb, var(--rv-pub-border) 45%, transparent);
+}
+
+.rv-entity-chart-list li:last-child {
+  border-bottom: none;
+}
+
+.rv-entity-section {
+  margin-bottom: 2rem;
+}
+
+.dossier-media-signals,
+.dossier-provenance-strip,
+.dossier-track-integrity,
+.dossier-index-status {
+  display: none !important;
+}
