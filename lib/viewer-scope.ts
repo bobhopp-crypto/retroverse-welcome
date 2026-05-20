@@ -13,6 +13,11 @@ import {
   loadSqliteCorpusYears,
   loadSqliteRankedAlbumEntriesForYear,
 } from "@/lib/viewer-corpus-sqlite";
+import {
+  canonicalGraphPing,
+  getYearAlbums,
+  graphYearAlbumsToViewerEntries,
+} from "@/lib/canonical-graph";
 import { createClient } from "@/lib/supabase";
 
 const YEAR_PAGE = 1000;
@@ -42,7 +47,7 @@ export type ViewerBootstrap = {
   /** True when one or more bootstrap sections failed (e.g. Supabase offline). */
   sourceOffline?: boolean;
   /** Runtime corpus provider used for years / year-album navigation. */
-  corpusSource?: "supabase" | "sqlite";
+  corpusSource?: "supabase" | "sqlite" | "canonical-graph";
 };
 
 function bootstrapErrorMessage(err: unknown): string {
@@ -121,7 +126,7 @@ function logBootstrapFailure(
 export function emptyViewerBootstrap(overrides?: Partial<ViewerBootstrap>): ViewerBootstrap {
   let years: number[] = [];
   let entries: ViewerYearAlbumEntry[] = [];
-  let corpusSource: "supabase" | "sqlite" = "supabase";
+  let corpusSource: "supabase" | "sqlite" | "canonical-graph" = "supabase";
   try {
     years = loadSqliteCorpusYears();
     if (years.length > 0) {
@@ -428,6 +433,23 @@ async function loadViewerRankedAlbumEntriesForYearSupabaseImpl(
  * The client already prefetches ±1 year on every navigation, so once the user
  * has touched a year band, all subsequent year switches in that band feel instant.
  */
+async function loadViewerRankedAlbumEntriesForYearFromGraph(
+  year: number,
+): Promise<ViewerYearAlbumEntry[]> {
+  try {
+    if (!(await canonicalGraphPing())) return [];
+    const graphRows = await getYearAlbums(year);
+    if (graphRows.length === 0) return [];
+    console.warn(
+      `[portal/bootstrap] entries_canonical_graph year=${year} count=${graphRows.length}`,
+    );
+    return graphYearAlbumsToViewerEntries(graphRows);
+  } catch (err) {
+    logBootstrapFailure("entries", err);
+    return [];
+  }
+}
+
 async function loadViewerRankedAlbumEntriesForYearImpl(year: number): Promise<ViewerYearAlbumEntry[]> {
   try {
     const entries = await loadViewerRankedAlbumEntriesForYearSupabaseImpl(year);
@@ -435,6 +457,9 @@ async function loadViewerRankedAlbumEntriesForYearImpl(year: number): Promise<Vi
   } catch (err) {
     logBootstrapFailure("entries", err);
   }
+
+  const graphEntries = await loadViewerRankedAlbumEntriesForYearFromGraph(year);
+  if (graphEntries.length > 0) return graphEntries;
 
   const sqliteEntries = loadSqliteRankedAlbumEntriesForYear(year);
   if (sqliteEntries.length > 0) {
@@ -457,7 +482,7 @@ export async function loadViewerRankedAlbumEntriesForYear(year: number): Promise
 
 async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap> {
   let sourceOffline = false;
-  let corpusSource: "supabase" | "sqlite" = "supabase";
+  let corpusSource: "supabase" | "sqlite" | "canonical-graph" = "supabase";
 
   let years: number[] = [];
   try {
@@ -495,6 +520,11 @@ async function loadViewerBootstrapImpl(): Promise<ViewerBootstrap> {
     } catch (err) {
       logBootstrapFailure("entries", err);
       sourceOffline = true;
+    }
+    const graphEntries = await loadViewerRankedAlbumEntriesForYearFromGraph(y);
+    if (graphEntries.length > 0) {
+      corpusSource = "canonical-graph";
+      return graphEntries;
     }
     const sqliteEntries = loadSqliteRankedAlbumEntriesForYear(y);
     if (sqliteEntries.length > 0) {

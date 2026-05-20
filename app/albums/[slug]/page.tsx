@@ -6,6 +6,7 @@ import { EntityStatus } from "@/app/components/entity-status";
 import { BodyClassName } from "@/app/components/body-class-name";
 import "../album-dossier.css";
 import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
+import { getAlbumDetailByExternalKey, resolveAlbumCoverUrl } from "@/lib/canonical-graph";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import type { AlbumDossierTrack } from "@/lib/album-dossier-schema";
@@ -141,8 +142,15 @@ export default async function AlbumDossierPage({ params }: Props) {
   }
 
   const { identity, chart, acoustic, related, musicbrainz } = dossier;
+  const graphDetail = await getAlbumDetailByExternalKey(dossier.albumId);
   const coverPick = await pickCanonicalCoverForAlbum(dossier.albumId);
-  const coverUrl = canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
+  const coverUrl =
+    (await resolveAlbumCoverUrl(dossier.albumId, { pgAlbumId: graphDetail?.pgAlbumId })) ??
+    canonicalCoverPathToUrl(coverPick.path, { cacheBust: coverPick.cacheBust });
+  const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
+  const chartWeeks = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
+  const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date;
+  const chartLast = graphDetail?.lastChartDate ?? chart.last_chart_date;
   const curateHref = `/portal-v2/curate?albumId=${encodeURIComponent(dossier.albumId)}`;
   const canonicalSequence = getCanonicalAlbumSequence(dossier.albumId);
   const resolvedSequence = canonicalSequence
@@ -202,19 +210,19 @@ export default async function AlbumDossierPage({ params }: Props) {
           <dl className="dossier-dl">
             <div>
               <dt>Billboard 200 peak</dt>
-              <dd>{chart.peak_rank != null ? `#${chart.peak_rank}` : "—"}</dd>
+              <dd>{chartPeak != null ? `#${chartPeak}` : "—"}</dd>
             </div>
             <div>
               <dt>Weeks charted</dt>
-              <dd>{chart.weeks_on_chart ?? "—"}</dd>
+              <dd>{chartWeeks ?? "—"}</dd>
             </div>
             <div>
               <dt>First charted</dt>
-              <dd>{formatArchiveDate(chart.first_chart_date)}</dd>
+              <dd>{formatArchiveDate(chartFirst)}</dd>
             </div>
             <div>
               <dt>Last charted</dt>
-              <dd>{formatArchiveDate(chart.last_chart_date)}</dd>
+              <dd>{formatArchiveDate(chartLast)}</dd>
             </div>
           </dl>
         </section>

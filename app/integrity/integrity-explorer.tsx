@@ -26,6 +26,12 @@ const VIEWS: { id: IntegrityView; label: string }[] = [
   { id: "r2-sync", label: "R2 Sync Analysis" },
   { id: "thumbnail-coverage", label: "Thumbnail Coverage" },
   { id: "youtube-enrichment", label: "YouTube Enrichment" },
+  { id: "cover-summary", label: "Album Covers" },
+  { id: "cover-links", label: "Cover Links" },
+  { id: "cover-missing", label: "Missing Covers" },
+  { id: "cover-r2", label: "R2 Cover Links" },
+  { id: "cover-curated", label: "Curated Covers" },
+  { id: "cover-review", label: "Cover Review Queue" },
   { id: "acoustic-linkage", label: "Acoustic Linkage" },
   { id: "acoustic-tracklists", label: "Acoustic Tracklists" },
   { id: "acoustic-hot100", label: "Hot 100 Backfill" },
@@ -55,6 +61,15 @@ const MEDIA_VIEWS = new Set<IntegrityView>([
   "youtube-enrichment",
 ]);
 
+const COVER_VIEWS = new Set<IntegrityView>([
+  "cover-summary",
+  "cover-links",
+  "cover-missing",
+  "cover-r2",
+  "cover-curated",
+  "cover-review",
+]);
+
 const ALBUM_VIEWS = new Set<IntegrityView>([
   "albums",
   "album-families",
@@ -78,6 +93,7 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
   const albumMode = ALBUM_VIEWS.has(data.view);
   const linkageMode = LINKAGE_VIEWS.has(data.view);
   const mediaMode = MEDIA_VIEWS.has(data.view);
+  const coverMode = COVER_VIEWS.has(data.view);
   const acousticMode = ACOUSTIC_VIEWS.has(data.view);
 
   const pushParams = useCallback(
@@ -124,8 +140,8 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
             placeholder={
               albumMode
                 ? "Album or artist…"
-                : linkageMode || mediaMode || acousticMode
-                  ? "Browse linkage / media…"
+                : linkageMode || mediaMode || coverMode || acousticMode
+                  ? "Browse linkage / media / covers…"
                   : "Artist or family…"
             }
             value={searchDraft}
@@ -197,6 +213,8 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
           <AcousticPanels data={data} pending={pending} />
         ) : mediaMode ? (
           <MediaPanels data={data} pending={pending} />
+        ) : coverMode ? (
+          <CoverPanels data={data} pending={pending} />
         ) : linkageMode ? (
           <LinkagePanels data={data} pending={pending} />
         ) : albumMode ? (
@@ -1139,6 +1157,97 @@ function MediaPanels({ data, pending }: { data: ExplorerData; pending: boolean }
   );
 }
 
+
+function CoverPanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
+  const s = data.coverSummary;
+  if (data.view === "cover-summary" && s) {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>Album covers<span className="ic-readonly">read-only</span></h1>
+          {pending ? <span>loading…</span> : null}
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">Phase 10 artwork linkage</p>
+          <div className="ic-stats" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+            <span>albums with links <strong>{s.albumsWithLinks}</strong></span>
+            <span>missing covers <strong>{s.albumsMissingCovers}</strong></span>
+            <span>R2 cover keys <strong>{s.r2CoverLinks}</strong></span>
+            <span>curated <strong>{s.curatedCovers}</strong></span>
+            <span>unresolved <strong>{s.unresolvedCovers}</strong></span>
+          </div>
+        </div>
+      </>
+    );
+  }
+  const rows =
+    data.view === "cover-missing"
+      ? data.coverMissing
+      : data.view === "cover-r2"
+        ? data.coverR2Links
+        : data.view === "cover-curated"
+          ? data.coverCurated
+          : data.view === "cover-review"
+            ? data.coverReviewQueue
+            : data.coverLinks;
+  const title =
+    data.view === "cover-missing"
+      ? "Missing covers"
+      : data.view === "cover-r2"
+        ? "R2 cover links"
+        : data.view === "cover-curated"
+          ? "Curated cover status"
+          : data.view === "cover-review"
+            ? "Cover review queue"
+            : "Album artwork links";
+  return (
+    <>
+      <header className="ic-header">
+        <h1>{title}<span className="ic-readonly">read-only</span></h1>
+      </header>
+      <div className="ic-body">
+        <div className="ic-table-wrap">
+          <table className="ic-table">
+            <thead>
+              <tr>
+                <th>Artist</th>
+                <th>Album</th>
+                <th>Path</th>
+                <th>R2</th>
+                <th>Review</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>No rows — run 1001–1003</td>
+                </tr>
+              ) : (
+                (rows as Array<{
+                  albumId: number;
+                  artistName?: string;
+                  albumTitle?: string;
+                  canonicalCoverPath?: string | null;
+                  r2CoverKey?: string | null;
+                  reviewFlag?: string;
+                  externalKey?: string | null;
+                }>).map((r) => (
+                  <tr key={`${r.albumId}-${r.reviewFlag ?? "x"}`}>
+                    <td>{r.artistName ?? "—"}</td>
+                    <td>{r.albumTitle ?? "—"}</td>
+                    <td>{r.canonicalCoverPath?.slice(0, 36) ?? r.externalKey ?? "—"}</td>
+                    <td>{r.r2CoverKey ? "yes" : "—"}</td>
+                    <td>{r.reviewFlag ?? "—"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
 
 function AcousticPanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
   const s = data.acousticSummary;

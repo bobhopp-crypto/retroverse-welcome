@@ -251,6 +251,23 @@ Retroverse connects **canonical music identity** to **operational media reality*
 
 VirtualDJ remains authoritative for **what you actually play**. Retroverse remains authoritative for **what the song is in history**.
 
+### Graph → deployed app (Phase 10)
+
+| File / module | Purpose |
+|---------------|---------|
+| `sql/1001_album_artwork_links_schema.sql` | `album_artwork_links`, `album_external_keys`, staging buffers |
+| `scripts/populate_album_graph_bridge.py` | Bridge RVAL dossiers → Postgres `album_id` + artwork CSV |
+| `sql/1002_populate_album_graph_bridge.sql` | Load external keys |
+| `sql/1003_populate_album_artwork_links.sql` | Load artwork links (non-destructive) |
+| `lib/canonical-graph/` | `getYearAlbums`, `getAlbumDetail`, cover resolution |
+| App wiring | `/albums?year=`, dossier chart enrichment, portal graph fallback |
+
+**Run order:** `1001` → `populate_album_graph_bridge.py` → `\copy` + `1002` → `\copy` + `1003`
+
+**Cover priority in app:** curator override → `album_artwork_links` → dossier path → placeholder
+
+**Integrity viewer:** Album Covers, Missing Covers, R2 Cover Links, Curated Cover Status, Cover Review Queue
+
 ## Retroverse Canonical Linkage Layer
 
 Tracks, albums, charts, and media files are **separate identity layers**. Linkage tables are the nervous system between them.

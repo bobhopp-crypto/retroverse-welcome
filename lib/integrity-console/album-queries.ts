@@ -264,6 +264,7 @@ export async function loadExplorerDataWithAlbums(opts: {
   const { loadExplorerData } = await import("./queries");
   const { isLinkageView, loadLinkageExplorerSlice } = await import("./linkage-queries");
   const { isMediaView, loadMediaExplorerSlice } = await import("./media-queries");
+  const { isCoverView, loadCoverExplorerSlice } = await import("./cover-queries");
   const { isAcousticView, loadAcousticExplorerSlice } = await import("./acoustic-queries");
   const base = await loadExplorerData({
     artistId: opts.artistId,
@@ -277,6 +278,7 @@ export async function loadExplorerDataWithAlbums(opts: {
       opts.view === "tracklists" ||
       isLinkageView(opts.view) ||
       isMediaView(opts.view) ||
+      isCoverView(opts.view) ||
       isAcousticView(opts.view)
         ? "artists"
         : opts.view,
@@ -298,6 +300,16 @@ export async function loadExplorerDataWithAlbums(opts: {
         r2SyncRows: [],
         thumbnailCoverage: [],
         youtubeEnrichment: [],
+      };
+  const coverSlice = isCoverView(opts.view)
+    ? await loadCoverExplorerSlice(opts.view)
+    : {
+        coverSummary: null,
+        coverLinks: [],
+        coverMissing: [],
+        coverR2Links: [],
+        coverCurated: [],
+        coverReviewQueue: [],
       };
   const acousticSlice = isAcousticView(opts.view)
     ? await loadAcousticExplorerSlice(opts.view)
@@ -331,6 +343,7 @@ export async function loadExplorerDataWithAlbums(opts: {
     tracklistRows,
     ...linkageSlice,
     ...mediaSlice,
+    ...coverSlice,
     ...acousticSlice,
   };
 }

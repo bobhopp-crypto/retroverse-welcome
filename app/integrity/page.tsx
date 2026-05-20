@@ -25,6 +25,12 @@ function parseView(raw: string | undefined): IntegrityView {
     raw === "r2-sync" ||
     raw === "thumbnail-coverage" ||
     raw === "youtube-enrichment" ||
+    raw === "cover-summary" ||
+    raw === "cover-links" ||
+    raw === "cover-missing" ||
+    raw === "cover-r2" ||
+    raw === "cover-curated" ||
+    raw === "cover-review" ||
     raw === "acoustic-linkage" ||
     raw === "acoustic-tracklists" ||
     raw === "acoustic-hot100" ||

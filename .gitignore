@@ -25,6 +25,7 @@
 /exports/acoustics/*.csv
 /exports/virtualdj/*.csv
 /exports/youtube/*.csv
+/exports/graph/*.csv
 
 # misc
 .DS_Store

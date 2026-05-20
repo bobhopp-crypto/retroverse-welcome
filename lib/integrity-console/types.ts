@@ -18,6 +18,12 @@ export type IntegrityView =
   | "r2-sync"
   | "thumbnail-coverage"
   | "youtube-enrichment"
+  | "cover-summary"
+  | "cover-links"
+  | "cover-missing"
+  | "cover-r2"
+  | "cover-curated"
+  | "cover-review"
   | "acoustic-linkage"
   | "acoustic-tracklists"
   | "acoustic-hot100"
@@ -252,6 +258,31 @@ export type ThumbnailCoverageRow = {
   coverage_status: string;
 };
 
+export type CoverSummary = {
+  albumsWithLinks: number;
+  albumsMissingCovers: number;
+  r2CoverLinks: number;
+  curatedCovers: number;
+  unresolvedCovers: number;
+};
+
+export type CoverLinkRow = {
+  albumId: number;
+  artistName: string;
+  albumTitle: string;
+  canonicalCoverPath: string | null;
+  r2CoverKey: string | null;
+  reviewFlag: string;
+  source: string;
+};
+
+export type MissingCoverRow = {
+  albumId: number;
+  artistName: string;
+  albumTitle: string;
+  externalKey: string | null;
+};
+
 export type YoutubeEnrichmentRow = {
   id: number;
   artist_text: string | null;
@@ -329,6 +360,12 @@ export type ExplorerData = {
   r2SyncRows: R2SyncRow[];
   thumbnailCoverage: ThumbnailCoverageRow[];
   youtubeEnrichment: YoutubeEnrichmentRow[];
+  coverSummary: CoverSummary | null;
+  coverLinks: CoverLinkRow[];
+  coverMissing: MissingCoverRow[];
+  coverR2Links: CoverLinkRow[];
+  coverCurated: CoverLinkRow[];
+  coverReviewQueue: CoverLinkRow[];
   acousticSummary: AcousticLinkageSummary | null;
   acousticTracklists: AcousticTracklistRow[];
   acousticHot100Links: Hot100AlbumLinkRow[];
