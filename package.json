@@ -16,6 +16,7 @@
     "retroscope:seed": "python3 /Users/bobhopp/RETROVERSE_DATA/scripts/generate_album_retroscope_seed.py",
     "retroscope:runtime": "python3 /Users/bobhopp/RETROVERSE_DATA/scripts/materialize_retroscope_runtime.py",
     "retroscope:publish-runtime": "node scripts/publish-retroscope-runtime.mjs",
+    "dossiers:build-mb-sidecar": "tsx scripts/build_dossier_musicbrainz_sidecar.ts",
     "dossiers:materialize": "python3 /Users/bobhopp/RETROVERSE_DATA/scripts/materialize_album_dossiers.py",
     "dossiers:publish": "node scripts/publish-album-dossiers.mjs",
     "report:rank-inspection": "tsx scripts/report_retroverse_rank_inspection.ts",

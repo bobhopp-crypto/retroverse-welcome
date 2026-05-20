@@ -1,0 +1,804 @@
+{
+  "generated_at": "2026-05-20T20:11:28.863Z",
+  "paths": {
+    "musicbrainz_cache": "/Users/bobhopp/Sites/retroverse/data/derived/albums/source_musicbrainz_album_cache.json",
+    "retroscope_coordinates": "/Users/bobhopp/RETROVERSE_DATA/runtime/retroscope-coordinates.json",
+    "dossiers_bundle": "/Users/bobhopp/RETROVERSE_v2/apps/retroverse-welcome/public/data/albums/album-dossiers.json",
+    "sidecar_output": "/Users/bobhopp/RETROVERSE_DATA/runtime/dossier-musicbrainz-by-rval.json",
+    "canonical_sequences_skipped": "/Users/bobhopp/RETROVERSE_v2/apps/retroverse-welcome/public/data/albums/canonical-album-sequences.json"
+  },
+  "cache": {
+    "total_albums": 36322,
+    "matched_status_count": 29413
+  },
+  "coordinates": {
+    "total_cells": 11200,
+    "unique_rval": 8680
+  },
+  "sidecar": {
+    "albums_written": 6667,
+    "skipped_manual_canonical_sequences": 5,
+    "skipped_rvals": [
+      "RVAL110155",
+      "RVAL000003",
+      "RVAL205451",
+      "RVAL695796",
+      "RVAL281995"
+    ],
+    "matched_no_top_tracks": 0
+  },
+  "dossiers": {
+    "total_checked": 8680,
+    "matched_in_sidecar": 6667,
+    "unmatched_count": 2008
+  },
+  "matching": {
+    "rval_matched_from_coordinates": 6667,
+    "rval_unmatched_from_coordinates": 2008,
+    "duplicate_norm_candidates": 33
+  },
+  "thriller_validation": {
+    "in_sidecar": true,
+    "track_count": 9,
+    "position_1_title": "Wanna Be Startin’ Somethin’",
+    "position_1_ok": true,
+    "variant_titles_in_sequence": [],
+    "sequence_clean": true
+  },
+  "top_25_unmatched_charted_dossiers": [
+    {
+      "rval": "RVAL633607",
+      "artist": "Herb Alpert & The Tijuana Brass",
+      "album": "!!Going Places!!",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL455849",
+      "artist": "Soundtrack",
+      "album": "8 Mile",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL468343",
+      "artist": "The Beatles",
+      "album": "A Hard Day's Night (Soundtrack)",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL170160",
+      "artist": "Celine Dion",
+      "album": "A New Day Has Come",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL292645",
+      "artist": "Barbra Streisand & Kris Kristofferson",
+      "album": "A Star Is Born (Soundtrack)",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL157650",
+      "artist": "Bob Seger",
+      "album": "Against The Wind",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL258851",
+      "artist": "Janet",
+      "album": "All For You",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL565693",
+      "artist": "Celine Dion",
+      "album": "All The Way...A Decade Of Song",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL768198",
+      "artist": "Fall Out Boy",
+      "album": "American Beauty / American Psycho",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL728100",
+      "artist": "JAY-Z",
+      "album": "American Gangster",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL668947",
+      "artist": "Soundtrack",
+      "album": "Armageddon -- The Album",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL308861",
+      "artist": "Ashanti",
+      "album": "Ashanti",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL738633",
+      "artist": "Travis Scott",
+      "album": "ASTROWORLD",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL553252",
+      "artist": "Wings",
+      "album": "At The Speed Of Sound",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL086316",
+      "artist": "Beyonce",
+      "album": "B'Day",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL600193",
+      "artist": "Soundtrack",
+      "album": "Bad Boys II",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL253699",
+      "artist": "Paul McCartney And Wings",
+      "album": "Band On The Run",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL015024",
+      "artist": "Prince",
+      "album": "Batman (Soundtrack)",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL663323",
+      "artist": "The Beach Boys",
+      "album": "Beach Boys In Concert",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL751028",
+      "artist": "Herb Alpert & The Tijuana Brass",
+      "album": "Beat Of The Brass",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL883635",
+      "artist": "Bee Gees",
+      "album": "Bee Gee's Greatest",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL458611",
+      "artist": "Soundtrack",
+      "album": "Black Panther: The Album, Music From And Inspired By",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL114819",
+      "artist": "Paul Mauriat And His Orchestra",
+      "album": "Blooming Hits",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL644580",
+      "artist": "Bruce Springsteen",
+      "album": "Bruce Springsteen & The E Street Band 1975-1985",
+      "peak_rank": 1
+    },
+    {
+      "rval": "RVAL969901",
+      "artist": "Michael Buble",
+      "album": "Call Me Irresponsible",
+      "peak_rank": 1
+    }
+  ],
+  "sample_unmatched_coordinates": [
+    {
+      "rval": "RVAL000433",
+      "artist": "Linda Ronstadt",
+      "album": "Lush Life",
+      "norm": "linda ronstadt lush life"
+    },
+    {
+      "rval": "RVAL000667",
+      "artist": "Eddie Harris",
+      "album": "Eddie Harris Live At Newport",
+      "norm": "eddie harris eddie harris live at newport"
+    },
+    {
+      "rval": "RVAL001565",
+      "artist": "Various Artists",
+      "album": "GRP Christmas Collection Volume 3",
+      "norm": "various artists grp christmas collection volume 3"
+    },
+    {
+      "rval": "RVAL002442",
+      "artist": "Various Artists",
+      "album": "Jam Harder",
+      "norm": "various artists jam harder"
+    },
+    {
+      "rval": "RVAL002525",
+      "artist": "Various Artists",
+      "album": "Pure Disco",
+      "norm": "various artists pure disco"
+    },
+    {
+      "rval": "RVAL003209",
+      "artist": "Original Broadway Cast Recording",
+      "album": "The Lion King",
+      "norm": "original broadway cast recording the lion king"
+    },
+    {
+      "rval": "RVAL003472",
+      "artist": "Roberta Flack",
+      "album": "Roberta Flack & Donny Hathaway",
+      "norm": "roberta flack roberta flack donny hathaway"
+    },
+    {
+      "rval": "RVAL004362",
+      "artist": "Roger Williams",
+      "album": "Golden Hits",
+      "norm": "roger williams golden hits"
+    },
+    {
+      "rval": "RVAL004706",
+      "artist": "New Edition",
+      "album": "New Edition",
+      "norm": "new edition new edition"
+    },
+    {
+      "rval": "RVAL005020",
+      "artist": "Sergio Mendes",
+      "album": "Fool On The Hill",
+      "norm": "sergio mendes fool on the hill"
+    },
+    {
+      "rval": "RVAL005383",
+      "artist": "Diana Ross & The Supremes",
+      "album": "TCB",
+      "norm": "diana ross the supremes tcb"
+    },
+    {
+      "rval": "RVAL006182",
+      "artist": "Tom",
+      "album": "Maria Elena",
+      "norm": "tom maria elena"
+    },
+    {
+      "rval": "RVAL006365",
+      "artist": "The 2 Live Crew",
+      "album": "2 Live Crew Is What We Are",
+      "norm": "the 2 live crew 2 live crew is what we are"
+    },
+    {
+      "rval": "RVAL006871",
+      "artist": "Brandy",
+      "album": "Brandy",
+      "norm": "brandy brandy"
+    },
+    {
+      "rval": "RVAL007115",
+      "artist": "Soundtrack",
+      "album": "House Party II",
+      "norm": "soundtrack house party ii"
+    },
+    {
+      "rval": "RVAL007160",
+      "artist": "The Isley Brothers",
+      "album": "The Heat Is On",
+      "norm": "the isley brothers the heat is on"
+    },
+    {
+      "rval": "RVAL008091",
+      "artist": "Soundtrack",
+      "album": "Now And Then",
+      "norm": "soundtrack now and then"
+    },
+    {
+      "rval": "RVAL008556",
+      "artist": "George Strait",
+      "album": "Strait Out Of The Box",
+      "norm": "george strait strait out of the box"
+    },
+    {
+      "rval": "RVAL009692",
+      "artist": "Bing Crosby",
+      "album": "Christmas Classics",
+      "norm": "bing crosby christmas classics"
+    },
+    {
+      "rval": "RVAL009694",
+      "artist": "Mott The Hoople",
+      "album": "Mott The Hoople Live",
+      "norm": "mott the hoople mott the hoople live"
+    },
+    {
+      "rval": "RVAL009845",
+      "artist": "Robert Goulet",
+      "album": "Without You",
+      "norm": "robert goulet without you"
+    },
+    {
+      "rval": "RVAL011354",
+      "artist": "Nirvana",
+      "album": "With The Lights Out",
+      "norm": "nirvana with the lights out"
+    },
+    {
+      "rval": "RVAL011462",
+      "artist": "Ronny And The Daytonas",
+      "album": "G.T.O.",
+      "norm": "ronny and the daytonas g t o"
+    },
+    {
+      "rval": "RVAL011535",
+      "artist": "Lil Wayne",
+      "album": "Tha Carter IV",
+      "norm": "lil wayne tha carter iv"
+    },
+    {
+      "rval": "RVAL012060",
+      "artist": "Return To Forever",
+      "album": "Hymn Of The Seventh Galaxy",
+      "norm": "return to forever hymn of the seventh galaxy"
+    },
+    {
+      "rval": "RVAL012953",
+      "artist": "Johnny Mathis",
+      "album": "Love Theme From \"Romeo And Juliet\"",
+      "norm": "johnny mathis love theme from romeo and juliet"
+    },
+    {
+      "rval": "RVAL013079",
+      "artist": "Jellyfish",
+      "album": "Belly Button",
+      "norm": "jellyfish belly button"
+    },
+    {
+      "rval": "RVAL013841",
+      "artist": "Pentangle",
+      "album": "The Pentangle",
+      "norm": "pentangle the pentangle"
+    },
+    {
+      "rval": "RVAL014010",
+      "artist": "Michael Martin Murphey",
+      "album": "Swans Against The Sun",
+      "norm": "michael martin murphey swans against the sun"
+    },
+    {
+      "rval": "RVAL014369",
+      "artist": "Eddie Harris",
+      "album": "Swiss Movement",
+      "norm": "eddie harris swiss movement"
+    },
+    {
+      "rval": "RVAL014450",
+      "artist": "Royal Philharmonic Orchestra",
+      "album": "Hooked On Classics II (Can't Stop The Classics)",
+      "norm": "royal philharmonic orchestra hooked on classics ii can t stop the classics"
+    },
+    {
+      "rval": "RVAL014548",
+      "artist": "The James Gang",
+      "album": "James Gang Live In Concert",
+      "norm": "the james gang james gang live in concert"
+    },
+    {
+      "rval": "RVAL015024",
+      "artist": "Prince",
+      "album": "Batman (Soundtrack)",
+      "norm": "prince batman soundtrack"
+    },
+    {
+      "rval": "RVAL015151",
+      "artist": "Original Cast",
+      "album": "Stop The World-I Want To Get Off",
+      "norm": "original cast stop the world i want to get off"
+    },
+    {
+      "rval": "RVAL015653",
+      "artist": "Frank Sinatra With Count Basie And His Orchestra",
+      "album": "Sinatra At The Sands",
+      "norm": "frank sinatra with count basie and his orchestra sinatra at the sands"
+    },
+    {
+      "rval": "RVAL016680",
+      "artist": "Depeche Mode",
+      "album": "Songs Of Faith & Devotion-Live",
+      "norm": "depeche mode songs of faith devotion live"
+    },
+    {
+      "rval": "RVAL016898",
+      "artist": "Jose Feliciano",
+      "album": "And The Feeling's Good",
+      "norm": "jose feliciano and the feeling s good"
+    },
+    {
+      "rval": "RVAL016945",
+      "artist": "Gloria Estefan",
+      "album": "Into The Light",
+      "norm": "gloria estefan into the light"
+    },
+    {
+      "rval": "RVAL017334",
+      "artist": "The Chainsmokers",
+      "album": "Collage (EP)",
+      "norm": "the chainsmokers collage ep"
+    },
+    {
+      "rval": "RVAL018012",
+      "artist": "Teddy Pendergrass",
+      "album": "Teddy Live! Coast To Coast",
+      "norm": "teddy pendergrass teddy live coast to coast"
+    },
+    {
+      "rval": "RVAL018336",
+      "artist": "Isaac Hayes",
+      "album": "For The Sake Of Love",
+      "norm": "isaac hayes for the sake of love"
+    },
+    {
+      "rval": "RVAL019899",
+      "artist": "Soundtrack",
+      "album": "Soul Food",
+      "norm": "soundtrack soul food"
+    },
+    {
+      "rval": "RVAL020735",
+      "artist": "Cam'ron",
+      "album": "Purple Haze",
+      "norm": "cam ron purple haze"
+    },
+    {
+      "rval": "RVAL020951",
+      "artist": "Soundtrack",
+      "album": "Murder Was The Case",
+      "norm": "soundtrack murder was the case"
+    },
+    {
+      "rval": "RVAL021457",
+      "artist": "Jose Feliciano",
+      "album": "Feliz Navidad",
+      "norm": "jose feliciano feliz navidad"
+    },
+    {
+      "rval": "RVAL022311",
+      "artist": "Johnny Mathis",
+      "album": "Johnny Mathis Gold: A 50th Anniversary Christmas",
+      "norm": "johnny mathis johnny mathis gold a 50th anniversary christmas"
+    },
+    {
+      "rval": "RVAL022389",
+      "artist": "Soundtrack",
+      "album": "Space Jam",
+      "norm": "soundtrack space jam"
+    },
+    {
+      "rval": "RVAL022425",
+      "artist": "Trey Songz",
+      "album": "Inevitable (EP)",
+      "norm": "trey songz inevitable ep"
+    },
+    {
+      "rval": "RVAL022433",
+      "artist": "Tim McGraw",
+      "album": "Greatest Hits: Limited Edition",
+      "norm": "tim mcgraw greatest hits limited edition"
+    },
+    {
+      "rval": "RVAL023343",
+      "artist": "Soundtrack",
+      "album": "La Bamba",
+      "norm": "soundtrack la bamba"
+    }
+  ],
+  "sample_duplicate_matches": [
+    {
+      "norm": "paul mccartney tripping the live fantastic highlights",
+      "rval": "RVAL023139",
+      "cacheKeys": [
+        "tripping the live fantastic highlights||paul mccartney",
+        "tripping the live fantastic||paul mccartney"
+      ],
+      "matched_albums": [
+        "Tripping the Live Fantastic: Highlights!",
+        "Tripping the Live Fantastic: Highlights!"
+      ]
+    },
+    {
+      "norm": "kenny chesney greatest hits ii",
+      "rval": "RVAL065231",
+      "cacheKeys": [
+        "greatest hits ii||kenny chesney",
+        "greatest hits||kenny chesney"
+      ],
+      "matched_albums": [
+        "Greatest Hits II",
+        "Greatest Hits II"
+      ]
+    },
+    {
+      "norm": "the velvet underground nico the velvet underground nico",
+      "rval": "RVAL066486",
+      "cacheKeys": [
+        "the velvet underground nico||the velvet underground nico",
+        "the velvet underground||the velvet underground nico"
+      ],
+      "matched_albums": [
+        "The Velvet Underground & Nico",
+        "The Velvet Underground & Nico"
+      ]
+    },
+    {
+      "norm": "blake shelton blake shelton s barn grill",
+      "rval": "RVAL090682",
+      "cacheKeys": [
+        "blake sheltons barn grill||blake shelton",
+        "blake shelton||blake shelton"
+      ],
+      "matched_albums": [
+        "Blake Shelton’s Barn & Grill",
+        "Blake Shelton’s Barn & Grill"
+      ]
+    },
+    {
+      "norm": "ted nugent ted nugent",
+      "rval": "RVAL099603",
+      "cacheKeys": [
+        "nugent||ted nugent",
+        "ted nugent||ted nugent"
+      ],
+      "matched_albums": [
+        "Ted Nugent",
+        "Ted Nugent"
+      ]
+    },
+    {
+      "norm": "mannheim steamroller with members of the czech philharmonic orchestra christmas symphony ii",
+      "rval": "RVAL175766",
+      "cacheKeys": [
+        "christmas symphony ii||mannheim steamroller with members of the czech philharmonic orchestra",
+        "christmas symphony||mannheim steamroller with members of the czech philharmonic orchestra"
+      ],
+      "matched_albums": [
+        "Christmas Symphony II",
+        "Christmas Symphony II"
+      ]
+    },
+    {
+      "norm": "mannheim steamroller christmas live",
+      "rval": "RVAL182667",
+      "cacheKeys": [
+        "christmas live||mannheim steamroller",
+        "live||mannheim steamroller"
+      ],
+      "matched_albums": [
+        "Christmas Live",
+        "Christmas Live"
+      ]
+    },
+    {
+      "norm": "various artists epic lit version 2",
+      "rval": "RVAL211178",
+      "cacheKeys": [
+        "epic lit version 2||various artists",
+        "epic lit||various artists"
+      ],
+      "matched_albums": [
+        "EPIC LIT, Version 2",
+        "EPIC LIT, Version 2"
+      ]
+    },
+    {
+      "norm": "r kelly r kelly",
+      "rval": "RVAL278802",
+      "cacheKeys": [
+        "r kelly||r kelly",
+        "r||r kelly"
+      ],
+      "matched_albums": [
+        "R. Kelly",
+        "R. Kelly"
+      ]
+    },
+    {
+      "norm": "elvis presley merry christmas love elvis",
+      "rval": "RVAL344125",
+      "cacheKeys": [
+        "love elvis||elvis presley",
+        "merry christmas love elvis||elvis presley"
+      ],
+      "matched_albums": [
+        "Merry Christmas...Love, Elvis",
+        "Merry Christmas...Love, Elvis"
+      ]
+    },
+    {
+      "norm": "jermaine jackson jermaine jackson",
+      "rval": "RVAL367488",
+      "cacheKeys": [
+        "jermaine jackson||jermaine jackson",
+        "jermaine||jermaine jackson"
+      ],
+      "matched_albums": [
+        "Jermaine Jackson",
+        "Jermaine Jackson"
+      ]
+    },
+    {
+      "norm": "dwight twilley band twilley don t mind",
+      "rval": "RVAL385828",
+      "cacheKeys": [
+        "twilley dont mind||dwight twilley band",
+        "twilley||dwight twilley band"
+      ],
+      "matched_albums": [
+        "Twilley Don’t Mind",
+        "Twilley Don’t Mind"
+      ]
+    },
+    {
+      "norm": "brooks dunn the greatest hits collection ii",
+      "rval": "RVAL396112",
+      "cacheKeys": [
+        "the greatest hits collection ii||brooks dunn",
+        "the greatest hits collection||brooks dunn"
+      ],
+      "matched_albums": [
+        "The Greatest Hits Collection II",
+        "The Greatest Hits Collection II"
+      ]
+    },
+    {
+      "norm": "various artists disney s karaoke series high school musical 2",
+      "rval": "RVAL410621",
+      "cacheKeys": [
+        "disneys karaoke series high school musical 2||various artists",
+        "disneys karaoke series high school musical||various artists"
+      ],
+      "matched_albums": [
+        "Disney's Karaoke Series: High School Musical 2",
+        "Disney's Karaoke Series: High School Musical 2"
+      ]
+    },
+    {
+      "norm": "mary j blige my life ii the journey continues act 1",
+      "rval": "RVAL417231",
+      "cacheKeys": [
+        "my life iithe journey continues act 1||mary j blige",
+        "my life||mary j blige"
+      ],
+      "matched_albums": [
+        "My Life II…The Journey Continues (Act 1)",
+        "My Life II…The Journey Continues (Act 1)"
+      ]
+    },
+    {
+      "norm": "skyy skyy line",
+      "rval": "RVAL441441",
+      "cacheKeys": [
+        "skyy line||skyy",
+        "skyy||skyy"
+      ],
+      "matched_albums": [
+        "Skyy Line",
+        "Skyy Line"
+      ]
+    },
+    {
+      "norm": "various artists totally hits 3",
+      "rval": "RVAL500320",
+      "cacheKeys": [
+        "totally hits 3||various artists",
+        "totally hits||various artists"
+      ],
+      "matched_albums": [
+        "Totally Hits 3",
+        "Totally Hits 3"
+      ]
+    },
+    {
+      "norm": "lil wayne tha carter iii",
+      "rval": "RVAL525991",
+      "cacheKeys": [
+        "tha carter iii||lil wayne",
+        "tha carter||lil wayne"
+      ],
+      "matched_albums": [
+        "Tha Carter III",
+        "Tha Carter III"
+      ]
+    },
+    {
+      "norm": "burt bacharach burt bacharach s greatest hits",
+      "rval": "RVAL580851",
+      "cacheKeys": [
+        "burt bacharachs greatest hits||burt bacharach",
+        "burt bacharach||burt bacharach"
+      ],
+      "matched_albums": [
+        "Burt Bacharach’s Greatest Hits",
+        "Burt Bacharach's Greatest Hits"
+      ]
+    },
+    {
+      "norm": "janet jackson janet jackson",
+      "rval": "RVAL582174",
+      "cacheKeys": [
+        "janet jackson||janet jackson",
+        "janet||janet jackson"
+      ],
+      "matched_albums": [
+        "Janet Jackson",
+        "Janet Jackson"
+      ]
+    },
+    {
+      "norm": "daddy yankee barrio fino en directo",
+      "rval": "RVAL621486",
+      "cacheKeys": [
+        "barrio fino en directo||daddy yankee",
+        "barrio fino||daddy yankee"
+      ],
+      "matched_albums": [
+        "Barrio fino en directo",
+        "Barrio fino en directo"
+      ]
+    },
+    {
+      "norm": "bill cosby the best of bill cosby",
+      "rval": "RVAL630623",
+      "cacheKeys": [
+        "bill cosby||bill cosby",
+        "the best of bill cosby||bill cosby"
+      ],
+      "matched_albums": [
+        "The Best of Bill Cosby",
+        "The Best of Bill Cosby"
+      ]
+    },
+    {
+      "norm": "various artists winter solstice on ice",
+      "rval": "RVAL657511",
+      "cacheKeys": [
+        "winter solstice on ice||various artists",
+        "winter solstice||various artists"
+      ],
+      "matched_albums": [
+        "Winter Solstice on Ice",
+        "Winter Solstice on Ice"
+      ]
+    },
+    {
+      "norm": "ashanti ashanti s christmas",
+      "rval": "RVAL688592",
+      "cacheKeys": [
+        "ashantis christmas||ashanti",
+        "ashanti||ashanti"
+      ],
+      "matched_albums": [
+        "Ashanti’s Christmas",
+        "Ashanti’s Christmas"
+      ]
+    },
+    {
+      "norm": "luis miguel mis romances",
+      "rval": "RVAL728563",
+      "cacheKeys": [
+        "mis romances||luis miguel",
+        "romances||luis miguel"
+      ],
+      "matched_albums": [
+        "Mis romances",
+        "Mis romances"
+      ]
+    }
+  ]
+}
