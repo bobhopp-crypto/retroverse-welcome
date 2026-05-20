@@ -27,8 +27,15 @@ export type DossierTrackRow = {
   retroverseDial: number;
 };
 
+export type BuildDossierTrackRowsOptions = {
+  /** Preloaded sidecar (skips loader); album dossier pages should pass when available. */
+  mbSidecar?: DossierMbSidecarAlbum | null;
+};
+
 const HARD_POLLUTED_ACOUSTIC_ROW =
-  /\b(2008|25th|anniversary|interview|voice[- ]?over|excerpt|karaoke|quincy|carousel|for all time|bonus|deluxe|rough|outtake|sessions?|alternate|underground|home demo)\b/i;
+  /\b(2008|25th|anniversary|interview|voice[- ]?over|excerpt|karaoke|quincy|carousel|for all time|bonus|deluxe|rough|outtake|sessions?|alternate|underground|home demo|remix|reprise)\b/i;
+
+const SOFT_VARIANT_ACOUSTIC_ROW = /\b(single version|remaster(?:ed)?|demo|mix)\b/i;
 
 function normalizeCanonicalTitle(value: string): string {
   return value
@@ -39,6 +46,10 @@ function normalizeCanonicalTitle(value: string): string {
     .replace(/[^a-z0-9']+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isPollutedAcousticTitle(title: string): boolean {
+  return HARD_POLLUTED_ACOUSTIC_ROW.test(title);
 }
 
 function resolveCanonicalSequenceTracks(
@@ -80,8 +91,9 @@ function scoreAcousticMatch(canonicalTitle: string, candidate: AlbumDossierTrack
   else if (titleNorm.startsWith(`${canonNorm} `) || stemNorm.startsWith(`${canonNorm} `)) score += 70;
   else if (canonNorm.length >= 4 && (titleNorm.includes(canonNorm) || stemNorm.includes(canonNorm))) score += 35;
 
-  if (HARD_POLLUTED_ACOUSTIC_ROW.test(candidate.title)) score -= 120;
-  else if (/\b(remix|remaster|demo|mix)\b/i.test(candidate.title) && stemNorm !== canonNorm) score -= 80;
+  if (isPollutedAcousticTitle(candidate.title)) score -= 150;
+  else if (SOFT_VARIANT_ACOUSTIC_ROW.test(candidate.title) && stemNorm !== canonNorm) score -= 90;
+  else if (SOFT_VARIANT_ACOUSTIC_ROW.test(candidate.title) && stemNorm === canonNorm) score -= 8;
 
   const mbPos = candidate.musicbrainz?.position;
   if (
@@ -107,6 +119,7 @@ function findAcousticEnrichment(
   let bestScore = 0;
 
   for (const candidate of sourceTracks) {
+    if (isPollutedAcousticTitle(candidate.title)) continue;
     const score = scoreAcousticMatch(canonicalTitle, candidate, expectedPosition);
     if (score > bestScore) {
       bestScore = score;
@@ -123,16 +136,37 @@ function enrichCanonicalDisplayTrack(
   source: AlbumDossierTrack | undefined,
   extra: Partial<DossierDisplayTrack>,
 ): DossierDisplayTrack {
-  const mbSlim = {
-    ...(source?.musicbrainz ?? {}),
-    position,
-  };
+  const base: AlbumDossierTrack = source
+    ? {
+        acousticness: source.acousticness,
+        danceability: source.danceability,
+        duration_ms: source.duration_ms,
+        energy: source.energy,
+        instrumentalness: source.instrumentalness,
+        key: source.key,
+        key_label: source.key_label,
+        liveness: source.liveness,
+        loudness: source.loudness,
+        mode: source.mode,
+        speechiness: source.speechiness,
+        tempo: source.tempo,
+        time_signature: source.time_signature,
+        valence: source.valence,
+        spotify_album_id: source.spotify_album_id,
+        spotify_track_id: source.spotify_track_id,
+        retroverse_score: source.retroverse_score,
+        musicbrainz: { ...(source.musicbrainz ?? {}), position },
+      }
+    : {
+        title: canonicalTitle,
+        duration_ms: null,
+        musicbrainz: { position },
+      };
 
   return {
-    ...(source ?? {}),
+    ...base,
     title: canonicalTitle,
-    musicbrainz: mbSlim,
-    duration_ms: extra.duration_ms ?? source?.duration_ms ?? null,
+    duration_ms: extra.duration_ms ?? base.duration_ms ?? null,
     ...extra,
   };
 }
@@ -155,7 +189,7 @@ function resolveMusicBrainzPositionTracks(sourceTracks: AlbumDossierTrack[]): Do
   const positioned = sourceTracks
     .filter((t) => {
       const pos = t.musicbrainz?.position;
-      return typeof pos === "number" && Number.isFinite(pos) && pos > 0;
+      return typeof pos === "number" && Number.isFinite(pos) && pos > 0 && !isPollutedAcousticTitle(t.title);
     })
     .sort((a, b) => (a.musicbrainz!.position! as number) - (b.musicbrainz!.position! as number));
 
@@ -176,6 +210,46 @@ function resolveMusicBrainzPositionTracks(sourceTracks: AlbumDossierTrack[]): Do
   }
 
   return out;
+}
+
+/** Fallback: shortest clean primary-stem set in source order (no MB sidecar). */
+function resolveCleanAcousticFallbackTracks(sourceTracks: AlbumDossierTrack[]): DossierDisplayTrack[] {
+  const cleanPool = sourceTracks.filter((t) => !isPollutedAcousticTitle(t.title));
+  const curated = curateTrackSignals(cleanPool).filter((t) => t.signalTier === "primary");
+
+  const seen = new Set<string>();
+  const ordered: DossierDisplayTrack[] = [];
+  let position = 1;
+
+  for (const track of curated) {
+    const stem = splitCanonicalStem(track.title).trim().toLowerCase();
+    if (!stem || seen.has(stem)) continue;
+    seen.add(stem);
+    ordered.push(
+      enrichCanonicalDisplayTrack(stem.trim() || track.title, position, track, {
+        canonicalRefLabel: "clean_acoustic_fallback",
+        canonicalSequenceLabel: String(position),
+      }),
+    );
+    position += 1;
+  }
+
+  if (ordered.length >= 3) return ordered;
+
+  for (const track of cleanPool) {
+    const stem = splitCanonicalStem(track.title).trim().toLowerCase();
+    if (!stem || seen.has(stem)) continue;
+    seen.add(stem);
+    ordered.push(
+      enrichCanonicalDisplayTrack(stem.trim() || track.title, position, track, {
+        canonicalRefLabel: "clean_acoustic_fallback",
+        canonicalSequenceLabel: String(position),
+      }),
+    );
+    position += 1;
+  }
+
+  return ordered;
 }
 
 function trackPosition(track: DossierDisplayTrack, fallbackIndex: number): number | string {
@@ -208,15 +282,19 @@ function profileForTrack(
   return aggregateAcousticMeans([track]);
 }
 
-/** Original-album track rows — canonical sequence → MB sidecar → dossier MB positions → curated acoustic fallback. */
+/**
+ * Album dossier track rows — canonical sequence only; acoustic is enrichment, never primary order.
+ * Priority: manual canonical → MB sidecar → dossier MB positions → clean acoustic fallback.
+ */
 export function buildDossierTrackRows(
   albumId: string,
   sourceTracks: AlbumDossierTrack[],
+  options?: BuildDossierTrackRowsOptions,
 ): DossierTrackRow[] {
   const stemAlias = albumId === RUMOURS_DOSSIER_PROOF_RVAL ? applyRumoursStemAlias : undefined;
   const grouped = groupTracksByCanonicalStem(sourceTracks, stemAlias);
   const manualSequence = getCanonicalAlbumSequence(albumId);
-  const mbSidecar = getDossierMusicBrainzSidecar(albumId);
+  const mbSidecar = options?.mbSidecar ?? getDossierMusicBrainzSidecar(albumId);
 
   let displayTracks: DossierDisplayTrack[];
 
@@ -229,17 +307,7 @@ export function buildDossierTrackRows(
     if (fromPositions.length >= 3) {
       displayTracks = fromPositions;
     } else {
-      const curated = curateTrackSignals(sourceTracks).filter((t) => t.signalTier === "primary");
-      const seen = new Set<string>();
-      displayTracks = [];
-      for (const track of curated) {
-        let stem = splitCanonicalStem(track.title);
-        if (stemAlias) stem = stemAlias(stem);
-        const key = stem.trim().toLowerCase();
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        displayTracks.push({ ...track, title: stem.trim() || track.title });
-      }
+      displayTracks = resolveCleanAcousticFallbackTracks(sourceTracks);
     }
   }
 

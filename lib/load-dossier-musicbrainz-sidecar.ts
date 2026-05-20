@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 export type DossierMbSidecarTrack = {
@@ -19,16 +19,10 @@ export type DossierMbSidecarAlbum = {
 };
 
 let cached: Record<string, DossierMbSidecarAlbum> | null = null;
-let loadAttempted = false;
+let cachedPath: string | null = null;
 
-function loadSidecarMap(): Record<string, DossierMbSidecarAlbum> | null {
-  if (loadAttempted) return cached;
-  loadAttempted = true;
-
+function sidecarCandidatePaths(): string[] {
   const envPath = process.env.DOSSIER_MUSICBRAINZ_SIDECAR_PATH?.trim();
-  const fromRoot = process.env.RETROVERSE_DATA_ROOT?.trim()
-    ? path.join(process.env.RETROVERSE_DATA_ROOT.trim(), "runtime", "dossier-musicbrainz-by-rval.json")
-    : "";
   const publicBundled = path.join(
     process.cwd(),
     "public",
@@ -36,21 +30,31 @@ function loadSidecarMap(): Record<string, DossierMbSidecarAlbum> | null {
     "albums",
     "dossier-musicbrainz-by-rval.json",
   );
+  const fromRoot = process.env.RETROVERSE_DATA_ROOT?.trim()
+    ? path.join(process.env.RETROVERSE_DATA_ROOT.trim(), "runtime", "dossier-musicbrainz-by-rval.json")
+    : "";
 
-  for (const p of [envPath, fromRoot, publicBundled]) {
-    if (!p) continue;
+  // Prefer shipped public bundle (Vercel/prod); runtime path for local materialize loop.
+  return [envPath, publicBundled, fromRoot].filter((p): p is string => Boolean(p));
+}
+
+function loadSidecarMap(): Record<string, DossierMbSidecarAlbum> | null {
+  for (const p of sidecarCandidatePaths()) {
+    if (cached && cachedPath === p) return cached;
+    if (!existsSync(p)) continue;
     try {
       const parsed = JSON.parse(readFileSync(p, "utf8")) as Record<string, DossierMbSidecarAlbum>;
       if (parsed && typeof parsed === "object") {
         cached = parsed;
+        cachedPath = p;
         return cached;
       }
-    } catch {
-      /* try next */
+    } catch (err) {
+      console.error("[mb-sidecar] failed to load", p, err instanceof Error ? err.message : err);
     }
   }
-
   cached = null;
+  cachedPath = null;
   return null;
 }
 
@@ -60,5 +64,7 @@ export function getDossierMusicBrainzSidecar(albumId: string): DossierMbSidecarA
   if (!id || !/^RVAL\d{6}$/.test(id)) return null;
   const map = loadSidecarMap();
   if (!map) return null;
-  return map[id] ?? null;
+  const row = map[id];
+  if (!row?.tracks?.length) return null;
+  return row;
 }

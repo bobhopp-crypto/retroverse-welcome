@@ -10,6 +10,7 @@ import { getAlbumDetailByExternalKey, resolveAlbumCoverUrl } from "@/lib/canonic
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { buildDossierTrackRows } from "@/lib/album-dossier-display-tracks";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
+import { getDossierMusicBrainzSidecar } from "@/lib/load-dossier-musicbrainz-sidecar";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { homeSearchHref } from "@/lib/retroverse-nav";
 import { artistRoute } from "@/lib/retroverse-routes";
@@ -72,7 +73,8 @@ export default async function AlbumDossierPage({ params }: Props) {
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
   const chartWeeksCount = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
-  const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks);
+  const mbSidecar = getDossierMusicBrainzSidecar(dossier.albumId);
+  const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks, { mbSidecar });
 
   return (
     <>

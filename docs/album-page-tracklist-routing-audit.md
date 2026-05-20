@@ -15,22 +15,25 @@
 
 No second public album **detail** route. Polluted Thriller list came from **`/albums/RVAL586982`** using acoustic curation, not Retroscope.
 
-## Why MB sidecar was not winning
+## Why MB sidecar was not winning (root causes)
 
-1. **`buildDossierTrackRows`** fell back to `curateTrackSignals(acoustic.tracks)` when no manual `canonical-album-sequences.json` entry.
-2. **`dossier-musicbrainz-by-rval.json`** was not loaded by the web app (only used in Python materialize).
-3. **`public/data/albums/album-dossiers.json`** was stale (pre-sidecar materialize); runtime bundle in `RETROVERSE_DATA` was newer but optional in deploy.
+1. **`buildDossierTrackRows`** fell back to `curateTrackSignals(acoustic.tracks)` when sidecar failed to load.
+2. Sidecar loader tried `RETROVERSE_DATA` before `public/` — empty on Vercel → silent miss.
+3. **`loadAttempted` cached null** after first failed read (no retry).
+4. **`public/data/albums/album-dossiers.json`** was stale until `npm run dossiers:publish`.
+5. Chart Run page used Supabase only → empty weeks → looked “blank”.
 
 ## Fix (smallest)
 
 | File | Change |
 |------|--------|
 | `lib/load-dossier-musicbrainz-sidecar.ts` | Load sidecar from runtime or `public/data/albums/` |
-| `lib/album-dossier-display-tracks.ts` | Priority: manual sequence → MB sidecar → dossier `musicbrainz.position` → acoustic fallback |
-| `app/albums/[slug]/album-dossier-readout.tsx` | Chart Run → `/albums/[slug]/chart-run` |
+| `lib/load-dossier-musicbrainz-sidecar.ts` | Public bundle first; no sticky failed cache |
+| `lib/album-dossier-display-tracks.ts` | MB sidecar defines rows only; acoustic = enrichment; clean fallback |
+| `app/albums/[slug]/page.tsx` | Preloads sidecar, passes into `buildDossierTrackRows` |
+| `lib/load-album-chart-run.ts` | Supabase → Billboard SQLite fallback by artist+album |
 | `app/albums/[slug]/chart-run/page.tsx` | Full chart run panel |
 | `scripts/publish-album-dossiers.mjs` | Publish sidecar + dossiers to `public/` |
-| `app/albums/album-dossier.css` | Album index one-wide column default |
 
 ## Album browsers
 

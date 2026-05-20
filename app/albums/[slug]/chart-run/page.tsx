@@ -46,7 +46,10 @@ export default async function AlbumChartRunPage({ params }: Props) {
   }
 
   const { identity, chart } = dossier;
-  const chartWeeks = await loadAlbumChartRunWeeks(dossier.albumId);
+  const chartWeeks = await loadAlbumChartRunWeeks(dossier.albumId, {
+    artist: identity.artist,
+    album: identity.album,
+  });
   const chartFirst = chart.first_chart_date ?? null;
   const chartLast = chart.last_chart_date ?? null;
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
