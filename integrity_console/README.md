@@ -160,6 +160,15 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 
 **Integrity viewer** (`/integrity`): Linkage, Hot 100 → Album, Album ↔ Family, Media Assets, VDJ Candidates (read-only).
 
+### Acoustic features discovery (Phase 7b)
+
+| File | Purpose |
+|------|---------|
+| `docs/acoustics_linkage_investigation.md` | SQLite `acoustic_features` forensics + integration plan |
+| `sql/801_acoustic_features_track_album_candidates.sql` | Track ↔ album candidates from staging (read-only SELECT) |
+
+No table named `acoustics` — source is **`acoustic_features`** in `billboard-200-albums-charts.db` only.
+
 ## Retroverse Canonical Linkage Layer
 
 Tracks, albums, charts, and media files are **separate identity layers**. Linkage tables are the nervous system between them.
