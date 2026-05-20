@@ -22,6 +22,7 @@
 
 # large local chart exports
 /exports/billboard_200/*.csv
+/exports/acoustics/*.csv
 
 # misc
 .DS_Store

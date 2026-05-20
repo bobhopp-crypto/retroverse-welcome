@@ -21,7 +21,18 @@ const VIEWS: { id: IntegrityView; label: string }[] = [
   { id: "album-track-links", label: "Album ↔ Family" },
   { id: "media", label: "Media Assets" },
   { id: "vdj", label: "VDJ Candidates" },
+  { id: "acoustic-linkage", label: "Acoustic Linkage" },
+  { id: "acoustic-tracklists", label: "Acoustic Tracklists" },
+  { id: "acoustic-hot100", label: "Hot 100 Backfill" },
+  { id: "acoustic-ambiguous", label: "Multi-Album Songs" },
 ];
+
+const ACOUSTIC_VIEWS = new Set<IntegrityView>([
+  "acoustic-linkage",
+  "acoustic-tracklists",
+  "acoustic-hot100",
+  "acoustic-ambiguous",
+]);
 
 const LINKAGE_VIEWS = new Set<IntegrityView>([
   "linkage",
@@ -53,6 +64,7 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
   const [searchDraft, setSearchDraft] = useState(data.searchQ);
   const albumMode = ALBUM_VIEWS.has(data.view);
   const linkageMode = LINKAGE_VIEWS.has(data.view);
+  const acousticMode = ACOUSTIC_VIEWS.has(data.view);
 
   const pushParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -96,7 +108,11 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
             className="ic-search"
             type="search"
             placeholder={
-              albumMode ? "Album or artist…" : linkageMode ? "Linkage browse…" : "Artist or family…"
+              albumMode
+                ? "Album or artist…"
+                : linkageMode || acousticMode
+                  ? "Linkage browse…"
+                  : "Artist or family…"
             }
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
@@ -163,7 +179,9 @@ export function IntegrityExplorer({ data }: { data: ExplorerData }) {
       </aside>
 
       <main className="ic-main">
-        {linkageMode ? (
+        {acousticMode ? (
+          <AcousticPanels data={data} pending={pending} />
+        ) : linkageMode ? (
           <LinkagePanels data={data} pending={pending} />
         ) : albumMode ? (
           <AlbumPanels data={data} pending={pending} pushParams={pushParams} />
@@ -951,6 +969,184 @@ function LinkagePanels({ data, pending }: { data: ExplorerData; pending: boolean
                   </tr>
                 ))
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AcousticPanels({ data, pending }: { data: ExplorerData; pending: boolean }) {
+  const s = data.acousticSummary;
+
+  if (data.view === "acoustic-linkage" && s) {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Acoustic linkage
+            <span className="ic-readonly">read-only</span>
+          </h1>
+          {pending ? <span>loading…</span> : null}
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">Phase 8A materialization</p>
+          <div className="ic-stats" style={{ flexDirection: "column", alignItems: "flex-start", gap: "0.5rem" }}>
+            <span>
+              staging rows <strong>{s.staging_rows}</strong>
+            </span>
+            <span>
+              candidates <strong>{s.candidates}</strong> ({s.ok_candidates} ok)
+            </span>
+            <span>
+              review required <strong>{s.review_candidates}</strong>
+            </span>
+            <span>
+              acoustics lineage <strong>{s.acoustics_lineage}</strong>
+            </span>
+            <span>
+              acoustics ctal <strong>{s.acoustics_ctal}</strong>
+            </span>
+            <span>
+              Hot 100 acoustic links <strong>{s.hot100_acoustic_links}</strong>
+            </span>
+            <span>
+              Hot 100 unresolved <strong>{s.hot100_unresolved}</strong>
+            </span>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "acoustic-tracklists") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Album tracklists (acoustics)
+            <span className="ic-readonly">read-only</span>
+          </h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">album_track_lineage · source=acoustics</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Artist</th>
+                  <th>Album</th>
+                  <th>#</th>
+                  <th>Source song</th>
+                  <th>Family</th>
+                  <th>Track</th>
+                  <th>Review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.acousticTracklists.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>No rows — run 801–805</td>
+                  </tr>
+                ) : (
+                  data.acousticTracklists.map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.artist_name}</td>
+                      <td>{r.album_title}</td>
+                      <td>{r.sequence_index ?? "—"}</td>
+                      <td>{r.source_song}</td>
+                      <td>{r.track_family_name ?? "—"}</td>
+                      <td>{r.track_title ?? "—"}</td>
+                      <td>{r.review_flag ?? "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (data.view === "acoustic-hot100") {
+    return (
+      <>
+        <header className="ic-header">
+          <h1>
+            Hot 100 album backfill
+            <span className="ic-readonly">read-only</span>
+          </h1>
+        </header>
+        <div className="ic-body">
+          <p className="ic-section-label">chart_track_album_links · acoustics_hot100_backfill</p>
+          <div className="ic-table-wrap">
+            <table className="ic-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Rank</th>
+                  <th>Artist</th>
+                  <th>Track</th>
+                  <th>Album</th>
+                  <th>Review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.acousticHot100Links.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>No backfill rows — run 806</td>
+                  </tr>
+                ) : (
+                  data.acousticHot100Links.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.chart_date}</td>
+                      <td>{r.chart_position ?? "—"}</td>
+                      <td>{r.artist}</td>
+                      <td>{r.track_title}</td>
+                      <td>{r.album_title ?? "—"}</td>
+                      <td>{r.review_flag}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <header className="ic-header">
+        <h1>
+          Multi-album songs
+          <span className="ic-readonly">read-only</span>
+        </h1>
+      </header>
+      <div className="ic-body">
+        <p className="ic-section-label">Same song on multiple albums (valid history)</p>
+        <div className="ic-table-wrap">
+          <table className="ic-table">
+            <thead>
+              <tr>
+                <th>Artist</th>
+                <th>Song</th>
+                <th>Albums</th>
+                <th>Staging rows</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.acousticAmbiguous.map((r, i) => (
+                <tr key={i}>
+                  <td>{r.source_artist}</td>
+                  <td>{r.source_song}</td>
+                  <td>{r.album_count}</td>
+                  <td>{r.staging_rows}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

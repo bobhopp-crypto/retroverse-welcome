@@ -263,6 +263,7 @@ export async function loadExplorerDataWithAlbums(opts: {
 }): Promise<ExplorerData> {
   const { loadExplorerData } = await import("./queries");
   const { isLinkageView, loadLinkageExplorerSlice } = await import("./linkage-queries");
+  const { isAcousticView, loadAcousticExplorerSlice } = await import("./acoustic-queries");
   const base = await loadExplorerData({
     artistId: opts.artistId,
     familyId: opts.familyId,
@@ -273,7 +274,7 @@ export async function loadExplorerDataWithAlbums(opts: {
       opts.view === "editions" ||
       opts.view === "b200" ||
       opts.view === "tracklists" ||
-      isLinkageView(opts.view)
+      isLinkageView(opts.view) || isAcousticView(opts.view)
         ? "artists"
         : opts.view,
   });
@@ -285,6 +286,14 @@ export async function loadExplorerDataWithAlbums(opts: {
         hot100AlbumLinks: [],
         mediaAssets: [],
         vdjCandidates: [],
+      };
+  const acousticSlice = isAcousticView(opts.view)
+    ? await loadAcousticExplorerSlice(opts.view)
+    : {
+        acousticSummary: null,
+        acousticTracklists: [],
+        acousticHot100Links: [],
+        acousticAmbiguous: [],
       };
 
   const albums = await loadAlbums(opts.searchQ);
@@ -309,5 +318,6 @@ export async function loadExplorerDataWithAlbums(opts: {
     editionRows,
     tracklistRows,
     ...linkageSlice,
+    ...acousticSlice,
   };
 }

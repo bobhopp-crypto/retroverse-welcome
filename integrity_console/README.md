@@ -169,6 +169,33 @@ Future Phase 2b will add track merge dry-run/execute scripts. **Do not merge tra
 
 No table named `acoustics` — source is **`acoustic_features`** in `billboard-200-albums-charts.db` only.
 
+### Acoustic graph materialization (Phase 8A)
+
+**`acoustic_features` is the primary bridge dataset** for album tracklists and track↔album linkage. Same song on multiple albums is **valid chart history**, not an error — those rows get `review_required`, not deletion.
+
+| File | Purpose | Modifies data? |
+|------|---------|----------------|
+| `sql/801_acoustics_staging_schema.sql` | `staging_acoustic_tracks` + `acoustic_track_album_candidates` | **Yes** (DDL) |
+| `scripts/export_acoustics_from_sqlite.py` | Export SQLite → CSV | No |
+| `sql/803_load_acoustics_staging.sql` | Load staging (idempotent) | **Yes** (DML) |
+| `sql/804_acoustic_track_album_candidate_generation.sql` | Build candidates | **Yes** (DML) |
+| `sql/805_populate_album_track_lineage_from_acoustics.sql` | Lineage + ctal + `tracks.album_id` | **Yes** (additive) |
+| `sql/806_hot100_album_backfill_from_acoustics.sql` | Hot 100 chart↔album links | **Yes** (additive) |
+| `sql/807_acoustic_linkage_readiness_report.sql` | Coverage report | No |
+
+**Run order:**
+
+1. `801_acoustics_staging_schema.sql`
+2. `python3 scripts/export_acoustics_from_sqlite.py`
+3. `\copy` CSV → `staging_acoustic_tracks_import_buffer` (see `803`)
+4. `803_load_acoustics_staging.sql`
+5. `804_acoustic_track_album_candidate_generation.sql`
+6. `805_populate_album_track_lineage_from_acoustics.sql`
+7. `806_hot100_album_backfill_from_acoustics.sql`
+8. `807_acoustic_linkage_readiness_report.sql`
+
+**Integrity viewer:** Acoustic Linkage, Acoustic Tracklists, Hot 100 Backfill, Multi-Album Songs (read-only).
+
 ## Retroverse Canonical Linkage Layer
 
 Tracks, albums, charts, and media files are **separate identity layers**. Linkage tables are the nervous system between them.

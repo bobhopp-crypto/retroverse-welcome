@@ -12,7 +12,11 @@ export type IntegrityView =
   | "hot100-album"
   | "album-track-links"
   | "media"
-  | "vdj";
+  | "vdj"
+  | "acoustic-linkage"
+  | "acoustic-tracklists"
+  | "acoustic-hot100"
+  | "acoustic-ambiguous";
 
 export type AlbumListItem = {
   id: number;
@@ -206,6 +210,35 @@ export type VdjLinkageCandidateRow = {
   review_flag: string;
 };
 
+export type AcousticLinkageSummary = {
+  staging_rows: number;
+  candidates: number;
+  ok_candidates: number;
+  review_candidates: number;
+  acoustics_lineage: number;
+  acoustics_ctal: number;
+  hot100_acoustic_links: number;
+  hot100_unresolved: number;
+};
+
+export type AcousticTracklistRow = {
+  artist_name: string;
+  album_title: string;
+  source_song: string;
+  sequence_index: number | null;
+  track_family_name: string | null;
+  track_title: string | null;
+  review_flag: string | null;
+  confidence_score: number | null;
+};
+
+export type AcousticAmbiguousRow = {
+  source_artist: string;
+  source_song: string;
+  album_count: number;
+  staging_rows: number;
+};
+
 export type ExplorerData = {
   artists: ArtistListItem[];
   artist: ArtistSummary | null;
@@ -224,6 +257,10 @@ export type ExplorerData = {
   hot100AlbumLinks: Hot100AlbumLinkRow[];
   mediaAssets: MediaAssetRow[];
   vdjCandidates: VdjLinkageCandidateRow[];
+  acousticSummary: AcousticLinkageSummary | null;
+  acousticTracklists: AcousticTracklistRow[];
+  acousticHot100Links: Hot100AlbumLinkRow[];
+  acousticAmbiguous: AcousticAmbiguousRow[];
   selectedArtistId: number | null;
   selectedFamilyId: number | null;
   selectedAlbumId: number | null;
