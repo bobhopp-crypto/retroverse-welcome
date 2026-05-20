@@ -7,6 +7,11 @@ import {
   type AggregatedAcousticProfile,
 } from "@/lib/canonical-acoustic-aggregate";
 import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/canonical-album-sequences";
+import {
+  getDossierMusicBrainzSidecar,
+  type DossierMbSidecarAlbum,
+  type DossierMbSidecarTrack,
+} from "@/lib/load-dossier-musicbrainz-sidecar";
 import { RUMOURS_DOSSIER_PROOF_RVAL } from "@/lib/rumours-proof-poc";
 import { curateTrackSignals } from "@/lib/signal-curation";
 
@@ -21,6 +26,9 @@ export type DossierTrackRow = {
   position: number | string;
   retroverseDial: number;
 };
+
+const HARD_POLLUTED_ACOUSTIC_ROW =
+  /\b(2008|25th|anniversary|interview|voice[- ]?over|excerpt|karaoke|quincy|carousel|for all time|bonus|deluxe|rough|outtake|sessions?|alternate|underground|home demo)\b/i;
 
 function normalizeCanonicalTitle(value: string): string {
   return value
@@ -51,17 +59,123 @@ function resolveCanonicalSequenceTracks(
         sourceByTitle.get(normalizeCanonicalTitle(track.source_title))
       : sourceByTitle.get(normalizeCanonicalTitle(track.canonical_title));
 
-    return {
-      ...source,
-      title: track.canonical_title,
-      duration_ms: track.duration_ms ?? source?.duration_ms ?? null,
+    return enrichCanonicalDisplayTrack(track.canonical_title, track.global_position, source, {
       canonicalRefLabel: sequence.source_label,
       canonicalSequenceLabel:
         track.side_label && track.side_position != null
           ? `${track.side_label}${track.side_position}`
           : String(track.global_position),
-    };
+      duration_ms: track.duration_ms ?? source?.duration_ms ?? null,
+    });
   });
+}
+
+function scoreAcousticMatch(canonicalTitle: string, candidate: AlbumDossierTrack, expectedPosition?: number): number {
+  const canonNorm = normalizeCanonicalTitle(canonicalTitle);
+  const titleNorm = normalizeCanonicalTitle(candidate.title);
+  const stemNorm = normalizeCanonicalTitle(splitCanonicalStem(candidate.title));
+  let score = 0;
+
+  if (titleNorm === canonNorm || stemNorm === canonNorm) score += 120;
+  else if (titleNorm.startsWith(`${canonNorm} `) || stemNorm.startsWith(`${canonNorm} `)) score += 70;
+  else if (canonNorm.length >= 4 && (titleNorm.includes(canonNorm) || stemNorm.includes(canonNorm))) score += 35;
+
+  if (HARD_POLLUTED_ACOUSTIC_ROW.test(candidate.title)) score -= 120;
+  else if (/\b(remix|remaster|demo|mix)\b/i.test(candidate.title) && stemNorm !== canonNorm) score -= 80;
+
+  const mbPos = candidate.musicbrainz?.position;
+  if (
+    expectedPosition != null &&
+    typeof mbPos === "number" &&
+    Number.isFinite(mbPos) &&
+    mbPos === expectedPosition
+  ) {
+    score += 45;
+  }
+
+  if (candidate.energy != null || candidate.valence != null) score += 5;
+
+  return score;
+}
+
+function findAcousticEnrichment(
+  canonicalTitle: string,
+  sourceTracks: AlbumDossierTrack[],
+  expectedPosition?: number,
+): AlbumDossierTrack | undefined {
+  let best: AlbumDossierTrack | undefined;
+  let bestScore = 0;
+
+  for (const candidate of sourceTracks) {
+    const score = scoreAcousticMatch(canonicalTitle, candidate, expectedPosition);
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  return bestScore >= 50 ? best : undefined;
+}
+
+function enrichCanonicalDisplayTrack(
+  canonicalTitle: string,
+  position: number,
+  source: AlbumDossierTrack | undefined,
+  extra: Partial<DossierDisplayTrack>,
+): DossierDisplayTrack {
+  const mbSlim = {
+    ...(source?.musicbrainz ?? {}),
+    position,
+  };
+
+  return {
+    ...(source ?? {}),
+    title: canonicalTitle,
+    musicbrainz: mbSlim,
+    duration_ms: extra.duration_ms ?? source?.duration_ms ?? null,
+    ...extra,
+  };
+}
+
+function resolveMusicBrainzSidecarTracks(
+  sidecar: DossierMbSidecarAlbum,
+  sourceTracks: AlbumDossierTrack[],
+): DossierDisplayTrack[] {
+  const ordered = [...sidecar.tracks].sort((a, b) => a.position - b.position);
+  return ordered.map((row: DossierMbSidecarTrack) => {
+    const source = findAcousticEnrichment(row.title, sourceTracks, row.position);
+    return enrichCanonicalDisplayTrack(row.title, row.position, source, {
+      canonicalRefLabel: "musicbrainz_cache",
+      canonicalSequenceLabel: String(row.position),
+    });
+  });
+}
+
+function resolveMusicBrainzPositionTracks(sourceTracks: AlbumDossierTrack[]): DossierDisplayTrack[] {
+  const positioned = sourceTracks
+    .filter((t) => {
+      const pos = t.musicbrainz?.position;
+      return typeof pos === "number" && Number.isFinite(pos) && pos > 0;
+    })
+    .sort((a, b) => (a.musicbrainz!.position! as number) - (b.musicbrainz!.position! as number));
+
+  const seen = new Set<number>();
+  const out: DossierDisplayTrack[] = [];
+
+  for (const track of positioned) {
+    const pos = track.musicbrainz!.position as number;
+    if (seen.has(pos)) continue;
+    seen.add(pos);
+    const title = splitCanonicalStem(track.title).trim() || track.title;
+    out.push(
+      enrichCanonicalDisplayTrack(title, pos, track, {
+        canonicalRefLabel: "musicbrainz_dossier_position",
+        canonicalSequenceLabel: String(pos),
+      }),
+    );
+  }
+
+  return out;
 }
 
 function trackPosition(track: DossierDisplayTrack, fallbackIndex: number): number | string {
@@ -94,30 +208,38 @@ function profileForTrack(
   return aggregateAcousticMeans([track]);
 }
 
-/** Original-album track rows only — canonical sequence when present, else curated primary stems. */
+/** Original-album track rows — canonical sequence → MB sidecar → dossier MB positions → curated acoustic fallback. */
 export function buildDossierTrackRows(
   albumId: string,
   sourceTracks: AlbumDossierTrack[],
 ): DossierTrackRow[] {
   const stemAlias = albumId === RUMOURS_DOSSIER_PROOF_RVAL ? applyRumoursStemAlias : undefined;
   const grouped = groupTracksByCanonicalStem(sourceTracks, stemAlias);
-  const sequence = getCanonicalAlbumSequence(albumId);
+  const manualSequence = getCanonicalAlbumSequence(albumId);
+  const mbSidecar = getDossierMusicBrainzSidecar(albumId);
 
   let displayTracks: DossierDisplayTrack[];
 
-  if (sequence) {
-    displayTracks = resolveCanonicalSequenceTracks(sequence, sourceTracks);
+  if (manualSequence) {
+    displayTracks = resolveCanonicalSequenceTracks(manualSequence, sourceTracks);
+  } else if (mbSidecar?.tracks?.length) {
+    displayTracks = resolveMusicBrainzSidecarTracks(mbSidecar, sourceTracks);
   } else {
-    const curated = curateTrackSignals(sourceTracks).filter((t) => t.signalTier === "primary");
-    const seen = new Set<string>();
-    displayTracks = [];
-    for (const track of curated) {
-      let stem = splitCanonicalStem(track.title);
-      if (stemAlias) stem = stemAlias(stem);
-      const key = stem.trim().toLowerCase();
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-      displayTracks.push({ ...track, title: stem.trim() || track.title });
+    const fromPositions = resolveMusicBrainzPositionTracks(sourceTracks);
+    if (fromPositions.length >= 3) {
+      displayTracks = fromPositions;
+    } else {
+      const curated = curateTrackSignals(sourceTracks).filter((t) => t.signalTier === "primary");
+      const seen = new Set<string>();
+      displayTracks = [];
+      for (const track of curated) {
+        let stem = splitCanonicalStem(track.title);
+        if (stemAlias) stem = stemAlias(stem);
+        const key = stem.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        displayTracks.push({ ...track, title: stem.trim() || track.title });
+      }
     }
   }
 

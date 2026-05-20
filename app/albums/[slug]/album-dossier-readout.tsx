@@ -1,29 +1,23 @@
 import Link from "next/link";
 
-import { AlbumDossierChartRun } from "@/app/albums/[slug]/album-dossier-chart-run";
-import type { AlbumChartRunWeek } from "@/lib/load-album-chart-run";
 import { artistRoute } from "@/lib/retroverse-routes";
 
 type Props = {
+  albumId: string;
   albumTitle: string;
   artistName: string;
   releaseYear: number | null;
   peakRank: number | null;
   weeksOnChart: number | null;
-  chartWeeks: AlbumChartRunWeek[];
-  chartFirst: string | null;
-  chartLast: string | null;
 };
 
 export function AlbumDossierReadout({
+  albumId,
   albumTitle,
   artistName,
   releaseYear,
   peakRank,
   weeksOnChart,
-  chartWeeks,
-  chartFirst,
-  chartLast,
 }: Props) {
   return (
     <section className="dossier-readout dossier-readout--compact">
@@ -45,7 +39,9 @@ export function AlbumDossierReadout({
           <dd className="dossier-info-band-num">{weeksOnChart ?? "—"}</dd>
         </div>
       </dl>
-      <AlbumDossierChartRun weeks={chartWeeks} fallbackFirst={chartFirst} fallbackLast={chartLast} />
+      <Link href={`/albums/${albumId}/chart-run`} className="dossier-chart-run-toggle">
+        Chart Run
+      </Link>
     </section>
   );
 }

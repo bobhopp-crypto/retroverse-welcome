@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import type { AlbumChartRunWeek } from "@/lib/load-album-chart-run";
 
@@ -31,9 +31,7 @@ type Props = {
   fallbackLast?: string | null;
 };
 
-export function AlbumDossierChartRun({ weeks, fallbackFirst, fallbackLast }: Props) {
-  const [open, setOpen] = useState(false);
-
+export function AlbumDossierChartRunPanel({ weeks, fallbackFirst, fallbackLast }: Props) {
   const sorted = useMemo(
     () => [...weeks].sort((a, b) => a.chart_date.localeCompare(b.chart_date)),
     [weeks],
@@ -41,67 +39,64 @@ export function AlbumDossierChartRun({ weeks, fallbackFirst, fallbackLast }: Pro
 
   const hasWeeks = sorted.length > 0;
 
-  return (
-    <div className="dossier-chart-run-module">
-      <button
-        type="button"
-        className="dossier-chart-run-toggle"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
-        Chart Run
-      </button>
+  if (!hasWeeks) {
+    return (
+      <p className="dossier-chart-run-empty">
+        {fallbackFirst
+          ? `${formatArchiveDate(fallbackFirst)}${fallbackLast && fallbackLast !== fallbackFirst ? ` – ${formatArchiveDate(fallbackLast)}` : ""}`
+          : "Chart week detail not loaded."}
+      </p>
+    );
+  }
 
-      {open ? (
-        <div className="dossier-chart-run-panel" id="dossier-chart-run-panel">
-          {!hasWeeks ? (
-            <p className="dossier-chart-run-empty">
-              {fallbackFirst
-                ? `${formatArchiveDate(fallbackFirst)}${fallbackLast && fallbackLast !== fallbackFirst ? ` – ${formatArchiveDate(fallbackLast)}` : ""}`
-                : "Chart week detail not loaded."}
-            </p>
-          ) : (
-            <>
-              <div className="dossier-trajectory-scale dossier-chart-run-scale" aria-hidden>
-                <span>#200</span>
-                <span>Billboard 200</span>
-                <span>#1</span>
+  return (
+    <>
+      <div className="dossier-trajectory-scale dossier-chart-run-scale" aria-hidden>
+        <span>#200</span>
+        <span>Billboard 200</span>
+        <span>#1</span>
+      </div>
+      <ol className="dossier-trajectory-rail dossier-chart-run-weeks">
+        {sorted.map((week, i) => {
+          const prev = i > 0 ? sorted[i - 1]!.chart_position : null;
+          const move = movementLabel(prev, week.chart_position);
+          const improved = prev != null && week.chart_position < prev;
+          const slipped = prev != null && week.chart_position > prev;
+          return (
+            <li
+              key={`${week.chart_date}-${week.chart_position}`}
+              className={`dossier-trajectory-week dossier-chart-run-week${i > 0 && week.chart_position === prev ? " dossier-trajectory-week--recurrence" : ""}`}
+            >
+              <div className="dossier-trajectory-date">
+                <span>{formatArchiveDate(week.chart_date)}</span>
+                {move && move !== "hold" ? (
+                  <small
+                    className={
+                      improved
+                        ? "dossier-chart-run-move--up"
+                        : slipped
+                          ? "dossier-chart-run-move--down"
+                          : undefined
+                    }
+                  >
+                    {move}
+                  </small>
+                ) : move === "hold" ? (
+                  <small>hold</small>
+                ) : null}
               </div>
-              <ol className="dossier-trajectory-rail dossier-chart-run-weeks">
-                {sorted.map((week, i) => {
-                  const prev = i > 0 ? sorted[i - 1]!.chart_position : null;
-                  const move = movementLabel(prev, week.chart_position);
-                  const improved = prev != null && week.chart_position < prev;
-                  const slipped = prev != null && week.chart_position > prev;
-                  return (
-                    <li
-                      key={`${week.chart_date}-${week.chart_position}`}
-                      className={`dossier-trajectory-week dossier-chart-run-week${i > 0 && week.chart_position === prev ? " dossier-trajectory-week--recurrence" : ""}`}
-                    >
-                      <div className="dossier-trajectory-date">
-                        <span>{formatArchiveDate(week.chart_date)}</span>
-                        {move && move !== "hold" ? (
-                          <small className={improved ? "dossier-chart-run-move--up" : slipped ? "dossier-chart-run-move--down" : undefined}>
-                            {move}
-                          </small>
-                        ) : move === "hold" ? <small>hold</small> : null}
-                      </div>
-                      <div className="dossier-trajectory-rank">
-                        <strong>#{week.chart_position}</strong>
-                      </div>
-                      <div
-                        className="dossier-trajectory-track dossier-chart-run-meter"
-                        style={{ ["--rank-x" as string]: rankMeterX(week.chart_position) }}
-                        aria-hidden
-                      />
-                    </li>
-                  );
-                })}
-              </ol>
-            </>
-          )}
-        </div>
-      ) : null}
-    </div>
+              <div className="dossier-trajectory-rank">
+                <strong>#{week.chart_position}</strong>
+              </div>
+              <div
+                className="dossier-trajectory-track dossier-chart-run-meter"
+                style={{ ["--rank-x" as string]: rankMeterX(week.chart_position) }}
+                aria-hidden
+              />
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }

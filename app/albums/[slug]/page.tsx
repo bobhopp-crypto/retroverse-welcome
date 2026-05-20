@@ -10,7 +10,6 @@ import { getAlbumDetailByExternalKey, resolveAlbumCoverUrl } from "@/lib/canonic
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { buildDossierTrackRows } from "@/lib/album-dossier-display-tracks";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
-import { loadAlbumChartRunWeeks } from "@/lib/load-album-chart-run";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { homeSearchHref } from "@/lib/retroverse-nav";
 import { artistRoute } from "@/lib/retroverse-routes";
@@ -57,10 +56,9 @@ export default async function AlbumDossierPage({ params }: Props) {
   }
 
   const { identity, chart, acoustic, related } = dossier;
-  const [graphDetail, coverPick, chartWeeks] = await Promise.all([
+  const [graphDetail, coverPick] = await Promise.all([
     getAlbumDetailByExternalKey(dossier.albumId),
     pickCanonicalCoverForAlbum(dossier.albumId),
-    loadAlbumChartRunWeeks(dossier.albumId),
   ]);
   const graphCoverUrl = graphDetail?.canonicalCoverPath
     ? canonicalCoverPathToUrl(graphDetail.canonicalCoverPath)
@@ -74,8 +72,6 @@ export default async function AlbumDossierPage({ params }: Props) {
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
   const chartWeeksCount = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
-  const chartFirst = graphDetail?.firstChartDate ?? chart.first_chart_date ?? null;
-  const chartLast = graphDetail?.lastChartDate ?? chart.last_chart_date ?? null;
   const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks);
 
   return (
@@ -102,14 +98,12 @@ export default async function AlbumDossierPage({ params }: Props) {
           </div>
 
           <AlbumDossierReadout
+            albumId={dossier.albumId}
             albumTitle={identity.album}
             artistName={identity.artist}
             releaseYear={browseYear}
             peakRank={chartPeak}
             weeksOnChart={chartWeeksCount}
-            chartWeeks={chartWeeks}
-            chartFirst={chartFirst}
-            chartLast={chartLast}
           />
         </div>
 

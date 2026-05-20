@@ -1029,7 +1029,7 @@
 
 .dossier-index-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.9rem 0.72rem;
 }
 
@@ -3063,6 +3063,8 @@ a.dossier-track-name:hover {
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
+  text-decoration: none;
+  text-align: center;
   color: rgba(200, 228, 238, 0.88);
   background: linear-gradient(135deg, rgba(12, 10, 22, 0.85), rgba(8, 18, 28, 0.65));
   border: 1px solid rgba(255, 248, 240, 0.12);
@@ -3079,6 +3081,15 @@ a.dossier-track-name:hover {
 .dossier-chart-run-panel {
   margin-top: 0.55rem;
   padding: 0.35rem 0 0.15rem;
+}
+
+.dossier-chart-run-panel--page {
+  margin-top: 0;
+  padding: 0.15rem 0 0.35rem;
+}
+
+.dossier-shell--chart-run .dossier-panel--chart-run {
+  margin-top: 0.35rem;
 }
 
 .dossier-chart-run-scale span:nth-child(2) {
