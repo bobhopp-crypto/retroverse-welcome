@@ -3144,8 +3144,8 @@ a.dossier-track-name:hover {
 
 .dossier-tracklist-row {
   display: grid;
-  grid-template-columns: 3.1rem minmax(0, 1fr);
-  gap: 0.45rem 0.55rem;
+  grid-template-columns: 2.85rem 2rem minmax(0, 1fr);
+  gap: 0.35rem 0.45rem;
   align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid rgba(255, 248, 240, 0.06);
@@ -3159,6 +3159,16 @@ a.dossier-track-name:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.dossier-tracklist-score {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  color: rgba(245, 235, 224, 0.92);
+  text-align: center;
+  min-width: 1.75rem;
 }
 
 .dossier-inst--track-row {

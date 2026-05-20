@@ -79,6 +79,8 @@ type Props = {
   domIdSlug: string;
   /** Center Retroverse signal readout (0–99). */
   retroverseDial?: number;
+  /** Track row: score renders outside the ring for readability. */
+  hideCenterDial?: boolean;
   /** Larger ring + type for the Rumours strip hero dial. */
   presentation?: "default" | "arcade" | "track-row";
 };
@@ -92,6 +94,7 @@ export function RetroverseAcousticInstrumentation({
   a11yLabel,
   domIdSlug,
   retroverseDial,
+  hideCenterDial = false,
   presentation = "default",
 }: Props) {
   void domIdSlug;
@@ -160,19 +163,21 @@ export function RetroverseAcousticInstrumentation({
             />
           ) : null,
         )}
-        <text
-          x={cx}
-          y={cy}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="rgba(245,235,224,0.96)"
-          fontSize={trackRow ? 22 : arcade ? 32.3 : 25.65}
-          fontWeight="700"
-          fontFamily="ui-monospace, system-ui, monospace"
-          letterSpacing="-0.05em"
-        >
-          {rs}
-        </text>
+        {!hideCenterDial ? (
+          <text
+            x={cx}
+            y={cy}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fill="rgba(245,235,224,0.96)"
+            fontSize={trackRow ? 22 : arcade ? 32.3 : 25.65}
+            fontWeight="700"
+            fontFamily="ui-monospace, system-ui, monospace"
+            letterSpacing="-0.05em"
+          >
+            {rs}
+          </text>
+        ) : null}
       </svg>
       {!trackRow ? (
         <figcaption className="dossier-inst-glyph">

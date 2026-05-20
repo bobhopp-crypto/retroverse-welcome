@@ -9,6 +9,7 @@ import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
 import { getAlbumDetailByExternalKey, resolveAlbumCoverUrl } from "@/lib/canonical-graph";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { buildDossierTrackRows } from "@/lib/album-dossier-display-tracks";
+import { loadCanonicalAlbumGraphTracks } from "@/lib/load-canonical-album-graph-tracks";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { getDossierMusicBrainzSidecar } from "@/lib/load-dossier-musicbrainz-sidecar";
 import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
@@ -73,8 +74,11 @@ export default async function AlbumDossierPage({ params }: Props) {
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
   const chartWeeksCount = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
-  const mbSidecar = getDossierMusicBrainzSidecar(dossier.albumId);
-  const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks, { mbSidecar });
+  const [graphTracks, mbSidecar] = await Promise.all([
+    loadCanonicalAlbumGraphTracks(dossier.albumId),
+    Promise.resolve(getDossierMusicBrainzSidecar(dossier.albumId)),
+  ]);
+  const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks, { graphTracks, mbSidecar });
 
   return (
     <>

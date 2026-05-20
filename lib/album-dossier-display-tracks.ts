@@ -7,6 +7,7 @@ import {
   type AggregatedAcousticProfile,
 } from "@/lib/canonical-acoustic-aggregate";
 import { getCanonicalAlbumSequence, type CanonicalAlbumSequence } from "@/lib/canonical-album-sequences";
+import type { CanonicalAlbumGraphTrack } from "@/lib/load-canonical-album-graph-tracks";
 import {
   getDossierMusicBrainzSidecar,
   type DossierMbSidecarAlbum,
@@ -28,6 +29,8 @@ export type DossierTrackRow = {
 };
 
 export type BuildDossierTrackRowsOptions = {
+  /** Persistent graph sequence (highest priority when present). */
+  graphTracks?: CanonicalAlbumGraphTrack[] | null;
   /** Preloaded sidecar (skips loader); album dossier pages should pass when available. */
   mbSidecar?: DossierMbSidecarAlbum | null;
 };
@@ -171,6 +174,46 @@ function enrichCanonicalDisplayTrack(
   };
 }
 
+function graphTrackToDossierTrack(row: CanonicalAlbumGraphTrack): AlbumDossierTrack {
+  const durationMs =
+    row.duration_seconds != null && Number.isFinite(row.duration_seconds)
+      ? Math.round(row.duration_seconds * 1000)
+      : null;
+  return {
+    title: row.canonical_title,
+    duration_ms: durationMs,
+    acousticness: row.acousticness,
+    danceability: row.danceability,
+    energy: row.energy,
+    valence: row.valence,
+    liveness: row.liveness,
+    speechiness: row.speechiness,
+    tempo: row.tempo,
+    loudness: row.loudness,
+    instrumentalness: row.instrumentalness,
+    musicbrainz: { position: row.position },
+  };
+}
+
+function resolveGraphCanonicalTracks(
+  graphTracks: CanonicalAlbumGraphTrack[],
+  sourceTracks: AlbumDossierTrack[],
+): DossierDisplayTrack[] {
+  return [...graphTracks]
+    .sort((a, b) => a.position - b.position)
+    .map((row) => {
+      const source = findAcousticEnrichment(row.canonical_title, sourceTracks, row.position);
+      const merged = source ?? graphTrackToDossierTrack(row);
+      return enrichCanonicalDisplayTrack(row.canonical_title, row.position, merged, {
+        canonicalRefLabel: row.canonical_source,
+        canonicalSequenceLabel: String(row.position),
+        duration_ms:
+          merged.duration_ms ??
+          (row.duration_seconds != null ? Math.round(row.duration_seconds * 1000) : null),
+      });
+    });
+}
+
 function resolveMusicBrainzSidecarTracks(
   sidecar: DossierMbSidecarAlbum,
   sourceTracks: AlbumDossierTrack[],
@@ -283,8 +326,8 @@ function profileForTrack(
 }
 
 /**
- * Album dossier track rows — canonical sequence only; acoustic is enrichment, never primary order.
- * Priority: manual canonical → MB sidecar → dossier MB positions → clean acoustic fallback.
+ * Album dossier track rows — graph / canonical sequence only; acoustic is enrichment, never primary order.
+ * Priority: graph canonical_album_tracks → manual JSON → MB sidecar → dossier MB positions → clean acoustic fallback.
  */
 export function buildDossierTrackRows(
   albumId: string,
@@ -293,12 +336,15 @@ export function buildDossierTrackRows(
 ): DossierTrackRow[] {
   const stemAlias = albumId === RUMOURS_DOSSIER_PROOF_RVAL ? applyRumoursStemAlias : undefined;
   const grouped = groupTracksByCanonicalStem(sourceTracks, stemAlias);
+  const graphTracks = options?.graphTracks ?? null;
   const manualSequence = getCanonicalAlbumSequence(albumId);
   const mbSidecar = options?.mbSidecar ?? getDossierMusicBrainzSidecar(albumId);
 
   let displayTracks: DossierDisplayTrack[];
 
-  if (manualSequence) {
+  if (graphTracks?.length) {
+    displayTracks = resolveGraphCanonicalTracks(graphTracks, sourceTracks);
+  } else if (manualSequence) {
     displayTracks = resolveCanonicalSequenceTracks(manualSequence, sourceTracks);
   } else if (mbSidecar?.tracks?.length) {
     displayTracks = resolveMusicBrainzSidecarTracks(mbSidecar, sourceTracks);
@@ -313,11 +359,17 @@ export function buildDossierTrackRows(
 
   return displayTracks.map((track, i) => {
     const profile = profileForTrack(track, grouped, stemAlias);
+    const graphScore = graphTracks?.find((g) => g.position === (track.musicbrainz?.position ?? i + 1))
+      ?.signal_score;
+    const dial =
+      graphScore != null && Number.isFinite(graphScore)
+        ? Math.min(99, Math.max(0, Math.round(graphScore)))
+        : retroverseDialFromTrack(track, profile);
     return {
       track,
       profile,
       position: trackPosition(track, i),
-      retroverseDial: retroverseDialFromTrack(track, profile),
+      retroverseDial: dial,
     };
   });
 }

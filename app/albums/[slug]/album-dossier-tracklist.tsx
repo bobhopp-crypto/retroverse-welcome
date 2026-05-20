@@ -38,10 +38,14 @@ export function AlbumDossierTracklist({ rows, artistName }: Props) {
                 presentation="track-row"
                 profile={row.profile}
                 retroverseDial={row.retroverseDial}
+                hideCenterDial
                 a11yLabel={tr.title}
                 domIdSlug={`${i}-${tr.title.slice(0, 12)}`}
               />
             </div>
+            <span className="dossier-tracklist-score" aria-label={`Signal ${row.retroverseDial}`}>
+              {row.retroverseDial > 0 ? row.retroverseDial : "—"}
+            </span>
             <Link href={trackHref} className="dossier-tracklist-main">
               <span className="dossier-tracklist-num">{row.position}</span>
               <span className="dossier-tracklist-title">{tr.title}</span>
