@@ -79,7 +79,7 @@ type Props = {
   domIdSlug: string;
   /** Center Retroverse signal readout (0–99). */
   retroverseDial?: number;
-  /** Track row: score renders outside the ring for readability. */
+  /** Track row: center reserved for play icon overlay (rings only). */
   hideCenterDial?: boolean;
   /** Track row experiment: lighter quadrant strokes. */
   simplifyRing?: boolean;
@@ -121,10 +121,10 @@ export function RetroverseAcousticInstrumentation({
 
   const cx = 50;
   const cy = 50;
-  const rTrack = trackRow ? 38 : arcade ? 37 : 36;
-  const rSignal = trackRow ? 31 : arcade ? 30.5 : 30;
-  const wTrack = trackRow ? (simplifyRing ? 5.2 : 5.8) : arcade ? 6.35 : 5.5;
-  const wSignal = trackRow ? (simplifyRing ? 4.6 : 5.2) : arcade ? 5.6 : 5;
+  const rTrack = trackRow ? 39 : arcade ? 37 : 36;
+  const rSignal = trackRow ? 32 : arcade ? 30.5 : 30;
+  const wTrack = trackRow ? (simplifyRing ? 5.4 : 6) : arcade ? 6.35 : 5.5;
+  const wSignal = trackRow ? (simplifyRing ? 4.8 : 5.4) : arcade ? 5.6 : 5;
 
   const quads = [
     {
@@ -161,7 +161,7 @@ export function RetroverseAcousticInstrumentation({
     },
   ];
 
-  const ariaCore = `${a11yLabel}. Retroverse signal ${rs}.`;
+  const ariaCore = trackRow ? a11yLabel : `${a11yLabel}. Retroverse signal ${rs}.`;
 
   return (
     <figure className={`dossier-inst${arcade ? " dossier-inst--arcade" : ""}${trackRow ? " dossier-inst--track-row" : ""}`}>
