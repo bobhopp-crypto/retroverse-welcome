@@ -2,12 +2,17 @@
 """
 Export canonical album track sequences for graph load (1102).
 
-Priority per RVAL: manual canonical-album-sequences.json > musicbrainz sidecar.
-Attaches best staging_acoustic_tracks row per canonical title (enrichment only).
+Sequence priority per RVAL:
+  1. manual canonical-album-sequences.json
+  2. MusicBrainz dossier sidecar
+  3. musicbrainz_cache (recovery / MB album cache by artist+title)
+  4. existing canonical_album_tracks
+  5. canonical_album_sequence_candidates (lineage_acoustic, acoustic_consensus, …)
 
 Run:
+  python3 scripts/build_canonical_album_sequence_recovery.py
   python3 scripts/export_canonical_album_tracks_staging.py
-  psql ... -f integrity_console/sql/1102_populate_canonical_album_tracks.sql
+  npm run graph:canonical-album-tracks:load
 """
 
 from __future__ import annotations
@@ -16,14 +21,20 @@ import csv
 import json
 import re
 import subprocess
+from collections import defaultdict
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parents[1]
 MB_SIDECAR = Path(
     "/Users/bobhopp/RETROVERSE_DATA/runtime/dossier-musicbrainz-by-rval.json"
 )
+MB_CACHE = Path(
+    "/Users/bobhopp/Sites/retroverse/data/derived/albums/source_musicbrainz_album_cache.json"
+)
 MANUAL_SEQ = WORKSPACE / "public/data/albums/canonical-album-sequences.json"
 OUT_CSV = WORKSPACE / "exports/graph/canonical_album_tracks_staging.csv"
+
+MIN_TRACKS = 6
 
 HARD_POLLUTED = re.compile(
     r"\b(2008|25th|anniversary|interview|voice[- ]?over|excerpt|karaoke|quincy|"
@@ -37,9 +48,29 @@ VARIANT_TAIL = re.compile(
     re.I,
 )
 
+RECOVERY_SOURCE_ORDER = [
+    "musicbrainz_cache",
+    "existing_canonical_album_tracks",
+    "lineage_acoustic",
+    "acoustic_consensus",
+    "billboard_chart_anchor",
+    "acoustic_fallback_order",
+]
+
+CANONICAL_SOURCE_LABEL = {
+    "manual_canonical_sequence": "manual_canonical_sequence",
+    "musicbrainz_cache": "musicbrainz_cache",
+    "musicbrainz_sidecar": "musicbrainz_cache",
+    "existing_canonical_album_tracks": "existing_canonical_album_tracks",
+    "lineage_acoustic": "lineage_acoustic_recovery",
+    "acoustic_consensus": "acoustic_consensus_recovery",
+    "billboard_chart_anchor": "billboard_chart_anchor_recovery",
+    "acoustic_fallback_order": "acoustic_fallback_order",
+}
+
 
 def norm_key(*parts: str) -> str:
-    blob = " ".join(p for p in parts if p).lower()
+    blob = " ".join(p for p in parts if p).strip().lower()
     blob = re.sub(r"[^\w\s]", " ", blob)
     blob = re.sub(r"\s+", " ", blob).strip()
     return blob
@@ -50,6 +81,7 @@ def norm_title(value: str) -> str:
         value.strip()
         .lower()
         .replace("\u2019", "'")
+        .replace("\u2018", "'")
         .replace("–", "-")
         .replace("—", "-")
     )
@@ -88,19 +120,17 @@ def score_acoustic(canon: str, song: str, position: int | None, mb_pos: int | No
     return score
 
 
+def psql_copy(sql: str, host: str, database: str, user: str) -> str:
+    return subprocess.check_output(
+        ["psql", "-h", host, "-U", user, "-d", database, "-c", sql],
+        text=True,
+    )
+
+
 def load_acoustic_by_album(host: str, database: str, user: str) -> dict[int, list[dict]]:
     sql = """
       COPY (
-        SELECT
-          al.id::text,
-          sat.id::text,
-          sat.source_song,
-          sat.source_release_year,
-          sat.source_duration,
-          sat.acousticness,
-          sat.danceability,
-          sat.energy,
-          sat.valence
+        SELECT al.id::text, sat.id::text, sat.source_song
         FROM albums al
         JOIN artists ar ON ar.id = al.artist_id
         JOIN staging_acoustic_tracks sat
@@ -108,10 +138,7 @@ def load_acoustic_by_album(host: str, database: str, user: str) -> dict[int, lis
          AND lower(trim(sat.source_artist)) = lower(trim(ar.canonical_name))
       ) TO STDOUT WITH (FORMAT csv)
     """
-    raw = subprocess.check_output(
-        ["psql", "-h", host, "-U", user, "-d", database, "-c", sql],
-        text=True,
-    )
+    raw = psql_copy(sql, host, database, user)
     out: dict[int, list[dict]] = {}
     for line in raw.splitlines():
         if not line.strip():
@@ -120,36 +147,140 @@ def load_acoustic_by_album(host: str, database: str, user: str) -> dict[int, lis
         if len(parts) < 3:
             continue
         album_id = int(parts[0])
-        row = {
-            "id": int(parts[1]),
-            "song": parts[2],
-            "year": int(parts[3]) if len(parts) > 3 and parts[3] else None,
-            "duration": int(parts[4]) if len(parts) > 4 and parts[4] else None,
-        }
-        out.setdefault(album_id, []).append(row)
+        out.setdefault(album_id, []).append({"id": int(parts[1]), "song": parts[2]})
     return out
 
 
-def load_album_id_by_rval(host: str, database: str, user: str) -> dict[str, int]:
+def load_album_meta(host: str, database: str, user: str) -> dict[str, dict]:
     sql = """
       COPY (
-        SELECT external_key, album_id::text
-        FROM album_external_keys
-        WHERE external_key ~* '^RVAL[0-9]{6}$'
+        SELECT upper(trim(aek.external_key)), al.id::text, ar.canonical_name, al.title
+        FROM album_external_keys aek
+        JOIN albums al ON al.id = aek.album_id
+        JOIN artists ar ON ar.id = al.artist_id
+        WHERE aek.external_key ~* '^RVAL[0-9]{6}$'
       ) TO STDOUT WITH (FORMAT csv)
     """
-    raw = subprocess.check_output(
-        ["psql", "-h", host, "-U", user, "-d", database, "-c", sql],
-        text=True,
-    )
-    m: dict[str, int] = {}
+    raw = psql_copy(sql, host, database, user)
+    m: dict[str, dict] = {}
     for line in raw.splitlines():
         if not line.strip():
             continue
-        parts = next(csv.reader([line]))
-        if len(parts) >= 2:
-            m[parts[0].upper()] = int(parts[1])
+        p = next(csv.reader([line]))
+        if len(p) < 4:
+            continue
+        m[p[0].upper()] = {
+            "album_id": int(p[1]),
+            "artist": p[2],
+            "title": p[3],
+        }
     return m
+
+
+def load_recovery_candidates(host: str, database: str, user: str) -> dict[int, dict[str, list[dict]]]:
+    sql = """
+      COPY (
+        SELECT
+          c.album_id::text,
+          c.sequence_source,
+          c.position,
+          c.canonical_title,
+          c.confidence_score::text,
+          c.review_flag,
+          coalesce(c.acoustic_staging_id::text, '')
+        FROM canonical_album_sequence_candidates c
+        ORDER BY c.album_id, c.sequence_source, c.position
+      ) TO STDOUT WITH (FORMAT csv)
+    """
+    try:
+        raw = psql_copy(sql, host, database, user)
+    except subprocess.CalledProcessError:
+        return {}
+    out: dict[int, dict[str, list[dict]]] = defaultdict(lambda: defaultdict(list))
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        p = next(csv.reader([line]))
+        if len(p) < 6:
+            continue
+        aid = int(p[0])
+        src = p[1]
+        out[aid][src].append(
+            {
+                "position": int(p[2]),
+                "title": p[3].strip(),
+                "confidence": float(p[4]) if p[4] else 0.5,
+                "review_flag": p[5],
+                "acoustic_id": int(p[6]) if len(p) > 6 and p[6] else None,
+            }
+        )
+    return out
+
+
+def load_mb_cache_index() -> dict[str, dict]:
+    if not MB_CACHE.is_file():
+        return {}
+    cache = json.loads(MB_CACHE.read_text(encoding="utf-8"))
+    by_norm: dict[str, list[dict]] = defaultdict(list)
+    for entry in cache.values():
+        if entry.get("match_status") != "matched":
+            continue
+        nk = norm_key(entry.get("matched_artist", ""), entry.get("matched_album", ""))
+        if nk:
+            by_norm[nk].append(entry)
+    out: dict[str, dict] = {}
+    for nk, items in by_norm.items():
+        items.sort(key=lambda e: -(e.get("match_score") or 0))
+        out[nk] = items[0]
+    return out
+
+
+def parse_top_tracks(raw: str) -> list[str]:
+    return [t.strip() for t in (raw or "").split("|") if t.strip()]
+
+
+def tracks_from_recovery(
+    album_id: int,
+    recovery: dict[int, dict[str, list[dict]]],
+) -> tuple[list[dict] | None, str]:
+    by_src = recovery.get(album_id, {})
+    for src in RECOVERY_SOURCE_ORDER:
+        seq = by_src.get(src, [])
+        if len(seq) >= MIN_TRACKS:
+            return (
+                [
+                    {
+                        "position": tr["position"],
+                        "title": tr["title"],
+                        "source": CANONICAL_SOURCE_LABEL.get(src, src),
+                        "confidence": tr["confidence"],
+                        "mb_pos": tr["position"],
+                        "review_flag": tr.get("review_flag", "ok"),
+                        "acoustic_id": tr.get("acoustic_id"),
+                    }
+                    for tr in sorted(seq, key=lambda x: x["position"])
+                ],
+                src,
+            )
+    return None, ""
+
+
+def tracks_from_mb_entry(entry: dict) -> list[dict] | None:
+    titles = parse_top_tracks(entry.get("top_tracks", ""))
+    if len(titles) < MIN_TRACKS:
+        return None
+    return [
+        {
+            "position": i + 1,
+            "title": t,
+            "source": "musicbrainz_cache",
+            "confidence": 0.88,
+            "mb_pos": i + 1,
+            "review_flag": "ok",
+            "acoustic_id": None,
+        }
+        for i, t in enumerate(titles)
+    ]
 
 
 def best_acoustic(
@@ -157,7 +288,12 @@ def best_acoustic(
     title: str,
     position: int,
     acoustic_map: dict[int, list[dict]],
+    preset_id: int | None = None,
 ) -> tuple[int | None, str]:
+    if preset_id:
+        for row in acoustic_map.get(album_id, []):
+            if row["id"] == preset_id:
+                return preset_id, row["song"]
     pool = acoustic_map.get(album_id, [])
     best_id: int | None = None
     best_score = 0
@@ -187,10 +323,13 @@ def main() -> None:
     p.add_argument("--out", default=str(OUT_CSV))
     args = p.parse_args()
 
-    rval_to_album = load_album_id_by_rval(args.host, args.database, args.user)
+    rval_meta = load_album_meta(args.host, args.database, args.user)
     acoustic_map = load_acoustic_by_album(args.host, args.database, args.user)
+    recovery = load_recovery_candidates(args.host, args.database, args.user)
+    mb_index = load_mb_cache_index()
 
     sequences: dict[str, list[dict]] = {}
+    source_counts: dict[str, int] = defaultdict(int)
 
     manual_path = Path(args.manual_seq)
     if manual_path.is_file():
@@ -209,10 +348,13 @@ def main() -> None:
                         "source": "manual_canonical_sequence",
                         "confidence": 1.0,
                         "mb_pos": int(t["global_position"]),
+                        "review_flag": "ok",
+                        "acoustic_id": None,
                     }
                 )
-            if tracks:
+            if len(tracks) >= MIN_TRACKS:
                 sequences[rid] = tracks
+                source_counts["manual"] += 1
 
     mb_path = Path(args.mb_sidecar)
     if mb_path.is_file():
@@ -238,10 +380,32 @@ def main() -> None:
                         "source": "musicbrainz_cache",
                         "confidence": 0.92,
                         "mb_pos": pos,
+                        "review_flag": "ok",
+                        "acoustic_id": None,
                     }
                 )
-            if tracks:
+            if len(tracks) >= MIN_TRACKS:
                 sequences[rid] = sorted(tracks, key=lambda x: x["position"])
+                source_counts["musicbrainz_sidecar"] += 1
+
+    for rval, meta in sorted(rval_meta.items()):
+        if rval in sequences:
+            continue
+        nk = norm_key(meta["artist"], meta["title"])
+        album_id = meta["album_id"]
+
+        entry = mb_index.get(nk)
+        if entry:
+            tr = tracks_from_mb_entry(entry)
+            if tr:
+                sequences[rval] = tr
+                source_counts["musicbrainz_cache"] += 1
+                continue
+
+        tr, src = tracks_from_recovery(album_id, recovery)
+        if tr:
+            sequences[rval] = tr
+            source_counts[src] += 1
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -250,11 +414,18 @@ def main() -> None:
     beat_it_diag: dict | None = None
 
     for rval, tracks in sorted(sequences.items()):
-        album_id = rval_to_album.get(rval)
-        if not album_id:
+        meta = rval_meta.get(rval)
+        if not meta:
             continue
+        album_id = meta["album_id"]
         for tr in tracks:
-            ac_id, ac_song = best_acoustic(album_id, tr["title"], tr["position"], acoustic_map)
+            ac_id, ac_song = best_acoustic(
+                album_id,
+                tr["title"],
+                tr["position"],
+                acoustic_map,
+                tr.get("acoustic_id"),
+            )
             rows_out.append(
                 {
                     "external_key": rval,
@@ -264,7 +435,7 @@ def main() -> None:
                     "confidence_score": tr["confidence"],
                     "musicbrainz_position": tr["mb_pos"],
                     "acoustic_staging_id": ac_id or "",
-                    "review_flag": "ok",
+                    "review_flag": tr.get("review_flag", "ok"),
                 }
             )
             if rval == "RVAL586982" and norm_title(tr["title"]) == norm_title("Beat It"):
@@ -274,15 +445,6 @@ def main() -> None:
                     "matched_acoustic_id": ac_id,
                     "matched_acoustic_song": ac_song,
                     "candidate_count": len(pool),
-                    "candidates": [
-                        {
-                            "id": r["id"],
-                            "song": r["song"],
-                            "score": score_acoustic("Beat It", r["song"], 5, 5),
-                            "polluted": bool(HARD_POLLUTED.search(r["song"])),
-                        }
-                        for r in pool[:12]
-                    ],
                 }
 
     with out_path.open("w", encoding="utf-8", newline="") as f:
@@ -302,15 +464,12 @@ def main() -> None:
         w.writeheader()
         w.writerows(rows_out)
 
-    diag_path = out_path.parent / "thriller_beat_it_acoustic_diagnosis.json"
-    if beat_it_diag:
-        diag_path.write_text(json.dumps(beat_it_diag, indent=2), encoding="utf-8")
-
     print(f"[canonical-tracks] wrote {len(rows_out)} rows → {out_path}")
     print(f"[canonical-tracks] albums {len(sequences)} with sequences")
-    if beat_it_diag:
-        print(f"[canonical-tracks] Beat It diagnosis → {diag_path}")
-        print(json.dumps(beat_it_diag, indent=2))
+    print(f"[canonical-tracks] sources: {dict(source_counts)}")
+    adele = sequences.get("RVAL182738")
+    if adele:
+        print("[canonical-tracks] Adele 21 preview:", [t["title"] for t in adele[:5]], "…")
 
 
 if __name__ == "__main__":
