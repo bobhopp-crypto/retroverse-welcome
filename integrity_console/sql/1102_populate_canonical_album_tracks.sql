@@ -55,9 +55,22 @@ SELECT
   coalesce(st.confidence_score, 0.9),
   coalesce(nullif(trim(st.review_flag), ''), 'ok'),
   now()
-FROM staging_canonical_album_track_imports st
-JOIN album_external_keys aek
-  ON upper(trim(aek.external_key)) = upper(trim(st.external_key))
+FROM (
+  SELECT DISTINCT ON (aek.album_id, st.position)
+    aek.album_id,
+    st.position,
+    st.title,
+    st.canonical_source,
+    st.confidence_score,
+    st.musicbrainz_position,
+    st.acoustic_staging_id,
+    st.review_flag
+  FROM staging_canonical_album_track_imports st
+  JOIN album_external_keys aek
+    ON upper(trim(aek.external_key)) = upper(trim(st.external_key))
+  ORDER BY aek.album_id, st.position, st.confidence_score DESC NULLS LAST, st.title
+) st
+JOIN album_external_keys aek ON aek.album_id = st.album_id
 LEFT JOIN staging_acoustic_tracks sat
   ON sat.id = NULLIF(trim(st.acoustic_staging_id), '')::bigint
 ON CONFLICT (album_id, position) DO UPDATE SET
