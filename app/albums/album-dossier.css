@@ -232,8 +232,8 @@
   z-index: 1;
   max-width: min(40rem, 100%);
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top, 0px) + 0.85rem) max(1.1rem, env(safe-area-inset-right, 12px))
-    calc(env(safe-area-inset-bottom, 0px) + 1.5rem) max(1.1rem, env(safe-area-inset-left, 12px));
+  padding: 0.65rem max(1.1rem, env(safe-area-inset-right, 12px))
+    calc(env(safe-area-inset-bottom, 0px) + 1.75rem) max(1.1rem, env(safe-area-inset-left, 12px));
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
@@ -275,6 +275,7 @@ body.dossier-body:not(.arv-body-lock):not(.portal-device) {
 
 body.dossier-body:not(.arv-body-lock):not(.portal-device) main.flex-1.flex-col {
   padding-top: var(--rv-header-offset, 3.75rem) !important;
+  scroll-padding-top: var(--rv-header-offset, 3.75rem);
   min-height: 0;
   flex: 1 1 auto;
   overflow: visible;
@@ -1363,11 +1364,11 @@ a.dossier-track-name:hover {
 .dossier-track-hero-album-eyebrow {
   margin: 0;
   font-family: var(--d-font-broadcast);
-  font-size: 0.48rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(200, 180, 160, 0.48);
+  color: rgba(212, 196, 168, 0.62);
 }
 
 .dossier-track-hero-album-copy .dossier-track-hero-year {
@@ -1391,17 +1392,15 @@ a.dossier-track-name:hover {
 }
 
 .dossier-track-hero-cover--empty {
+  display: flex;
   aspect-ratio: 1;
   min-height: clamp(5.5rem, 24vw, 7rem);
-  background:
-    linear-gradient(145deg, rgba(32, 26, 52, 0.55), rgba(8, 6, 12, 0.9)),
-    repeating-linear-gradient(
-      -12deg,
-      rgba(255, 247, 240, 0.03) 0,
-      rgba(255, 247, 240, 0.03) 1px,
-      transparent 1px,
-      transparent 5px
-    );
+  padding: 0;
+  background: rgba(8, 6, 12, 0.65);
+}
+
+.dossier-track-hero-cover--empty .dossier-archival-void {
+  border-radius: 0;
 }
 
 .dossier-track-hero-cover img {
@@ -1419,11 +1418,11 @@ a.dossier-track-name:hover {
 .dossier-track-hero-source {
   margin: 0 0 0.22rem;
   font-family: var(--d-font-broadcast);
-  font-size: 0.5rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: rgba(200, 180, 255, 0.42);
+  color: rgba(210, 195, 235, 0.55);
 }
 
 .dossier-track-hero-catalog {
@@ -1496,11 +1495,11 @@ a.dossier-track-name:hover {
 
 .dossier-track-hero-chartline-k {
   font-family: var(--d-font-broadcast);
-  font-size: 0.48rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(200, 180, 160, 0.48);
+  color: rgba(212, 196, 168, 0.62);
 }
 
 .dossier-track-hero-chartline-v {
@@ -1520,11 +1519,12 @@ a.dossier-track-name:hover {
 
 .dossier-track-hero-chartline-item--span .dossier-track-hero-chartline-v {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.58rem;
+  font-size: max(0.6875rem, 12px);
   font-style: normal;
   font-weight: 500;
-  letter-spacing: 0.08em;
-  color: rgba(215, 210, 230, 0.72);
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  color: rgba(225, 220, 238, 0.78);
 }
 
 .dossier-track-continuity {
@@ -1537,11 +1537,11 @@ a.dossier-track-name:hover {
   display: block;
   margin-bottom: 0.35rem;
   font-family: var(--d-font-broadcast);
-  font-size: 0.48rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(200, 180, 255, 0.4);
+  color: rgba(200, 185, 230, 0.52);
 }
 
 .dossier-track-continuity-list {
@@ -1555,9 +1555,15 @@ a.dossier-track-name:hover {
 
 .dossier-track-continuity-link {
   font-family: var(--d-font-editorial);
-  font-size: 0.72rem;
-  color: rgba(220, 215, 245, 0.78);
+  font-size: max(0.8125rem, 14px);
+  line-height: 1.35;
+  color: rgba(228, 222, 248, 0.82);
   text-decoration: none;
+  padding: 0.35rem 0.15rem;
+  min-height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dossier-track-continuity-link:hover {
@@ -1827,11 +1833,12 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-callout {
   font-family: var(--d-font-broadcast);
-  font-size: 0.52rem;
+  font-size: max(0.625rem, 12px);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(200, 180, 160, 0.58);
+  line-height: 1.4;
+  color: rgba(212, 196, 168, 0.68);
 }
 
 .dossier-trajectory-callout--peak {
@@ -3136,8 +3143,11 @@ a.dossier-track-name:hover {
   height: 100%;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 38%, rgba(125, 205, 210, 0.1), transparent 58%),
-    rgba(4, 3, 10, 0.82);
+    radial-gradient(circle at 50% 38%, rgba(232, 184, 74, 0.06), transparent 58%),
+    rgba(12, 8, 6, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 247, 240, 0.05),
+    inset 0 -6px 16px rgba(0, 0, 0, 0.4);
 }
 
 .dossier-cover-frame img {
@@ -3168,17 +3178,79 @@ a.dossier-track-name:hover {
 }
 
 .dossier-cover-frame-void {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(145deg, rgba(18, 12, 28, 0.9), rgba(8, 14, 24, 0.85));
+  min-height: inherit;
 }
 
-.dossier-cover-frame-void-label {
-  font-family: var(--d-font-editorial);
-  font-size: clamp(1.8rem, 6vw, 2.6rem);
-  color: rgba(255, 214, 150, 0.22);
+/* Archival sleeve — shared album hero, index, track source album */
+.dossier-archival-void {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  padding: 0.85rem 0.65rem;
+  text-align: center;
+  background:
+    radial-gradient(ellipse 85% 55% at 50% 28%, rgba(232, 184, 74, 0.1), transparent 58%),
+    linear-gradient(
+      168deg,
+      rgba(48, 36, 30, 0.94) 0%,
+      rgba(18, 12, 10, 0.97) 42%,
+      rgba(28, 20, 16, 0.95) 100%
+    ),
+    repeating-linear-gradient(
+      -14deg,
+      rgba(255, 247, 240, 0.025) 0,
+      rgba(255, 247, 240, 0.025) 1px,
+      transparent 1px,
+      transparent 7px
+    );
+  box-shadow:
+    inset 0 2px 0 rgba(255, 247, 240, 0.07),
+    inset 0 -10px 22px rgba(0, 0, 0, 0.52),
+    inset 0 0 0 1px rgba(255, 214, 150, 0.1);
+}
+
+.dossier-archival-void-mark {
+  font-family: var(--d-font-broadcast);
+  font-size: max(0.625rem, 11px);
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: rgba(232, 184, 74, 0.38);
+  text-shadow: 0 0 14px rgba(232, 184, 74, 0.12);
+}
+
+.dossier-archival-void-caption {
+  max-width: 9rem;
+  font-family: var(--d-font-broadcast);
+  font-size: max(0.5625rem, 10px);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(212, 196, 168, 0.58);
+}
+
+.dossier-archival-void--compact {
+  gap: 0.28rem;
+  padding: 0.45rem 0.35rem;
+}
+
+.dossier-archival-void--compact .dossier-archival-void-mark {
+  font-size: max(0.5625rem, 10px);
+  letter-spacing: 0.26em;
+}
+
+.dossier-archival-void--compact .dossier-archival-void-caption {
+  font-size: max(0.5rem, 9px);
+  letter-spacing: 0.12em;
 }
 
 .dossier-cover-frame--hero {
@@ -3275,11 +3347,17 @@ a.dossier-track-name:hover {
 
 .dossier-explore-loop-link {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.62rem;
+  font-size: max(0.6875rem, 12px);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgba(125, 205, 210, 0.78);
+  line-height: 1.35;
+  color: rgba(140, 215, 210, 0.82);
   text-decoration: none;
+  padding: 0.4rem 0.2rem;
+  min-height: 2.5rem;
+  display: inline-flex;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .dossier-explore-loop-link:hover {
@@ -3359,11 +3437,11 @@ a.dossier-track-name:hover {
 .dossier-info-band dt {
   margin: 0;
   font-family: var(--d-font-broadcast);
-  font-size: 0.44rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(125, 205, 210, 0.58);
+  color: rgba(140, 210, 205, 0.65);
 }
 
 .dossier-info-band dd {
@@ -3791,11 +3869,11 @@ a.dossier-track-name:hover {
 .dossier-track-instrument-caption {
   margin: 0 0 0.38rem;
   font-family: var(--d-font-broadcast);
-  font-size: 0.48rem;
+  font-size: max(0.5625rem, 11px);
   font-weight: 600;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(200, 180, 160, 0.45);
+  color: rgba(212, 196, 168, 0.55);
 }
 
 .dossier-track-instrument-strip--meters .dossier-track-sonic-meters-list {

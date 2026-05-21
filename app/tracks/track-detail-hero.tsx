@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+
+import { ArchivalCoverVoid } from "@/app/components/archival-cover-void";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { tryCreateClient } from "@/lib/supabase";
@@ -93,7 +95,11 @@ export async function TrackDetailHero({
               className={`dossier-track-hero-cover${coverUrl ? "" : " dossier-track-hero-cover--empty"}`}
               aria-label={`Album: ${album.title}`}
             >
-              {coverUrl ? <Image src={coverUrl} alt="" width={112} height={112} unoptimized /> : null}
+              {coverUrl ? (
+                <Image src={coverUrl} alt="" width={112} height={112} unoptimized />
+              ) : (
+                <ArchivalCoverVoid compact />
+              )}
             </Link>
             <div className="dossier-track-hero-album-copy">
               <span className="dossier-track-hero-album-eyebrow">Source album</span>

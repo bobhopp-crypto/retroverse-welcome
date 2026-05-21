@@ -206,11 +206,51 @@
   .dossier-media-signals,
   .dossier-provenance-strip,
   .dossier-foot,
-  .dossier-explore-loop,
   .dossier-panel--paths,
   .dossier-canonical-note,
   .dossier-panel-label-meta {
     display: none !important;
+  }
+
+  .dossier-explore-loop {
+    margin-top: 1rem;
+    padding: 0.85rem 0 max(0.5rem, env(safe-area-inset-bottom, 0px));
+    gap: 0.5rem 0.75rem;
+    justify-content: center;
+  }
+
+  .dossier-explore-loop-link {
+    font-size: max(0.8125rem, 14px);
+    min-height: 2.75rem;
+    padding: 0.45rem 0.35rem;
+  }
+
+  .dossier-track-hero-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dossier-track-identity {
+    margin-bottom: 0.35rem;
+  }
+
+  .dossier-track-continuity {
+    margin-bottom: 0.75rem;
+  }
+
+  .dossier-trajectory-callouts {
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.65rem;
+  }
+
+  .dossier-shell--trajectory .dossier-top--nav {
+    margin-bottom: 0.5rem;
+  }
+
+  .dossier-shell--trajectory .dossier-top--nav .dossier-a {
+    font-size: max(0.8125rem, 14px);
+    min-height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
   }
 
   .dossier-mobile-reveal {

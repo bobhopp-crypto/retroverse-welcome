@@ -173,6 +173,7 @@ body {
   left: 0;
   right: 0;
   z-index: 50;
+  padding-top: env(safe-area-inset-top, 0px);
   border-bottom: 1px solid color-mix(in srgb, var(--rv-illuminated-edge) 44%, transparent);
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--rv-psychedelic-orange) 10%, transparent), transparent 24%, color-mix(in srgb, var(--rv-psychedelic-blue) 7%, transparent)),
@@ -181,6 +182,21 @@ body {
     0 1px 0 color-mix(in srgb, var(--rv-psychedelic-cream) 7%, transparent),
     0 14px 32px -24px color-mix(in srgb, var(--rv-psychedelic-orange) 44%, transparent);
   backdrop-filter: blur(12px) saturate(1.15);
+}
+
+.rv-global-header > div {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+
+@media (max-width: 639px) {
+  html[data-theme="dark"] {
+    --rv-header-offset: calc(3.65rem + env(safe-area-inset-top, 0px));
+  }
+
+  :root {
+    --rv-header-offset: calc(3.65rem + env(safe-area-inset-top, 0px));
+  }
 }
 
 .rv-global-header a[href="/"] {

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { ArchivalCoverVoid } from "@/app/components/archival-cover-void";
+
 type AlbumArchiveCoverProps = {
   src: string | null;
   title: string;
@@ -28,11 +30,12 @@ export function AlbumArchiveCover({ src, title, rankLabel, className }: AlbumArc
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
         />
-      ) : (
-        <span className="dossier-cover-frame-void" aria-hidden>
-          <span className="dossier-cover-frame-void-label">{title.slice(0, 1) || "·"}</span>
+      ) : null}
+      {!showImage ? (
+        <span className="dossier-cover-frame-void">
+          <ArchivalCoverVoid />
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

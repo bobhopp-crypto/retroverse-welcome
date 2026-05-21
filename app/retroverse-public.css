@@ -90,7 +90,7 @@ body.rv-public-surface {
 .rv-home-inner {
   max-width: var(--rv-pub-content-max);
   margin: 0 auto;
-  padding: var(--rv-pub-pad-y) var(--rv-pub-pad-x) 3rem;
+  padding: var(--rv-pub-pad-y) var(--rv-pub-pad-x) max(3rem, calc(env(safe-area-inset-bottom, 0px) + 2rem));
 }
 
 .rv-home-hero {
@@ -208,8 +208,8 @@ body.rv-public-surface {
   text-align: left;
   text-decoration: none;
   color: inherit;
-  padding: 0.85rem 0.5rem;
-  min-height: 2.85rem;
+  padding: 0.95rem 0.65rem;
+  min-height: 3.1rem;
   border-bottom: 1px solid color-mix(in srgb, var(--rv-pub-border) 45%, transparent);
   -webkit-tap-highlight-color: transparent;
 }
@@ -237,19 +237,20 @@ body.rv-public-surface {
 
 .rv-home-result-badge {
   flex-shrink: 0;
-  font-size: 0.5625rem;
+  font-size: max(0.625rem, 11px);
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--rv-pub-accent);
-  opacity: 0.82;
+  color: color-mix(in srgb, var(--rv-pub-accent) 88%, var(--rv-pub-fg) 12%);
+  opacity: 1;
 }
 
 .rv-home-result-sub {
   font-size: max(0.9375rem, 15px);
+  line-height: 1.4;
   color: var(--rv-pub-fg-muted);
-  margin-top: 0.2rem;
-  padding-left: 3.1rem;
+  margin-top: 0.28rem;
+  padding-left: 0;
 }
 
 /* —— Entity nav + status —— */
@@ -276,7 +277,11 @@ body.rv-public-surface {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem var(--rv-pub-pad-x);
+  padding: max(2rem, env(safe-area-inset-top, 0px)) var(--rv-pub-pad-x)
+    max(2rem, env(safe-area-inset-bottom, 0px));
+  background:
+    radial-gradient(ellipse 90% 50% at 50% 0%, rgba(232, 184, 74, 0.08), transparent 55%),
+    var(--rv-pub-bg);
 }
 
 .rv-entity-status-inner {
@@ -306,6 +311,33 @@ body.rv-public-surface {
 
 /* —— Public entity page readability overrides —— */
 @media (max-width: 639px) {
+  .rv-home-inner {
+    padding-top: max(1rem, env(safe-area-inset-top, 0px));
+  }
+
+  .rv-home-results {
+    padding: 1rem 0.75rem;
+  }
+
+  .rv-home-section-title {
+    font-size: max(0.8125rem, 13px);
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.45rem;
+  }
+
+  .rv-home-result-main {
+    font-size: max(1.0625rem, 17px);
+    line-height: 1.35;
+  }
+
+  .rv-home-result-badge {
+    font-size: max(0.6875rem, 12px);
+  }
+
+  .rv-entity-page {
+    padding-bottom: max(3rem, calc(env(safe-area-inset-bottom, 0px) + 2rem));
+  }
+
   .dossier-body .dossier-title {
     font-size: clamp(1.85rem, 9vw, 2.35rem) !important;
   }
@@ -313,6 +345,7 @@ body.rv-public-surface {
   .dossier-body .dossier-artist,
   .dossier-body .dossier-byline {
     font-size: max(1.0625rem, 17px) !important;
+    line-height: 1.4 !important;
   }
 
   .dossier-body .dossier-provenance-label,
@@ -321,8 +354,19 @@ body.rv-public-surface {
     font-size: max(0.9375rem, 15px) !important;
   }
 
-  .dossier-body .dossier-chart-glance dt,
+  .dossier-body .dossier-chart-glance dt {
+    font-size: max(0.6875rem, 12px) !important;
+  }
+
   .dossier-body .dossier-chart-glance dd,
+  .dossier-body .dossier-info-band dd {
+    font-size: max(1rem, 16px) !important;
+  }
+
+  .dossier-body .dossier-info-band dt {
+    font-size: max(0.6875rem, 12px) !important;
+  }
+
   .dossier-body .dossier-table th,
   .dossier-body .dossier-table td {
     font-size: max(0.9375rem, 15px) !important;
@@ -332,6 +376,65 @@ body.rv-public-surface {
   .dossier-body .dossier-index-search input,
   .dossier-body .dossier-index-search button {
     font-size: max(1rem, 16px) !important;
+  }
+
+  .dossier-body .dossier-track-hero-layout {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  .dossier-body .dossier-track-hero-album-module {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .dossier-body .dossier-track-hero-cover {
+    width: clamp(5.75rem, 22vw, 7.25rem);
+    max-width: 7.25rem;
+  }
+
+  .dossier-body .dossier-track-hero-chartline {
+    gap: 0.65rem 1rem;
+    margin-top: 0.65rem;
+    padding-top: 0.6rem;
+  }
+
+  .dossier-body .dossier-track-hero-chartline-k {
+    font-size: max(0.6875rem, 12px) !important;
+  }
+
+  .dossier-body .dossier-track-hero-chartline-v {
+    font-size: max(1rem, 16px) !important;
+  }
+
+  .dossier-body .dossier-track-hero-chartline-item--span .dossier-track-hero-chartline-v {
+    font-size: max(0.8125rem, 14px) !important;
+  }
+
+  .dossier-body .dossier-archival-void-caption {
+    font-size: max(0.625rem, 11px);
+  }
+
+  .dossier-body .dossier-trajectory-callout {
+    font-size: max(0.6875rem, 12px);
+  }
+
+  .dossier-body .dossier-trajectory-date span {
+    font-size: max(0.9375rem, 15px) !important;
+  }
+
+  .dossier-body .dossier-trajectory-date small {
+    font-size: max(0.8125rem, 13px) !important;
+    color: rgba(215, 220, 246, 0.68) !important;
+  }
+
+  .dossier-body .dossier-track-continuity-list {
+    gap: 0.5rem 0.85rem;
+  }
+
+  .dossier-body .dossier-explore-loop-link {
+    font-size: max(0.8125rem, 14px);
+    min-height: 2.75rem;
   }
 
   .dossier-canonical-note,
