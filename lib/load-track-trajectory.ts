@@ -27,14 +27,6 @@ export type TrackTrajectoryAlbumLink = {
   albumTitle: string;
 };
 
-export type TrackTrajectoryRelated = {
-  href: string;
-  title: string;
-  artist: string;
-  peak: number | null;
-  weeks: number | null;
-};
-
 export type TrackTrajectory = {
   workId: string;
   canonicalTitle: string;
@@ -46,7 +38,6 @@ export type TrackTrajectory = {
   firstChartWeek: string | null;
   finalChartWeek: string | null;
   weeks: TrackTrajectoryWeek[];
-  relatedTracks: TrackTrajectoryRelated[];
   pairedAliases: string[];
   integrityStates: string[];
   unresolvedAlbumCount: number;
@@ -76,10 +67,6 @@ function rankX(rank: number): number {
 
 function daysBetween(a: string, b: string): number {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
-}
-
-function workHref(workId: string): string {
-  return `/tracks/hot100-${workId}`;
 }
 
 function resolveWorkId(idParam: string): string | null {
@@ -202,26 +189,6 @@ export function loadTrackTrajectory(idParam: string): TrackTrajectory | null {
       };
     });
 
-    const relatedRows = db
-      .prepare(
-        `
-          SELECT
-            w.work_id,
-            w.title_display,
-            p.name_display AS artist_display,
-            MIN(CASE WHEN ee.peak_pos IS NOT NULL AND ee.peak_pos > 0 THEN ee.peak_pos ELSE ee.rank END) AS peak,
-            MAX(ee.weeks_on_chart) AS weeks
-          FROM work w
-          JOIN person p ON p.person_id = w.primary_person_id
-          JOIN event_entry ee ON ee.work_id = w.work_id
-          WHERE p.name_display = ? AND w.work_id <> ?
-          GROUP BY w.work_id
-          ORDER BY COALESCE(peak, 999), COALESCE(weeks, 0) DESC, w.title_display
-          LIMIT 8
-        `,
-      )
-      .all(work.artist_display, workId) as WorkSummaryRow[];
-
     const integrityStates: string[] = identity.variantKinds.map((kind) => {
       if (kind === "paired_alias") return "paired alias";
       if (kind === "live_variant") return "live/studio ambiguity";
@@ -243,13 +210,6 @@ export function loadTrackTrajectory(idParam: string): TrackTrajectory | null {
       firstChartWeek: weekRows[0]?.issue_date ?? null,
       finalChartWeek: weekRows[weekRows.length - 1]?.issue_date ?? null,
       weeks,
-      relatedTracks: relatedRows.map((row) => ({
-        href: workHref(row.work_id),
-        title: row.title_display,
-        artist: row.artist_display,
-        peak: row.peak,
-        weeks: row.weeks,
-      })),
       pairedAliases: detectPairedChartAlias(work.title_display) ? splitPairedChartAlias(work.title_display) : [],
       integrityStates,
       unresolvedAlbumCount: connectedAlbums.length === 0 ? 1 : 0,

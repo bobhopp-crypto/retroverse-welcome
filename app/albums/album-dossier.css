@@ -1335,6 +1335,168 @@ a.dossier-track-name:hover {
   margin-bottom: 0;
 }
 
+/* Track hero — cinematic poster: art → title → artist → year */
+.dossier-track-hero--poster.dossier-trajectory-readout {
+  text-align: left;
+}
+
+.dossier-track-hero-poster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.dossier-track-hero-poster-bezel {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin: 0.08rem 0 0;
+  padding: 0.2rem 0 0.5rem;
+}
+
+.dossier-track-hero-poster-art {
+  display: block;
+  width: min(15rem, 74vw);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 247, 240, 0.14);
+  background: rgba(6, 5, 9, 0.88);
+  text-decoration: none;
+  box-shadow:
+    0 22px 56px -18px rgba(0, 0, 0, 0.9),
+    0 6px 28px -10px rgba(0, 0, 0, 0.65),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.38),
+    inset 0 4px 14px rgba(0, 0, 0, 0.48);
+}
+
+.dossier-track-hero-poster-art--empty {
+  display: flex;
+  align-items: stretch;
+}
+
+.dossier-track-hero-poster-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dossier-track-hero-poster-art .dossier-archival-void {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+}
+
+.dossier-track-hero-poster-credits {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  width: 100%;
+  max-width: min(42rem, 100%);
+  margin: 0;
+  padding: 0.85rem 0.35rem 0;
+  text-align: left;
+  border-top: 1px solid rgba(255, 247, 240, 0.07);
+}
+
+.dossier-track-hero--poster.dossier-trajectory-readout .dossier-title,
+.dossier-track-hero--poster .dossier-title {
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  font-size: clamp(1.02rem, 3.6vw, 1.48rem);
+  line-height: 1.1;
+  letter-spacing: -0.018em;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+}
+
+.dossier-track-hero-poster-line2 {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.dossier-track-hero-poster-meta-left {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+.dossier-track-hero-poster-artist {
+  font-family: var(--d-font-editorial);
+  font-size: clamp(0.88rem, 3vw, 1.06rem);
+  font-style: italic;
+  line-height: 1.12;
+  color: rgba(215, 220, 246, 0.74);
+  text-decoration: none;
+}
+
+.dossier-track-hero-poster-artist:hover {
+  color: rgba(235, 230, 248, 0.9);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dossier-track-hero-poster-sep {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.82em;
+  font-weight: 500;
+  color: rgba(180, 172, 190, 0.38);
+}
+
+.dossier-track-hero-poster-year {
+  flex: 0 0 auto;
+  font-family: var(--d-font-editorial);
+  font-size: clamp(0.88rem, 3vw, 1.06rem);
+  font-style: italic;
+  font-weight: 560;
+  line-height: 1.12;
+  text-align: right;
+  color: rgba(215, 220, 246, 0.74);
+}
+
+.dossier-track-hero-poster-meta-left .dossier-track-hero-poster-album {
+  font-family: var(--d-font-editorial);
+  font-size: max(0.75rem, 13px);
+  font-style: italic;
+  color: rgba(200, 192, 210, 0.42);
+  text-decoration: none;
+}
+
+.dossier-track-hero-poster-meta-left .dossier-track-hero-poster-album:hover {
+  color: rgba(230, 222, 238, 0.62);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .dossier-track-hero--poster.dossier-trajectory-readout .dossier-title,
+  .dossier-track-hero--poster .dossier-title {
+    font-size: clamp(0.98rem, 4.4vw, 1.32rem);
+  }
+
+  .dossier-track-hero-poster-artist,
+  .dossier-track-hero-poster-year {
+    font-size: clamp(0.8rem, 4.4vw, 0.98rem);
+  }
+
+  .dossier-track-hero-poster-credits {
+    padding-right: 0.15rem;
+    padding-left: 0.15rem;
+  }
+}
+
 .dossier-track-hero--compressed .dossier-track-hero-stack {
   display: grid;
   gap: 0.14rem;
@@ -1483,7 +1645,11 @@ a.dossier-track-name:hover {
 }
 
 .dossier-shell--trajectory .dossier-trajectory-panel {
-  margin-top: 0.12rem;
+  margin-top: 0.28rem;
+}
+
+.dossier-shell--trajectory .dossier-track-identity {
+  margin-bottom: 0;
 }
 
 .dossier-track-supporting {

@@ -139,6 +139,15 @@
     margin-bottom: 0.45rem;
   }
 
+  .dossier-track-hero--poster .dossier-title {
+    font-size: clamp(0.98rem, 4.4vw, 1.32rem);
+    line-height: 1.1;
+    margin-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .dossier-artist {
     font-size: clamp(1.35rem, 5.8vw, 1.85rem);
     line-height: 1.15;

@@ -23,9 +23,17 @@ import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } f
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
 import { TrackDetailHero } from "@/app/tracks/track-detail-hero";
-import { computeChartRunInsights } from "@/lib/track-chart-run-insights";
+import { TrackContinuityPanel } from "@/app/tracks/track-continuity-panel";
 import { resolveTrackHeroAlbum, type TrackHeroAlbumCandidate } from "@/lib/load-track-hero-album";
 import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
+import {
+  buildHot100TrackContinuity,
+  buildSupabaseAlbumLinks,
+  buildSupabaseTrackContinuity,
+  chartNeighborIdsFromAppearances,
+  mergeTrackAlbumLinks,
+  type SupabaseContinuityCandidate,
+} from "@/lib/track-continuity";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
 import { EntityStatus } from "@/app/components/entity-status";
@@ -78,21 +86,6 @@ type ChartRow = {
   chart_name: string;
   chart_position: number;
   weeks_on_chart: number | null;
-};
-
-type RelatedTrack = {
-  retroverseTrackId: string;
-  retroverseArtistId: string | null;
-  title: string;
-  artist: string;
-  albumId: string | null;
-  albumTitle: string;
-  albumHref: string;
-  coverPath: string | null;
-  artworkStatus: string | null;
-  releaseYear: number | null;
-  peakChartPosition: number | null;
-  reasons: string[];
 };
 
 function normalizeSlug(value: string): string {
@@ -391,8 +384,9 @@ async function loadTrackGraph(idParam: string) {
           .from("retroverse_tracks")
           .select("retroverse_track_id, era_id")
           .in("era_id", connectedEraIds)
+          .eq("retroverse_artist_id", track.retroverse_artist_id)
           .neq("retroverse_track_id", track.retroverse_track_id)
-          .limit(200)
+          .limit(80)
       : { data: [], error: null };
   if (sameEraTracksResult.error) {
     logEntityLoaderError("retroverse_tracks:sameEra", route, track.retroverse_track_id, sameEraTracksResult.error);
@@ -420,7 +414,39 @@ async function loadTrackGraph(idParam: string) {
   }
   const reusePatternCandidateIds = new Set((reuseTracksResult.data ?? []).map((row) => row.retroverse_track_id));
 
-  const allRelatedIds = [...new Set([...shareAlbumCandidateIds, ...sameEraCandidateIds, ...reusePatternCandidateIds])].slice(0, 80);
+  const chartDates = [...new Set(charts.map((row) => row.chart_date))].slice(0, 16);
+  const chartAppearancesForNeighbors =
+    chartDates.length > 0
+      ? await supabase
+          .from("retroverse_chart_appearances")
+          .select("retroverse_track_id, chart_date, chart_position")
+          .in("chart_date", chartDates)
+          .limit(600)
+      : { data: [], error: null };
+  if (chartAppearancesForNeighbors.error) {
+    logEntityLoaderError(
+      "retroverse_chart_appearances:neighbors",
+      route,
+      track.retroverse_track_id,
+      chartAppearancesForNeighbors.error,
+    );
+  }
+  const chartNeighborCandidateIds = new Set(
+    chartNeighborIdsFromAppearances(
+      charts.map((row) => ({ chart_date: row.chart_date, chart_position: row.chart_position })),
+      track.retroverse_track_id,
+      chartAppearancesForNeighbors.data ?? [],
+    ),
+  );
+
+  const allRelatedIds = [
+    ...new Set([
+      ...shareAlbumCandidateIds,
+      ...chartNeighborCandidateIds,
+      ...sameEraCandidateIds,
+      ...reusePatternCandidateIds,
+    ]),
+  ].slice(0, 80);
   const [relatedTracksResult, relatedChartsResult] = await Promise.all([
     allRelatedIds.length > 0
       ? supabase
@@ -506,55 +532,25 @@ async function loadTrackGraph(idParam: string) {
     }
   }
 
-  const relatedRows: RelatedTrack[] = relatedTracks
+  const continuityCandidates: SupabaseContinuityCandidate[] = relatedTracks
     .map((row) => {
-      const reasons: string[] = [];
-      if (shareAlbumCandidateIds.has(row.retroverse_track_id)) reasons.push("Shares album context");
-      if (sameEraCandidateIds.has(row.retroverse_track_id)) reasons.push("Shares era cluster");
-      if (reusePatternCandidateIds.has(row.retroverse_track_id)) reasons.push("Shares reuse pattern");
+      const kinds: SupabaseContinuityCandidate["kinds"] = [];
+      if (shareAlbumCandidateIds.has(row.retroverse_track_id)) kinds.push("album_context");
+      if (chartNeighborCandidateIds.has(row.retroverse_track_id)) kinds.push("chart_neighbor");
+      if (sameEraCandidateIds.has(row.retroverse_track_id)) kinds.push("era_cluster");
+      if (reusePatternCandidateIds.has(row.retroverse_track_id)) kinds.push("reuse_pattern");
+      if (kinds.length === 0) return null;
       return {
         retroverseTrackId: row.retroverse_track_id,
-        retroverseArtistId: row.retroverse_artist_id,
         title: row.canonical_title,
         artist: relatedArtistById.get(row.retroverse_artist_id) ?? "Unknown artist",
-        albumId: row.retroverse_album_id ?? null,
-        albumTitle: row.retroverse_album_id
-          ? relatedAlbumTitleById.get(row.retroverse_album_id) ?? "Album unknown"
-          : "Album unknown",
-        albumHref:
-          row.retroverse_album_id
-            ? hrefForAlbum(row.retroverse_album_id, relatedAlbumTitleById.get(row.retroverse_album_id) ?? "")
-            : "/albums",
-        coverPath:
-          row.retroverse_album_id
-            ? selectCanonicalArtwork(
-                relatedArtworkRows,
-                row.retroverse_album_id,
-                relatedPrimaryEditionByAlbumId.get(row.retroverse_album_id) ?? null,
-              )?.canonical_cover_path ?? null
-            : null,
-        artworkStatus:
-          row.retroverse_album_id
-            ? selectCanonicalArtwork(
-                relatedArtworkRows,
-                row.retroverse_album_id,
-                relatedPrimaryEditionByAlbumId.get(row.retroverse_album_id) ?? null,
-              )?.artwork_status ?? null
-            : null,
-        releaseYear: row.release_year ?? null,
         peakChartPosition: peakByTrackId.get(row.retroverse_track_id) ?? null,
-        reasons,
+        kinds,
       };
     })
-    .filter((row) => row.reasons.length > 0)
-    .sort((a, b) => {
-      if (a.reasons.length !== b.reasons.length) return b.reasons.length - a.reasons.length;
-      const aPeak = a.peakChartPosition ?? 999;
-      const bPeak = b.peakChartPosition ?? 999;
-      if (aPeak !== bPeak) return aPeak - bPeak;
-      return a.title.localeCompare(b.title);
-    })
-    .slice(0, 14);
+    .filter((row): row is SupabaseContinuityCandidate => row !== null);
+
+  const continuitySections = buildSupabaseTrackContinuity(continuityCandidates);
 
   let pathways: Awaited<ReturnType<typeof generateTrackPathways>> = [];
   try {
@@ -581,7 +577,7 @@ async function loadTrackGraph(idParam: string) {
     firstEra,
     dominantEra,
     reuseIntoLaterEra,
-    relatedRows,
+    continuitySections,
     pathways,
   };
 }
@@ -624,34 +620,14 @@ function renderTrackChartRunRail(
   peak: number | null,
   dialMultiplier: number,
 ) {
-  const insights = computeChartRunInsights(weeks);
-  const showLongestRun = insights.longestRunWeeks > 1;
-
   return (
     <section
       className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel"
-      aria-label="Hot 100 chart run"
+      aria-label="Chart run"
     >
-      {insights.peakWeek ? (
-        <div className="dossier-trajectory-callouts" aria-label="Chart run highlights">
-          <span className="dossier-trajectory-callout dossier-trajectory-callout--peak">
-            Peak week · #{insights.peakWeek.rank} · {formatChartDate(insights.peakWeek.issueDate)}
-          </span>
-          {showLongestRun ? (
-            <span className="dossier-trajectory-callout dossier-trajectory-callout--run">
-              Longest run · {insights.longestRunWeeks} weeks
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="dossier-trajectory-scale" aria-hidden>
-        <span>#100</span>
-        <span>#50</span>
-        <span>#1</span>
-      </div>
       <ol className="dossier-trajectory-rail">
         {weeks.map((week, index) => {
-          const momentClasses = trajectoryMomentClasses(weeks, index, insights);
+          const momentClasses = trajectoryMomentClasses(weeks, index);
           const heat = resolveTrajectoryHistoricalHeat(week, index, weeks, peak);
           const intensity = Math.min(1, heat.intensity * dialMultiplier);
           return (
@@ -686,11 +662,7 @@ function renderTrackChartRunRail(
   );
 }
 
-function trajectoryMomentClasses(
-  weeks: TrackTrajectoryWeek[],
-  index: number,
-  insights: ReturnType<typeof computeChartRunInsights>,
-): string {
+function trajectoryMomentClasses(weeks: TrackTrajectoryWeek[], index: number): string {
   const week = weeks[index];
   const previous = index > 0 ? weeks[index - 1] : null;
   const twoBack = index > 1 ? weeks[index - 2] : null;
@@ -699,13 +671,6 @@ function trajectoryMomentClasses(
   if (week.rank === 1) classes.push("dossier-trajectory-week--number-one");
   if (week.rank <= 5 && (!previous || previous.rank > 5)) classes.push("dossier-trajectory-week--top-five");
   if (week.rank <= 10 && (!previous || previous.rank > 10)) classes.push("dossier-trajectory-week--top-ten");
-  if (
-    insights.longestRunWeeks > 1 &&
-    index >= insights.longestRunStart &&
-    index <= insights.longestRunEnd
-  ) {
-    classes.push("dossier-trajectory-week--run-segment");
-  }
   if (week.rank <= 40 && (!previous || previous.rank > 40)) classes.push("dossier-trajectory-week--top-forty");
   if (week.movement === "reentry") classes.push("dossier-trajectory-week--recurrence");
   if ((week.weeksOnChart ?? 0) >= 20) classes.push("dossier-trajectory-week--long-run");
@@ -719,6 +684,15 @@ function trajectoryMomentClasses(
 function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstrumentationContext) {
   const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(instrumentation.profile));
   const heroAlbum = instrumentation.heroAlbum;
+  const albums = mergeTrackAlbumLinks(
+    data.connectedAlbums,
+    heroAlbum ? { albumId: heroAlbum.albumId, title: heroAlbum.title } : null,
+  );
+  const continuitySections = buildHot100TrackContinuity(
+    data.workId,
+    data.canonicalTitle,
+    data.canonicalArtist,
+  );
   return (
     <>
       <TrackPageBody />
@@ -728,15 +702,8 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
             title={data.canonicalTitle}
             artistName={data.canonicalArtist}
             artistHref={data.artistHref}
-            sourceLabel="Hot 100"
             releaseYear={heroAlbum?.releaseYear ?? null}
             album={heroAlbum}
-            chart={{
-              peak: data.peak,
-              weeks: data.weeksCharted,
-              firstChartWeek: data.firstChartWeek,
-              finalChartWeek: data.finalChartWeek,
-            }}
           />
         </div>
 
@@ -746,43 +713,18 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
           <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
         </div>
 
-        <section className="dossier-track-support">
-          <article className="dossier-panel dossier-panel--band-plank">
-            <h2 className="dossier-panel-label">Related albums</h2>
-            {data.connectedAlbums.length ? (
-              <ul className="dossier-support-list">
-                {data.connectedAlbums.map((album) => (
-                  <li key={album.albumId}>
-                    <Link href={`/albums/${album.albumId}`}>{album.albumTitle}</Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="dossier-provenance">No linked albums yet</p>
-            )}
-          </article>
+        <TrackContinuityPanel albums={albums} sections={continuitySections} />
 
-          <article className="dossier-panel dossier-panel--band-gold">
-            <h2 className="dossier-panel-label">Related tracks</h2>
-            <ul className="dossier-support-list">
-              {data.relatedTracks.map((track) => (
-                <li key={track.href}>
-                  <Link href={track.href}>{track.title}</Link>
-                  <span>{track.peak != null ? `#${track.peak}` : "—"} · {track.weeks ?? "—"} weeks</span>
-                </li>
-              ))}
-            </ul>
-          </article>
-
-          {data.reentryCount > 0 ? (
+        {data.reentryCount > 0 ? (
+          <section className="dossier-track-support">
             <article className="dossier-panel dossier-panel--band-teal">
               <h2 className="dossier-panel-label">Chart notes</h2>
               <p className="dossier-provenance">
                 Re-entered the Hot 100 {data.reentryCount} time{data.reentryCount === 1 ? "" : "s"} after leaving the chart.
               </p>
             </article>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
       </div>
     </>
   );
@@ -838,7 +780,8 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     originalAppearance,
     directTrackAlbum,
     appearancesWithAlbum,
-    relatedRows,
+    continuitySections,
+    appearancesWithAlbum,
   } = data;
 
   const artistHref = hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name);
@@ -897,6 +840,14 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     retroverseTrackId: retroverseTrackId?.toUpperCase() ?? null,
     heroAlbum,
   };
+  const continuityAlbums = buildSupabaseAlbumLinks({
+    appearances: appearancesWithAlbum.map((row) => ({
+      retroverseAlbumId: row.retroverseAlbumId,
+      canonicalAlbumTitle: row.canonicalAlbumTitle,
+    })),
+    directAlbum: directTrackAlbum,
+    hero: heroAlbum ? { albumId: heroAlbum.albumId, title: heroAlbum.title } : null,
+  });
   const trajectoryWeeks = charts.length > 0 ? chartsToTrajectoryWeeks(charts) : [];
   const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(profile));
 
@@ -911,14 +862,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
               artistName={artist.canonical_artist_name}
               artistHref={artistHref}
               releaseYear={releaseYear}
-              sourceLabel="Hot 100"
               album={heroAlbum}
-              chart={{
-                peak: peakChartPosition,
-                weeks: maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? null,
-                firstChartWeek: charts[0]?.chart_date ?? null,
-                finalChartWeek: charts[charts.length - 1]?.chart_date ?? null,
-              }}
             />
           </div>
 
@@ -928,23 +872,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
           </div>
 
-          {relatedRows.length > 0 ? (
-            <section className="dossier-track-support">
-              <article className="dossier-panel dossier-panel--band-gold">
-                <h2 className="dossier-panel-label">Related tracks</h2>
-                <ul className="dossier-support-list">
-                  {relatedRows.map((row) => (
-                    <li key={row.retroverseTrackId}>
-                      <Link href={`/tracks/${row.retroverseTrackId}`}>{row.title}</Link>
-                      <span>
-                        {row.peakChartPosition !== null ? `#${row.peakChartPosition}` : "—"} · {row.artist}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            </section>
-          ) : null}
+          <TrackContinuityPanel albums={continuityAlbums} sections={continuitySections} />
         </div>
       </>
     );
@@ -968,21 +896,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
           <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
         </div>
 
-        {relatedRows.length > 0 ? (
-          <section className="dossier-track-support">
-            <article className="dossier-panel dossier-panel--band-gold">
-              <h2 className="dossier-panel-label">Related tracks</h2>
-              <ul className="dossier-support-list">
-                {relatedRows.map((row) => (
-                  <li key={row.retroverseTrackId}>
-                    <Link href={`/tracks/${row.retroverseTrackId}`}>{row.title}</Link>
-                    <span>{row.artist}</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          </section>
-        ) : null}
+        <TrackContinuityPanel albums={continuityAlbums} sections={continuitySections} />
       </div>
     </>
   );

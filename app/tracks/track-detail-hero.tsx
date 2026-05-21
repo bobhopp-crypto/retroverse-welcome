@@ -14,22 +14,12 @@ export type TrackDetailHeroAlbum = {
   coverUrl?: string | null;
 };
 
-export type TrackDetailHeroChartMeta = {
-  peak: number | null;
-  weeks: number | null;
-  firstChartWeek: string | null;
-  finalChartWeek: string | null;
-};
-
 type Props = {
   title: string;
   artistName: string;
   artistHref: string;
   releaseYear?: number | null;
-  sourceLabel?: string | null;
-  catalogLabel?: string | null;
   album?: TrackDetailHeroAlbum | null;
-  chart?: TrackDetailHeroChartMeta | null;
 };
 
 async function loadHeroAlbumCover(albumId: string): Promise<string | null> {
@@ -44,107 +34,72 @@ async function loadHeroAlbumCover(albumId: string): Promise<string | null> {
   }
 }
 
-function formatPlacardDate(value: string | null): string {
-  if (!value) return "";
-  const date = new Date(`${value}T00:00:00Z`);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  })
-    .format(date)
-    .replace(/,/g, "")
-    .toUpperCase();
-}
-
-function formatPlacardSpan(first: string | null, final: string | null): string | null {
-  const a = first ? formatPlacardDate(first) : "";
-  const b = final ? formatPlacardDate(final) : "";
-  if (a && b && a !== b) return `${a} → ${b}`;
-  if (a) return a;
-  if (b) return b;
-  return null;
-}
-
 export async function TrackDetailHero({
   title,
   artistName,
   artistHref,
   releaseYear = null,
-  sourceLabel,
-  catalogLabel,
   album,
-  chart,
 }: Props) {
   const coverUrl =
     album?.coverUrl ??
     (album?.albumId?.trim() ? await loadHeroAlbumCover(album.albumId) : null);
-  const albumYear = album?.releaseYear ?? releaseYear;
-  const chartSpan = chart ? formatPlacardSpan(chart.firstChartWeek, chart.finalChartWeek) : null;
-  const hasChartMeta =
-    chart && (chart.peak != null || chart.weeks != null || chartSpan);
+  const displayYear = album?.releaseYear ?? releaseYear;
+  const showAlbumRef =
+    album != null &&
+    album.title.trim().toLowerCase() !== title.trim().toLowerCase();
+
+  const artInner = coverUrl ? (
+    <Image src={coverUrl} alt="" width={280} height={280} unoptimized priority />
+  ) : (
+    <ArchivalCoverVoid />
+  );
+
+  const artFrame = album ? (
+    <Link
+      href={album.href}
+      className={`dossier-track-hero-poster-art${coverUrl ? "" : " dossier-track-hero-poster-art--empty"}`}
+      aria-label={`Album: ${album.title}`}
+    >
+      {artInner}
+    </Link>
+  ) : (
+    <div
+      className={`dossier-track-hero-poster-art dossier-track-hero-poster-art--empty${coverUrl ? "" : " dossier-track-hero-poster-art--void"}`}
+      aria-hidden={!coverUrl}
+    >
+      {artInner}
+    </div>
+  );
 
   return (
-    <section className="dossier-readout dossier-trajectory-readout dossier-track-hero dossier-track-hero--compressed">
-      <div className="dossier-track-hero-stack">
-        {sourceLabel ? <p className="dossier-track-hero-source">{sourceLabel}</p> : null}
-        {catalogLabel ? <p className="dossier-track-hero-catalog">{catalogLabel}</p> : null}
-
-        <h1 className="dossier-title">{title}</h1>
-        <p className="dossier-byline">
-          <Link href={artistHref}>{artistName}</Link>
-        </p>
-
-        {album ? (
-          <div className="dossier-track-hero-album-strip" aria-label="Source album">
-            <Link
-              href={album.href}
-              className={`dossier-track-hero-album-strip-cover${coverUrl ? "" : " dossier-track-hero-album-strip-cover--empty"}`}
-              aria-label={`Album: ${album.title}`}
-            >
-              {coverUrl ? (
-                <Image src={coverUrl} alt="" width={52} height={52} unoptimized />
-              ) : (
-                <ArchivalCoverVoid compact />
-              )}
-            </Link>
-            <div className="dossier-track-hero-album-strip-copy">
-              <Link href={album.href} className="dossier-track-hero-album-strip-title">
-                {album.title}
+    <section className="dossier-readout dossier-trajectory-readout dossier-track-hero dossier-track-hero--poster">
+      <div className="dossier-track-hero-poster">
+        <div className="dossier-track-hero-poster-bezel">{artFrame}</div>
+        <div className="dossier-track-hero-poster-credits">
+          <h1 className="dossier-title">{title}</h1>
+          <div className="dossier-track-hero-poster-line2">
+            <div className="dossier-track-hero-poster-meta-left">
+              <Link className="dossier-track-hero-poster-artist" href={artistHref}>
+                {artistName}
               </Link>
-              {albumYear != null ? (
-                <span className="dossier-track-hero-album-strip-year">{albumYear}</span>
+              {showAlbumRef ? (
+                <>
+                  <span className="dossier-track-hero-poster-sep" aria-hidden>
+                    {" "}
+                    ·{" "}
+                  </span>
+                  <Link href={album.href} className="dossier-track-hero-poster-album">
+                    {album.title}
+                  </Link>
+                </>
               ) : null}
             </div>
+            {displayYear != null ? (
+              <span className="dossier-track-hero-poster-year">{displayYear}</span>
+            ) : null}
           </div>
-        ) : null}
-
-        {!album && releaseYear != null ? (
-          <p className="dossier-track-hero-record">
-            <span className="dossier-track-hero-year dossier-track-hero-year--standalone">{releaseYear}</span>
-          </p>
-        ) : null}
-
-        {hasChartMeta ? (
-          <p className="dossier-track-hero-meta-line" aria-label="Chart history">
-            {chart!.peak != null ? (
-              <>
-                <span className="dossier-track-hero-meta-peak">Peak #{chart!.peak}</span>
-                {chart!.weeks != null || chartSpan ? (
-                  <span className="dossier-track-hero-meta-sep"> · </span>
-                ) : null}
-              </>
-            ) : null}
-            {chart!.weeks != null ? (
-              <>
-                <span>{chart!.weeks} weeks</span>
-                {chartSpan ? <span className="dossier-track-hero-meta-sep"> · </span> : null}
-              </>
-            ) : null}
-            {chartSpan ? <span className="dossier-track-hero-meta-span">{chartSpan}</span> : null}
-          </p>
-        ) : null}
+        </div>
       </div>
     </section>
   );
