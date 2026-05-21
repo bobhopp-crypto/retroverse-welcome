@@ -22,7 +22,7 @@ import {
 import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
-import { TrackDetailHero, type TrackDetailHeroAlbum, type TrackDetailHeroStat } from "@/app/tracks/track-detail-hero";
+import { TrackDetailHero, type TrackDetailHeroAlbum } from "@/app/tracks/track-detail-hero";
 import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
@@ -578,14 +578,6 @@ function formatChartDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
-function formatChartSpan(first: string | null, final: string | null): string {
-  if (!first && !final) return "—";
-  const a = first ? formatChartDate(first) : null;
-  const b = final ? formatChartDate(final) : null;
-  if (a && b && a !== b) return `${a} – ${b}`;
-  return a ?? b ?? "—";
-}
-
 function trackHeroAlbum(
   albumId: string | null | undefined,
   href: string | null,
@@ -702,24 +694,27 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
           </Link>
         </header>
 
-        <TrackDetailHero
-          title={data.canonicalTitle}
-          artistName={data.canonicalArtist}
-          artistHref={data.artistHref}
-          sourceLabel="Hot 100"
-          album={trackHeroAlbum(
-            primaryAlbum?.albumId,
-            primaryAlbum ? `/albums/${primaryAlbum.albumId}` : null,
-            primaryAlbum?.albumTitle ?? null,
-          )}
-          stats={[
-            { label: "Peak", value: data.peak != null ? `#${data.peak}` : "—", peak: true },
-            { label: "Weeks", value: data.weeksCharted != null ? String(data.weeksCharted) : "—" },
-            { label: "On chart", value: formatChartSpan(data.firstChartWeek, data.finalChartWeek) },
-          ] satisfies TrackDetailHeroStat[]}
-        />
+        <div className="dossier-track-identity">
+          <TrackDetailHero
+            title={data.canonicalTitle}
+            artistName={data.canonicalArtist}
+            artistHref={data.artistHref}
+            sourceLabel="Hot 100"
+            album={trackHeroAlbum(
+              primaryAlbum?.albumId,
+              primaryAlbum ? `/albums/${primaryAlbum.albumId}` : null,
+              primaryAlbum?.albumTitle ?? null,
+            )}
+            chart={{
+              peak: data.peak,
+              weeks: data.weeksCharted,
+              firstChartWeek: data.firstChartWeek,
+              finalChartWeek: data.finalChartWeek,
+            }}
+          />
 
-        <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
+          <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
+        </div>
 
         {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
 
@@ -843,38 +838,28 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             </Link>
           </header>
 
-          <TrackDetailHero
-            title={track.canonical_title}
-            artistName={artist.canonical_artist_name}
-            artistHref={artistHref}
-            sourceLabel="Hot 100"
-            album={trackHeroAlbum(
-              originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
-              primaryAlbumHref,
-              albumTitle,
-            )}
-            stats={[
-              ...(releaseYear != null
-                ? [{ label: "Year", value: String(releaseYear) } satisfies TrackDetailHeroStat]
-                : []),
-              {
-                label: "Peak",
-                value: peakChartPosition !== null ? `#${peakChartPosition}` : "—",
-                peak: true,
-              },
-              {
-                label: "Weeks",
-                value:
-                  maxWeeksOnChart != null
-                    ? String(maxWeeksOnChart)
-                    : charts[0]?.weeks_on_chart != null
-                      ? String(charts[0].weeks_on_chart)
-                      : "—",
-              },
-            ]}
-          />
+          <div className="dossier-track-identity">
+            <TrackDetailHero
+              title={track.canonical_title}
+              artistName={artist.canonical_artist_name}
+              artistHref={artistHref}
+              releaseYear={releaseYear}
+              sourceLabel="Hot 100"
+              album={trackHeroAlbum(
+                originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
+                primaryAlbumHref,
+                albumTitle,
+              )}
+              chart={{
+                peak: peakChartPosition,
+                weeks: maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? null,
+                firstChartWeek: charts[0]?.chart_date ?? null,
+                finalChartWeek: charts[charts.length - 1]?.chart_date ?? null,
+              }}
+            />
 
-          <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+            <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+          </div>
 
           {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
 
@@ -913,23 +898,21 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
           </Link>
         </header>
 
-        <TrackDetailHero
-          title={track.canonical_title}
-          artistName={artist.canonical_artist_name}
-          artistHref={artistHref}
-          album={trackHeroAlbum(
-            originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
-            primaryAlbumHref,
-            albumTitle,
-          )}
-          stats={[
-            ...(releaseYear != null
-              ? [{ label: "Year", value: String(releaseYear) } satisfies TrackDetailHeroStat]
-              : []),
-          ]}
-        />
+        <div className="dossier-track-identity">
+          <TrackDetailHero
+            title={track.canonical_title}
+            artistName={artist.canonical_artist_name}
+            artistHref={artistHref}
+            releaseYear={releaseYear}
+            album={trackHeroAlbum(
+              originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
+              primaryAlbumHref,
+              albumTitle,
+            )}
+          />
 
-        <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+          <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+        </div>
 
         {relatedRows.length > 0 ? (
           <section className="dossier-track-support">
