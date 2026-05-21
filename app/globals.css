@@ -167,59 +167,29 @@ body {
   line-height: var(--rv-leading-body);
 }
 
-.rv-global-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 50;
-  padding-top: env(safe-area-inset-top, 0px);
-  border-bottom: 1px solid color-mix(in srgb, var(--rv-illuminated-edge) 44%, transparent);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--rv-psychedelic-orange) 10%, transparent), transparent 24%, color-mix(in srgb, var(--rv-psychedelic-blue) 7%, transparent)),
-    color-mix(in srgb, var(--bg-main) 88%, var(--rv-psychedelic-ink) 12%);
-  box-shadow:
-    0 1px 0 color-mix(in srgb, var(--rv-psychedelic-cream) 7%, transparent),
-    0 14px 32px -24px color-mix(in srgb, var(--rv-psychedelic-orange) 44%, transparent);
-  backdrop-filter: blur(12px) saturate(1.15);
-}
-
-.rv-global-header > div {
-  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
-  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
-}
-
-@media (max-width: 639px) {
-  html[data-theme="dark"] {
-    --rv-header-offset: calc(3.65rem + env(safe-area-inset-top, 0px));
-  }
-
-  :root {
-    --rv-header-offset: calc(3.65rem + env(safe-area-inset-top, 0px));
-  }
-}
-
-.rv-global-header a[href="/"] {
-  color: var(--rv-psychedelic-cream);
-  text-shadow:
-    0 0 18px color-mix(in srgb, var(--rv-psychedelic-gold) 24%, transparent),
-    0 1px 0 color-mix(in srgb, #000 52%, transparent);
-}
-
-body.discover-immersive .rv-global-header {
+body.discover-immersive .rv-top-chrome,
+body.album-immersive .rv-top-chrome,
+body.portal-device .rv-top-chrome,
+body.portal-immersive .rv-top-chrome,
+body.viewer-immersive .rv-top-chrome {
   display: none;
 }
 
-body.album-immersive .rv-global-header {
+body.discover-immersive .rv-transport-deck,
+body.album-immersive .rv-transport-deck,
+body.portal-device .rv-transport-deck,
+body.portal-immersive .rv-transport-deck,
+body.viewer-immersive .rv-transport-deck {
   display: none;
 }
 
-body.discover-immersive main.flex-1 {
+body.discover-immersive .rv-main-stage,
+body.album-immersive .rv-main-stage,
+body.portal-device .rv-main-stage,
+body.portal-immersive .rv-main-stage,
+body.viewer-immersive .rv-main-stage {
   padding-top: 0 !important;
-}
-
-body.album-immersive main.flex-1 {
-  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 /* /portal (+ legacy viewer selector): minimal header; Loft menu overlays */
@@ -270,7 +240,8 @@ body.portal-device {
   overscroll-behavior: none;
 }
 
-body.portal-device .rv-global-header {
+body.portal-device .rv-top-chrome,
+body.portal-device .rv-transport-deck {
   display: none !important;
 }
 

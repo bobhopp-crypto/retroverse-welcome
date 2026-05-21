@@ -234,15 +234,6 @@
     margin-top: 0.22rem;
   }
 
-  .dossier-track-continuity-rail {
-    gap: 0.06rem 0;
-  }
-
-  .dossier-track-continuity-etch {
-    min-height: 1.8rem;
-    padding: 0.16rem 0.26rem;
-  }
-
   .dossier-track-hero-meta-line {
     font-size: max(0.6875rem, 12px);
   }

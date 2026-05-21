@@ -22,7 +22,6 @@ import {
 import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
-import { TrackContinuityStrip } from "@/app/tracks/track-continuity-strip";
 import { TrackDetailHero } from "@/app/tracks/track-detail-hero";
 import { computeChartRunInsights } from "@/lib/track-chart-run-insights";
 import { resolveTrackHeroAlbum, type TrackHeroAlbumCandidate } from "@/lib/load-track-hero-album";
@@ -724,15 +723,6 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
     <>
       <TrackPageBody />
       <div className="dossier-shell dossier-shell--trajectory">
-        <header className="dossier-top dossier-top--nav">
-          <Link href="/tracks" className="dossier-a dossier-a--quiet">
-            Tracks
-          </Link>
-          <Link href="/track-deck" className="dossier-a dossier-a--quiet">
-            Hot 100 deck
-          </Link>
-        </header>
-
         <div className="dossier-track-identity">
           <TrackDetailHero
             title={data.canonicalTitle}
@@ -754,16 +744,6 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
 
         <div className="dossier-track-supporting">
           <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
-          <TrackContinuityStrip
-            artistName={data.canonicalArtist}
-            artistHref={data.artistHref}
-            albumHref={heroAlbum?.href}
-            albumTitle={heroAlbum?.title}
-            chartYear={chartYearFromWeek(data.firstChartWeek)}
-            peakChartWeek={
-              data.weeks.find((w) => w.rank === data.peak)?.issueDate ?? data.firstChartWeek
-            }
-          />
         </div>
 
         <section className="dossier-track-support">
@@ -925,15 +905,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
       <>
         <TrackPageBody />
         <div className="dossier-shell dossier-shell--trajectory">
-          <header className="dossier-top dossier-top--nav">
-            <Link href="/tracks" className="dossier-a dossier-a--quiet">
-              Tracks
-            </Link>
-            <Link href="/" className="dossier-a dossier-a--quiet">
-              Search
-            </Link>
-          </header>
-
           <div className="dossier-track-identity">
             <TrackDetailHero
               title={track.canonical_title}
@@ -955,25 +926,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
 
           <div className="dossier-track-supporting">
             <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
-            <TrackContinuityStrip
-              artistName={artist.canonical_artist_name}
-              artistHref={artistHref}
-              albumHref={heroAlbum?.href}
-              albumTitle={heroAlbum?.title}
-              chartYear={
-                chartYearFromWeek(charts[0]?.chart_date) ??
-                (releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null)
-              }
-              peakChartWeek={
-                charts.reduce<string | null>((best, row) => {
-                  if (row.chart_position == null) return best;
-                  if (!best) return row.chart_date;
-                  const bestPos = charts.find((c) => c.chart_date === best)?.chart_position;
-                  if (bestPos == null || row.chart_position < bestPos) return row.chart_date;
-                  return best;
-                }, null) ?? charts[0]?.chart_date ?? null
-              }
-            />
           </div>
 
           {relatedRows.length > 0 ? (
@@ -1002,15 +954,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     <>
       <TrackPageBody />
       <div className="dossier-shell dossier-shell--trajectory">
-        <header className="dossier-top dossier-top--nav">
-          <Link href="/tracks" className="dossier-a dossier-a--quiet">
-            Tracks
-          </Link>
-          <Link href="/" className="dossier-a dossier-a--quiet">
-            Search
-          </Link>
-        </header>
-
         <div className="dossier-track-identity">
           <TrackDetailHero
             title={track.canonical_title}
@@ -1023,13 +966,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
 
         <div className="dossier-track-supporting">
           <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
-          <TrackContinuityStrip
-            artistName={artist.canonical_artist_name}
-            artistHref={artistHref}
-            albumHref={heroAlbum?.href}
-            albumTitle={heroAlbum?.title}
-            chartYear={releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null}
-          />
         </div>
 
         {relatedRows.length > 0 ? (

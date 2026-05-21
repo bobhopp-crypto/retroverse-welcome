@@ -47,12 +47,6 @@ export default async function TracksIndexPage({ searchParams }: TracksPageProps)
     <>
       <BodyClassName className="dossier-body" />
       <main className="dossier-shell dossier-shell--track-index">
-        <header className="dossier-top dossier-top--nav">
-          <Link href="/" className="dossier-a dossier-a--quiet">
-            Home
-          </Link>
-        </header>
-
         <section className="dossier-readout dossier-index-readout">
           <p className="dossier-provenance-label">Chart tracks</p>
           <h1 className="dossier-title">Tracks</h1>

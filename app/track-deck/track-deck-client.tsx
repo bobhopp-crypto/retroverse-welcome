@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { chartTrackLinkKey } from "@/lib/track-link-key";
 import { relationshipWorkspaceHref } from "@/lib/retroverse-nav";
 import type {
@@ -364,15 +363,6 @@ export default function TrackDeckClient({
               <span className="text-[9px]" style={{ color: "var(--td-muted)" }}>
                 HOT 100
               </span>
-              <span className="text-[var(--td-border)]">|</span>
-              <RetroverseEntityNav
-                back={{ href: "/", label: "Home" }}
-                items={[
-                  { href: "/album-retroscope", label: "Retroscope" },
-                  { href: "/relationship-workspace", label: "Link" },
-                ]}
-                className="!text-[9px]"
-              />
               <span className="text-[var(--td-border)]">|</span>
 
               <button type="button" className="td-cmd" disabled={loadingIndex} onClick={() => setYear((y) => y - 1)}>

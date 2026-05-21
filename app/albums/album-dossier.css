@@ -273,9 +273,8 @@ body.dossier-body:not(.arv-body-lock):not(.portal-device) {
   touch-action: auto;
 }
 
-body.dossier-body:not(.arv-body-lock):not(.portal-device) main.flex-1.flex-col {
-  padding-top: var(--rv-header-offset, 3.75rem) !important;
-  scroll-padding-top: var(--rv-header-offset, 3.75rem);
+body.dossier-body:not(.arv-body-lock):not(.portal-device) main.rv-main-stage {
+  scroll-padding-top: calc(var(--rv-header-offset) + env(safe-area-inset-top, 0px));
   min-height: 0;
   flex: 1 1 auto;
   overflow: visible;
@@ -1489,155 +1488,13 @@ a.dossier-track-name:hover {
 
 .dossier-track-supporting {
   display: grid;
-  gap: 0.18rem;
-  margin-top: 0.28rem;
-}
-
-/* Embedded explore rail — ~40% tighter */
-.dossier-track-continuity {
-  margin: 0;
-}
-
-.dossier-track-continuity--rail {
-  padding: 0.2rem 0 0.18rem;
-  border: none;
-  border-top: 1px solid rgba(255, 247, 240, 0.05);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.dossier-track-continuity-rail {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.12rem 0;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dossier-track-continuity-rail-item {
-  display: flex;
-  align-items: center;
-  min-height: 1.75rem;
-}
-
-.dossier-track-continuity-sep {
-  width: 1px;
-  height: 0.72rem;
-  margin: 0 0.18rem 0 0.08rem;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(255, 214, 150, 0.22) 28%,
-    rgba(125, 205, 210, 0.18) 72%,
-    transparent
-  );
-  box-shadow: 0 0 6px rgba(255, 214, 150, 0.08);
-}
-
-.dossier-track-continuity-etch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.22rem;
-  padding: 0.14rem 0.28rem;
-  min-height: 1.75rem;
-  text-decoration: none;
-  border: 1px solid transparent;
-  -webkit-tap-highlight-color: transparent;
-  transition:
-    color 0.18s ease,
-    border-color 0.18s ease,
-    background 0.18s ease;
-}
-
-.dossier-track-continuity-etch-glyph {
-  font-size: 0.5rem;
-  line-height: 1;
-  color: rgba(232, 184, 74, 0.32);
-}
-
-.dossier-track-continuity-etch-label {
-  font-family: var(--d-font-broadcast);
-  font-size: max(0.5rem, 10px);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(200, 195, 215, 0.58);
-}
-
-.dossier-track-continuity-etch:hover {
-  border-color: rgba(255, 247, 240, 0.08);
-  background: rgba(255, 247, 240, 0.03);
-}
-
-.dossier-track-continuity-etch:hover .dossier-track-continuity-etch-glyph {
-  color: rgba(232, 184, 74, 0.62);
-}
-
-.dossier-track-continuity-etch:hover .dossier-track-continuity-etch-label {
-  color: rgba(248, 244, 255, 0.9);
+  gap: 0;
+  margin-top: 0.22rem;
 }
 
 .dossier-track-supporting .dossier-track-instrument-strip--meters {
   margin-top: 0;
   margin-bottom: 0;
-}
-
-/* Track page — quieter sub-nav + global header (~18% less weight) */
-body.dossier-body .rv-global-header {
-  border-bottom-color: rgba(255, 247, 240, 0.05);
-  box-shadow:
-    0 1px 0 rgba(255, 247, 240, 0.04),
-    0 8px 20px -18px rgba(0, 0, 0, 0.55);
-}
-
-body.dossier-body .rv-global-header > div {
-  padding-top: 0.3rem !important;
-  padding-bottom: 0.32rem !important;
-}
-
-body.dossier-body .rv-public-wordmark {
-  font-size: clamp(1.05rem, 4vw, 1.22rem);
-  opacity: 0.9;
-}
-
-body.dossier-body .rv-public-header-link {
-  font-size: max(0.8125rem, 13px);
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  color: color-mix(in srgb, var(--rv-pub-fg-muted) 88%, transparent);
-  min-height: 2.25rem;
-  opacity: 0.82;
-}
-
-body.dossier-body .dossier-shell--trajectory .dossier-top {
-  margin-bottom: 0.14rem;
-  padding-bottom: 0.1rem;
-  border-bottom-color: rgba(255, 247, 240, 0.04);
-}
-
-body.dossier-body .dossier-shell--trajectory .dossier-top--nav {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.38rem;
-}
-
-body.dossier-body .dossier-shell--trajectory .dossier-top--nav .dossier-a--quiet {
-  font-family: var(--d-font-broadcast);
-  font-size: max(0.5625rem, 10px);
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(180, 200, 210, 0.52);
-  padding: 0.12rem 0;
-  min-height: auto;
-  text-decoration: none;
-}
-
-body.dossier-body .dossier-shell--trajectory .dossier-top--nav .dossier-a--quiet:hover {
-  color: rgba(210, 225, 235, 0.78);
 }
 
 .dossier-trajectory-readout .dossier-provenance-label {

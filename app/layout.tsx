@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Source_Serif_4 } from "next/font/google";
-import Link from "next/link";
 
-import { PRIMARY_NAV } from "@/lib/retroverse-nav";
+import { RetroverseTopChrome } from "@/app/components/retroverse-top-chrome";
+import { RetroverseTransportDeck } from "@/app/components/retroverse-transport-deck";
 import RetroverseRouteTuner from "./retroverse-route-tuner";
 
 import "./globals.css";
@@ -56,23 +56,11 @@ export default function RootLayout({
       data-theme="dark"
       suppressHydrationWarning
     >
-      <body className="rv-public-surface min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
+      <body className="rv-public-surface rv-has-transport min-h-full flex flex-col bg-[var(--bg-main)] text-[var(--text-primary)]">
         <RetroverseRouteTuner />
-        <header className="rv-global-header" role="banner">
-          <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5 sm:px-5">
-            <Link href="/" className="rv-public-wordmark">
-              Retroverse
-            </Link>
-            <nav className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:gap-x-3" aria-label="Primary">
-              {PRIMARY_NAV.filter((item) => item.href !== "/").map((item) => (
-                <Link key={item.href} className="rv-public-header-link" href={item.href}>
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        </header>
-        <main className="flex min-h-0 flex-1 flex-col pt-[var(--rv-header-offset)]">{children}</main>
+        <RetroverseTopChrome />
+        <main className="rv-main-stage flex min-h-0 flex-1 flex-col">{children}</main>
+        <RetroverseTransportDeck />
       </body>
     </html>
   );

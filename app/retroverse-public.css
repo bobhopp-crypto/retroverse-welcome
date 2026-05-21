@@ -23,6 +23,8 @@
   --rv-pub-text-section: 0.8125rem;
   --rv-pub-leading: 1.55;
   --rv-pub-content-max: 42rem;
+  --rv-header-offset: 2.65rem;
+  --rv-transport-offset: 3.2rem;
 }
 
 @media (min-width: 640px) {
@@ -49,7 +51,194 @@ body.rv-public-surface {
   background-color: var(--rv-pub-bg);
 }
 
-/* —— Global header (public nav) —— */
+/* —— Main stage (top chrome + bottom transport) —— */
+.rv-main-stage {
+  padding-top: calc(var(--rv-header-offset) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(var(--rv-transport-offset) + env(safe-area-inset-bottom, 0px));
+}
+
+.rv-top-chrome {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding-top: env(safe-area-inset-top, 0px);
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(21, 16, 10, 0.94) 0%,
+    rgba(21, 16, 10, 0.72) 55%,
+    transparent 100%
+  );
+}
+
+.rv-top-chrome::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(232, 184, 74, 0.12) 20%,
+    rgba(125, 205, 210, 0.08) 50%,
+    rgba(232, 184, 74, 0.12) 80%,
+    transparent
+  );
+  opacity: 0.65;
+}
+
+.rv-top-chrome-inner {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: min(46rem, 100%);
+  margin: 0 auto;
+  padding: 0.38rem max(1rem, env(safe-area-inset-left, 12px)) 0.42rem
+    max(1rem, env(safe-area-inset-right, 12px));
+}
+
+.rv-top-chrome-wordmark {
+  font-size: clamp(1.05rem, 4.2vw, 1.22rem);
+  opacity: 0.92;
+}
+
+.rv-top-chrome-back {
+  font-family: var(--d-font-broadcast, var(--rv-pub-font-body));
+  font-size: max(0.5625rem, 10px);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(190, 200, 215, 0.52);
+  padding: 0.2rem 0;
+  flex-shrink: 0;
+}
+
+.rv-top-chrome-back:hover {
+  color: rgba(232, 184, 74, 0.78);
+}
+
+.rv-top-chrome-spacer {
+  display: block;
+  width: 3.5rem;
+  flex-shrink: 0;
+}
+
+/* Bottom transport deck — canonical movement layer */
+.rv-transport-deck {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 48;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  pointer-events: none;
+}
+
+.rv-transport-deck-rail {
+  pointer-events: auto;
+  margin: 0 auto;
+  max-width: min(46rem, 100%);
+  padding: 0.28rem max(0.65rem, env(safe-area-inset-left, 10px)) 0.32rem
+    max(0.65rem, env(safe-area-inset-right, 10px));
+  border-top: 1px solid rgba(255, 247, 240, 0.08);
+  background:
+    linear-gradient(0deg, rgba(10, 8, 6, 0.96) 0%, rgba(12, 10, 14, 0.88) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 247, 240, 0.014) 0,
+      rgba(255, 247, 240, 0.014) 1px,
+      transparent 1px,
+      transparent 5px
+    );
+  box-shadow:
+    0 -1px 0 rgba(255, 214, 150, 0.06),
+    0 -8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.rv-transport-deck-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.06rem 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rv-transport-deck-item {
+  display: flex;
+  align-items: center;
+}
+
+.rv-transport-deck-sep {
+  width: 1px;
+  height: 0.85rem;
+  margin: 0 0.12rem 0 0.06rem;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 214, 150, 0.2) 35%,
+    rgba(125, 205, 210, 0.14) 65%,
+    transparent
+  );
+}
+
+.rv-transport-deck-etch {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.18rem 0.38rem 0.14rem;
+  min-width: 2.85rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.rv-transport-deck-glyph {
+  font-size: 0.52rem;
+  line-height: 1;
+  color: rgba(232, 184, 74, 0.38);
+}
+
+.rv-transport-deck-label {
+  font-family: var(--d-font-broadcast, var(--rv-pub-font-body));
+  font-size: max(0.4375rem, 8px);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(195, 188, 175, 0.55);
+}
+
+.rv-transport-deck-etch:hover .rv-transport-deck-glyph {
+  color: rgba(232, 184, 74, 0.58);
+}
+
+.rv-transport-deck-etch:hover .rv-transport-deck-label {
+  color: rgba(235, 228, 215, 0.82);
+}
+
+.rv-transport-deck-etch--active {
+  border-color: rgba(255, 247, 240, 0.06);
+  background: rgba(255, 247, 240, 0.025);
+}
+
+.rv-transport-deck-etch--active .rv-transport-deck-glyph {
+  color: rgba(232, 184, 74, 0.62);
+  text-shadow: 0 0 10px rgba(232, 184, 74, 0.15);
+}
+
+.rv-transport-deck-etch--active .rv-transport-deck-label {
+  color: rgba(240, 232, 218, 0.88);
+}
+
+/* Legacy header links (internal strips only) */
 .rv-public-header-link {
   font-family: var(--rv-pub-font-body);
   font-size: max(0.9375rem, 15px);
@@ -80,7 +269,10 @@ body.rv-public-surface {
 
 /* —— Home / search —— */
 .rv-home {
-  min-height: calc(100dvh - var(--rv-header-offset, 3.75rem));
+  min-height: calc(
+    100dvh - var(--rv-header-offset) - var(--rv-transport-offset) - env(safe-area-inset-top, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
   background:
     radial-gradient(ellipse 100% 60% at 50% -10%, rgba(232, 184, 74, 0.14), transparent 55%),
     var(--rv-pub-bg);
@@ -273,7 +465,10 @@ body.rv-public-surface {
 }
 
 .rv-entity-status {
-  min-height: calc(100dvh - var(--rv-header-offset, 3.75rem));
+  min-height: calc(
+    100dvh - var(--rv-header-offset) - var(--rv-transport-offset) - env(safe-area-inset-top, 0px) -
+      env(safe-area-inset-bottom, 0px)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
@@ -389,23 +584,12 @@ body.rv-public-surface {
   }
 
   body.dossier-body {
-    --rv-header-offset: calc(3.2rem + env(safe-area-inset-top, 0px));
+    --rv-header-offset: calc(2.55rem + env(safe-area-inset-top, 0px));
+    --rv-transport-offset: calc(3.05rem + env(safe-area-inset-bottom, 0px));
   }
 
   .dossier-body .dossier-track-hero-meta-line {
     font-size: max(0.6875rem, 12px);
-  }
-
-  .dossier-body .dossier-track-continuity--rail {
-    padding: 0.22rem 0 0.2rem;
-  }
-
-  .dossier-body .dossier-track-continuity-etch {
-    min-height: 1.85rem;
-  }
-
-  .dossier-body .dossier-track-continuity-etch-label {
-    font-size: max(0.5625rem, 10px);
   }
 
   .dossier-body .dossier-archival-void-caption {
@@ -423,10 +607,6 @@ body.rv-public-surface {
   .dossier-body .dossier-trajectory-date small {
     font-size: max(0.8125rem, 13px) !important;
     color: rgba(215, 220, 246, 0.68) !important;
-  }
-
-  .dossier-body .dossier-track-continuity-rail {
-    gap: 0.1rem 0;
   }
 
   .dossier-body .dossier-explore-loop-link {

@@ -105,15 +105,6 @@ export default async function AlbumsIndexPage({ searchParams }: AlbumsPageProps)
       <main
         className={`dossier-shell dossier-shell--album-index${useGraphYear && year != null ? " dossier-shell--year-immersion" : ""}`}
       >
-        <header className="dossier-top dossier-top--nav">
-          <Link href="/" className="dossier-a dossier-a--quiet">
-            Home
-          </Link>
-          <Link href="/albums" className="dossier-a dossier-a--quiet">
-            Albums
-          </Link>
-        </header>
-
         <section className="dossier-readout dossier-index-readout">
           <p className="dossier-provenance-label">
             {useGraphYear && year ? `Billboard 200 · ${year}` : "Album archive"}

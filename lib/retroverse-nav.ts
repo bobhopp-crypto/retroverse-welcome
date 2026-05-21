@@ -2,9 +2,8 @@
 
 export type NavItem = { href: string; label: string };
 
-/** Public header — plain names only. */
+/** @deprecated Use TRANSPORT_NAV + RetroverseTransportDeck. Kept for internal strips only. */
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Home" },
   { href: "/albums", label: "Albums" },
   { href: "/artists", label: "Artists" },
   { href: "/tracks", label: "Tracks" },

@@ -1,5 +1,7 @@
-body.rv3-prototype-body .rv-global-header,
-body:has(.rv3-app) .rv-global-header {
+body.rv3-prototype-body .rv-top-chrome,
+body.rv3-prototype-body .rv-transport-deck,
+body:has(.rv3-app) .rv-top-chrome,
+body:has(.rv3-app) .rv-transport-deck {
   display: none;
 }
 

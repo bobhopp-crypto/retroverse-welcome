@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { EntityStatus } from "@/app/components/entity-status";
-import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { generateArtistPathways } from "@/lib/retroverse-pathways";
@@ -1303,20 +1302,6 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             </ul>
           </section>
         ) : null}
-
-        <div className="artist-uni-secondary-nav mb-10">
-          <p className="artist-uni-section-label">Connected entity context</p>
-          <RetroverseEntityNav
-            back={{ href: "/artists", label: "Artists" }}
-            items={[
-              { href: "/", label: "Home" },
-              { href: "/albums", label: "Albums" },
-              { href: `/tracks?q=${encodeURIComponent(data.artist.canonical_artist_name)}`, label: "Tracks" },
-              { href: "/track-deck", label: "Charts" },
-              { href: "/album-retroscope", label: "Retroscope" },
-            ]}
-          />
-        </div>
 
         <section className="exploration-grid mb-10 space-y-3">
           <h2 className="artist-uni-h2">Exploration</h2>

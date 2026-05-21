@@ -12,12 +12,9 @@ import { buildDossierTrackRows } from "@/lib/album-dossier-display-tracks";
 import { loadCanonicalAlbumGraphTracks } from "@/lib/load-canonical-album-graph-tracks";
 import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { getDossierMusicBrainzSidecar } from "@/lib/load-dossier-musicbrainz-sidecar";
-import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
-import { homeSearchHref } from "@/lib/retroverse-nav";
 import { artistRoute } from "@/lib/retroverse-routes";
 
 import { AlbumArchiveCover } from "../album-archive-cover";
-import { AlbumExploreLoop } from "../album-explore-loop";
 import { AlbumDossierReadout } from "./album-dossier-readout";
 import { loadAlbumTrackRouteIndex } from "@/lib/load-album-track-routes";
 import { loadLegacyVideoCache } from "@/lib/legacy-playback/video-cache";
@@ -89,22 +86,6 @@ export default async function AlbumDossierPage({ params }: Props) {
     <>
       <BodyClassName className="dossier-body" />
       <div className="dossier-shell dossier-shell--dossier">
-        <header className="dossier-top dossier-top--nav dossier-top--immersive dossier-top--compact">
-          <RetroverseEntityNav
-            immersive
-            back={{ href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" }}
-            items={[
-              { href: "/", label: "Search" },
-              { href: "/album-retroscope", label: "Retroscope" },
-              ...(browseYear != null
-                ? [{ href: `/albums?year=${browseYear}`, label: `Era ${browseYear}` }]
-                : []),
-              { href: artistRoute(identity.artist), label: "Artist" },
-              { href: `/tracks?q=${encodeURIComponent(identity.album)}`, label: "Tracks" },
-            ]}
-          />
-        </header>
-
         <div className="dossier-cinematic dossier-cinematic--dossier">
           <div className="dossier-hero-bezel">
             <div className="dossier-hero-inner">
@@ -173,7 +154,6 @@ export default async function AlbumDossierPage({ params }: Props) {
           </div>
         </section>
 
-        <AlbumExploreLoop artistName={identity.artist} chartYear={browseYear} />
       </div>
     </>
   );

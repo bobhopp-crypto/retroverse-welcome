@@ -20,7 +20,8 @@ body.arv-body-lock {
   height: 100svh;
 }
 
-body.arv-body-lock .rv-global-header {
+body.arv-body-lock .rv-top-chrome,
+body.arv-body-lock .rv-transport-deck {
   display: none;
 }
 
