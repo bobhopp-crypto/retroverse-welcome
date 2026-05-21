@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import Link from "next/link";
-import { BodyClassName } from "@/app/components/body-class-name";
-import { RetroverseEntityNav } from "@/app/components/retroverse-entity-nav";
+import { TrackPageBody } from "@/app/tracks/track-page-body";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { buildTrackContextLine, buildTrackCulturalRole } from "@/lib/retroverse-editorial";
 import { getEraBySlug } from "@/lib/eras";
@@ -23,6 +22,7 @@ import {
 import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
+import { TrackDetailHero, type TrackDetailHeroAlbum, type TrackDetailHeroStat } from "@/app/tracks/track-detail-hero";
 import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
@@ -578,6 +578,24 @@ function formatChartDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
+function formatChartSpan(first: string | null, final: string | null): string {
+  if (!first && !final) return "—";
+  const a = first ? formatChartDate(first) : null;
+  const b = final ? formatChartDate(final) : null;
+  if (a && b && a !== b) return `${a} – ${b}`;
+  return a ?? b ?? "—";
+}
+
+function trackHeroAlbum(
+  albumId: string | null | undefined,
+  href: string | null,
+  title: string | null,
+): TrackDetailHeroAlbum | null {
+  const id = albumId?.trim();
+  if (!id || !href || !title) return null;
+  return { albumId: id, href, title };
+}
+
 function mean01(...vals: Array<number | null | undefined>): number {
   const ok = vals.filter((x): x is number => x != null && Number.isFinite(x));
   if (!ok.length) return 0;
@@ -605,7 +623,6 @@ function renderTrackChartRunRail(
 ) {
   return (
     <section
-      id="track-chart-run"
       className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel"
       aria-label="Hot 100 chart run"
     >
@@ -674,8 +691,8 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
   const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(instrumentation.profile));
   return (
     <>
-      <BodyClassName className="dossier-body" />
-      <main className="dossier-shell dossier-shell--trajectory">
+      <TrackPageBody />
+      <div className="dossier-shell dossier-shell--trajectory">
         <header className="dossier-top dossier-top--nav">
           <Link href="/tracks" className="dossier-a dossier-a--quiet">
             Tracks
@@ -685,58 +702,24 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
           </Link>
         </header>
 
-        <section className="dossier-readout dossier-trajectory-readout">
-          <p className="dossier-provenance-label">Hot 100</p>
-          <h1 className="dossier-title">{data.canonicalTitle}</h1>
-          <p className="dossier-byline">
-            <Link href={data.artistHref}>{data.canonicalArtist}</Link>
-          </p>
-          {primaryAlbum ? (
-            <p className="dossier-provenance">
-              Album link: <Link href={`/albums/${primaryAlbum.albumId}`}>{primaryAlbum.albumTitle}</Link>
-            </p>
-          ) : (
-            <p className="dossier-provenance">Album link not available yet</p>
-          )}
-
-          <dl className="dossier-trajectory-stats">
-            <div>
-              <dt>Peak</dt>
-              <dd>{data.peak != null ? `#${data.peak}` : "—"}</dd>
-            </div>
-            <div>
-              <dt>Weeks</dt>
-              <dd>{data.weeksCharted ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>First week</dt>
-              <dd>{formatChartDate(data.firstChartWeek)}</dd>
-            </div>
-            <div>
-              <dt>Final week</dt>
-              <dd>{formatChartDate(data.finalChartWeek)}</dd>
-            </div>
-          </dl>
-          <a href="#track-chart-run" className="dossier-chart-run-toggle">
-            Chart Run
-          </a>
-        </section>
-
-        <TrackInstrumentationStrip
-          artist={data.canonicalArtist}
+        <TrackDetailHero
           title={data.canonicalTitle}
-          profile={instrumentation.profile}
-          retroverseTrackId={instrumentation.retroverseTrackId}
-          albumLink={
-            primaryAlbum
-              ? {
-                  albumId: primaryAlbum.albumId,
-                  href: `/albums/${primaryAlbum.albumId}`,
-                  title: primaryAlbum.albumTitle,
-                }
-              : null
-          }
+          artistName={data.canonicalArtist}
+          artistHref={data.artistHref}
+          sourceLabel="Hot 100"
+          album={trackHeroAlbum(
+            primaryAlbum?.albumId,
+            primaryAlbum ? `/albums/${primaryAlbum.albumId}` : null,
+            primaryAlbum?.albumTitle ?? null,
+          )}
+          stats={[
+            { label: "Peak", value: data.peak != null ? `#${data.peak}` : "—", peak: true },
+            { label: "Weeks", value: data.weeksCharted != null ? String(data.weeksCharted) : "—" },
+            { label: "On chart", value: formatChartSpan(data.firstChartWeek, data.finalChartWeek) },
+          ] satisfies TrackDetailHeroStat[]}
         />
+
+        <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
 
         {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
 
@@ -777,7 +760,7 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
             </article>
           ) : null}
         </section>
-      </main>
+      </div>
     </>
   );
 }
@@ -849,8 +832,8 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
   if (trajectoryWeeks.length > 0) {
     return (
       <>
-        <BodyClassName className="dossier-body" />
-        <main className="dossier-shell dossier-shell--trajectory">
+        <TrackPageBody />
+        <div className="dossier-shell dossier-shell--trajectory">
           <header className="dossier-top dossier-top--nav">
             <Link href="/tracks" className="dossier-a dossier-a--quiet">
               Tracks
@@ -860,56 +843,38 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             </Link>
           </header>
 
-          <section className="dossier-readout dossier-trajectory-readout">
-            <p className="dossier-provenance-label">Hot 100</p>
-            <h1 className="dossier-title">{track.canonical_title}</h1>
-            <p className="dossier-byline">
-              <Link href={artistHref}>{artist.canonical_artist_name}</Link>
-            </p>
-            {albumTitle && primaryAlbumHref ? (
-              <p className="dossier-provenance">
-                Album: <Link href={primaryAlbumHref}>{albumTitle}</Link>
-              </p>
-            ) : null}
-
-            <dl className="dossier-trajectory-stats">
-              <div>
-                <dt>Year</dt>
-                <dd>{releaseYear ?? "—"}</dd>
-              </div>
-              <div>
-                <dt>Peak</dt>
-                <dd>{peakChartPosition !== null ? `#${peakChartPosition}` : "—"}</dd>
-              </div>
-              <div>
-                <dt>Weeks</dt>
-                <dd>{maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? "—"}</dd>
-              </div>
-            </dl>
-            <a href="#track-chart-run" className="dossier-chart-run-toggle">
-              Chart Run
-            </a>
-          </section>
-
-          <TrackInstrumentationStrip
-            artist={artist.canonical_artist_name}
+          <TrackDetailHero
             title={track.canonical_title}
-            profile={instrumentation.profile}
-            retroverseTrackId={instrumentation.retroverseTrackId}
-            albumLink={
-              primaryAlbumHref &&
-              albumTitle &&
-              (originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id)
-                ? {
-                    albumId:
-                      originalAppearance?.retroverseAlbumId ??
-                      directTrackAlbum!.retroverse_album_id,
-                    href: primaryAlbumHref,
-                    title: albumTitle,
-                  }
-                : null
-            }
+            artistName={artist.canonical_artist_name}
+            artistHref={artistHref}
+            sourceLabel="Hot 100"
+            album={trackHeroAlbum(
+              originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
+              primaryAlbumHref,
+              albumTitle,
+            )}
+            stats={[
+              ...(releaseYear != null
+                ? [{ label: "Year", value: String(releaseYear) } satisfies TrackDetailHeroStat]
+                : []),
+              {
+                label: "Peak",
+                value: peakChartPosition !== null ? `#${peakChartPosition}` : "—",
+                peak: true,
+              },
+              {
+                label: "Weeks",
+                value:
+                  maxWeeksOnChart != null
+                    ? String(maxWeeksOnChart)
+                    : charts[0]?.weeks_on_chart != null
+                      ? String(charts[0].weeks_on_chart)
+                      : "—",
+              },
+            ]}
           />
+
+          <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
 
           {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
 
@@ -930,74 +895,58 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
               </article>
             </section>
           ) : null}
-        </main>
+        </div>
       </>
     );
   }
 
   return (
-    <div className="rv-public-surface min-h-full">
-      <article className="rv-entity-page">
-        <RetroverseEntityNav
-          back={{ href: "/tracks", label: "Tracks" }}
-          items={[
-            { href: "/", label: "Search" },
-            { href: artistHref, label: "Artist" },
-            ...(primaryAlbumHref ? [{ href: primaryAlbumHref, label: "Album" }] : []),
+    <>
+      <TrackPageBody />
+      <div className="dossier-shell dossier-shell--trajectory">
+        <header className="dossier-top dossier-top--nav">
+          <Link href="/tracks" className="dossier-a dossier-a--quiet">
+            Tracks
+          </Link>
+          <Link href="/" className="dossier-a dossier-a--quiet">
+            Search
+          </Link>
+        </header>
+
+        <TrackDetailHero
+          title={track.canonical_title}
+          artistName={artist.canonical_artist_name}
+          artistHref={artistHref}
+          album={trackHeroAlbum(
+            originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
+            primaryAlbumHref,
+            albumTitle,
+          )}
+          stats={[
+            ...(releaseYear != null
+              ? [{ label: "Year", value: String(releaseYear) } satisfies TrackDetailHeroStat]
+              : []),
           ]}
         />
 
-        <header className="rv-entity-section">
-          <h1>{track.canonical_title}</h1>
-          <p className="rv-entity-meta">
-            <Link href={artistHref}>{artist.canonical_artist_name}</Link>
-            {albumTitle && primaryAlbumHref ? (
-              <>
-                {" · "}
-                <Link href={primaryAlbumHref}>{albumTitle}</Link>
-              </>
-            ) : null}
-            {releaseYear !== null ? <> · Released {releaseYear}</> : null}
-          </p>
-        </header>
-
-        <TrackInstrumentationStrip
-          artist={artist.canonical_artist_name}
-          title={track.canonical_title}
-          profile={instrumentation.profile}
-          retroverseTrackId={instrumentation.retroverseTrackId}
-          albumLink={
-            primaryAlbumHref &&
-            albumTitle &&
-            (originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id)
-              ? {
-                  albumId:
-                    originalAppearance?.retroverseAlbumId ??
-                    directTrackAlbum!.retroverse_album_id,
-                  href: primaryAlbumHref,
-                  title: albumTitle,
-                }
-              : null
-          }
-        />
+        <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
 
         {relatedRows.length > 0 ? (
-          <section className="rv-entity-section">
-            <h2>Related tracks</h2>
-            <ul className="rv-public-track-list">
-              {relatedRows.map((row) => (
-                <li key={row.retroverseTrackId}>
-                  <Link href={`/tracks/${row.retroverseTrackId}`}>
-                    <span>
-                      {row.title} — {row.artist}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          <section className="dossier-track-support">
+            <article className="dossier-panel dossier-panel--band-gold">
+              <h2 className="dossier-panel-label">Related tracks</h2>
+              <ul className="dossier-support-list">
+                {relatedRows.map((row) => (
+                  <li key={row.retroverseTrackId}>
+                    <Link href={`/tracks/${row.retroverseTrackId}`}>{row.title}</Link>
+                    <span>{row.artist}</span>
+                  </li>
+                ))}
+              </ul>
+            </article>
           </section>
         ) : null}
-      </article>
-    </div>
+      </div>
+    </>
   );
 }

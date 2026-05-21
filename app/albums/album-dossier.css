@@ -186,7 +186,7 @@
   position: relative;
   isolation: isolate;
   color: var(--d-cream);
-  min-height: 100dvh;
+  min-height: 100%;
   background:
     radial-gradient(ellipse 100% 88% at 4% -8%, rgba(150, 70, 220, 0.22), transparent 50%),
     radial-gradient(ellipse 90% 72% at 98% 6%, rgba(40, 200, 210, 0.16), transparent 48%),
@@ -251,6 +251,39 @@
   max-width: min(74rem, 100%);
   padding-right: max(0.55rem, env(safe-area-inset-right, 8px));
   padding-left: max(0.55rem, env(safe-area-inset-left, 8px));
+}
+
+/* Track dossier — document scroll under fixed global header (no nested main / lock bleed). */
+html:has(body.dossier-body:not(.arv-body-lock):not(.portal-device)) {
+  height: auto;
+  overflow: auto;
+  position: static;
+  width: auto;
+}
+
+body.dossier-body:not(.arv-body-lock):not(.portal-device) {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: auto;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: visible;
+  overscroll-behavior: auto;
+  touch-action: auto;
+}
+
+body.dossier-body:not(.arv-body-lock):not(.portal-device) main.flex-1.flex-col {
+  padding-top: var(--rv-header-offset, 3.75rem) !important;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: visible;
+  height: auto;
+  max-height: none;
+}
+
+body.dossier-body:not(.arv-body-lock):not(.portal-device) .dossier-shell {
+  overflow: visible;
 }
 
 @media (min-width: 720px) {
@@ -1289,6 +1322,98 @@ a.dossier-track-name:hover {
 
 .dossier-trajectory-readout {
   margin-bottom: 0.35rem;
+}
+
+/* Track detail hero — cover plate + identity + info band (not boxed trajectory-stats). */
+.dossier-track-hero {
+  margin-bottom: 0.55rem;
+}
+
+.dossier-track-hero-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem 1rem;
+  align-items: start;
+}
+
+.dossier-track-hero-cover {
+  display: block;
+  width: 5.25rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 247, 240, 0.12);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.45),
+    0 4px 14px rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+}
+
+.dossier-track-hero-cover img {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.dossier-track-hero-main {
+  min-width: 0;
+}
+
+.dossier-track-hero-source {
+  margin: 0 0 0.18rem;
+  font-family: var(--d-font-broadcast);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(200, 180, 255, 0.45);
+}
+
+.dossier-track-hero-album {
+  margin: 0.1rem 0 0;
+  font-family: var(--d-font-editorial);
+  font-size: 0.8rem;
+  font-style: italic;
+  line-height: 1.25;
+}
+
+.dossier-track-hero-album a {
+  color: rgba(215, 220, 246, 0.78);
+  text-decoration: none;
+}
+
+.dossier-track-hero-album a:hover {
+  color: rgba(255, 250, 244, 0.95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dossier-track-hero-band {
+  max-width: 22rem;
+}
+
+.dossier-track-hero-band--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dossier-track-hero-band--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dossier-track-hero-band--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dossier-track-hero-band--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dossier-track-hero-band dd:not(.dossier-info-band-num) {
+  font-family: var(--d-font-editorial);
+  font-size: 0.76rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(230, 222, 210, 0.82);
 }
 
 .dossier-shell--trajectory .dossier-top {
@@ -3417,14 +3542,11 @@ a.dossier-track-name:hover {
   }
 }
 
-/* Track page — single horizontal instrumentation strip (not per chart row). */
+/* Track page — sonic meters strip (not per chart row). */
 .dossier-track-instrument-strip {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) auto auto;
-  align-items: center;
-  gap: 0.65rem 0.85rem;
-  margin: 0.4rem 0 0.6rem;
+  display: block;
+  margin: 0.35rem 0 0.75rem;
   padding: 0.62rem 0.9rem 0.58rem;
   border: 1px solid rgba(255, 214, 150, 0.1);
   border-radius: 3px 14px 4px 12px / 6px;
@@ -3462,90 +3584,15 @@ a.dossier-track-name:hover {
   pointer-events: none;
 }
 
-.dossier-track-instrument-zone {
-  position: relative;
-  min-width: 0;
-}
-
-.dossier-track-instrument-zone--sonic {
-  display: block;
-  width: 100%;
-  padding-right: 0.55rem;
-}
-
-.dossier-track-instrument-zone--sonic::after,
-.dossier-track-instrument-zone--center::after {
-  content: "";
-  position: absolute;
-  top: 8%;
-  right: 0;
-  width: 1px;
-  height: 84%;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(255, 247, 240, 0.1) 22%,
-    rgba(255, 247, 240, 0.1) 78%,
-    transparent
-  );
-}
-
-.dossier-track-instrument-zone--center {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 0.28rem;
-  padding: 0.05rem 0.5rem;
-}
-
-.dossier-track-instrument-etch {
+.dossier-track-instrument-strip--meters .dossier-track-sonic-meters {
   margin: 0;
-  font-family: var(--d-font-broadcast);
-  font-size: 0.52rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(200, 180, 255, 0.48);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-}
-
-.dossier-track-instrument-album {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  max-width: 100%;
-  text-decoration: none;
-  color: rgba(245, 235, 224, 0.78);
-  font-family: var(--d-font-editorial);
-  font-size: 0.68rem;
-  line-height: 1.2;
-}
-
-.dossier-track-instrument-album:hover {
-  color: rgba(255, 250, 244, 0.95);
-}
-
-.dossier-track-instrument-album-cover {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: 1.75rem;
-  height: 1.75rem;
-  overflow: hidden;
-  border: 1px solid rgba(255, 247, 240, 0.12);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
-}
-
-.dossier-track-instrument-album-cover img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
-.dossier-track-instrument-album-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.dossier-track-instrument-strip--meters .dossier-track-sonic-meters-list {
+  grid-template-columns: 4.75rem minmax(7.5rem, 1fr) 1.65rem;
+  column-gap: 0.55rem;
+  row-gap: 0.42rem;
 }
 
 /* Track detail — horizontal sonic console meters (not album row rings). */
@@ -3635,106 +3682,3 @@ a.dossier-track-name:hover {
   color: rgba(200, 180, 160, 0.55);
 }
 
-.dossier-track-media-cluster {
-  display: flex;
-  align-items: center;
-  gap: 0.62rem;
-  flex-shrink: 0;
-  padding-left: 0.55rem;
-}
-
-.dossier-track-media-groups {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.dossier-track-media-group {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.22rem;
-}
-
-.dossier-track-media-group-etch {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.48rem;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: rgba(200, 180, 160, 0.42);
-}
-
-.dossier-track-media-slots {
-  display: flex;
-  align-items: center;
-  gap: 0.34rem;
-}
-
-.dossier-track-media-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.35rem;
-  height: 1.35rem;
-  border: 1px solid rgba(255, 247, 240, 0.08);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(255, 247, 240, 0.03));
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.38);
-}
-
-.dossier-track-media-slot--active {
-  border-color: rgba(255, 214, 150, 0.22);
-  box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.32),
-    0 0 8px rgba(255, 214, 150, 0.12);
-}
-
-.dossier-track-media-slot-svg {
-  width: 0.82rem;
-  height: 0.82rem;
-  display: block;
-}
-
-.dossier-track-media-play {
-  position: relative;
-  width: 2.05rem;
-  height: 2.05rem;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 247, 240, 0.1);
-  background: radial-gradient(circle at 50% 35%, rgba(255, 247, 240, 0.06), rgba(0, 0, 0, 0.42));
-  box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.45),
-    0 0 10px rgba(0, 0, 0, 0.2);
-}
-
-.dossier-track-media-play .dossier-track-play-center {
-  position: relative;
-  inset: auto;
-}
-
-.dossier-track-media-play .dossier-track-play-svg {
-  width: 1.28rem;
-  height: 1.28rem;
-}
-
-.dossier-trajectory-readout .dossier-chart-run-toggle {
-  margin-top: 0.45rem;
-}
-
-@media (max-width: 520px) {
-  .dossier-track-instrument-strip {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .dossier-track-media-cluster {
-    width: 100%;
-    justify-content: flex-end;
-    border-left: none;
-    padding-left: 0;
-    padding-top: 0.2rem;
-    border-top: 1px solid rgba(255, 247, 240, 0.06);
-  }
-}
