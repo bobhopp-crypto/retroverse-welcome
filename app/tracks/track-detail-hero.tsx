@@ -80,25 +80,31 @@ export async function TrackDetailHero({
     (album?.albumId?.trim() ? await loadHeroAlbumCover(album.albumId) : null);
   const albumYear = album?.releaseYear ?? releaseYear;
   const chartSpan = chart ? formatPlacardSpan(chart.firstChartWeek, chart.finalChartWeek) : null;
-  const hasChartPlacard =
-    chart &&
-    (chart.peak != null || chart.weeks != null || chartSpan);
+  const hasChartMeta =
+    chart && (chart.peak != null || chart.weeks != null || chartSpan);
 
   return (
     <section className="dossier-readout dossier-trajectory-readout dossier-track-hero">
-      <div className={`dossier-track-hero-layout${album ? "" : " dossier-track-hero-layout--no-cover"}`}>
+      <div className={`dossier-track-hero-layout${album ? "" : " dossier-track-hero-layout--no-album"}`}>
         {album ? (
-          <div className="dossier-track-hero-plate">
-            {coverUrl ? (
-              <Link href={album.href} className="dossier-track-hero-cover" aria-label={`Album: ${album.title}`}>
-                <Image src={coverUrl} alt="" width={112} height={112} unoptimized />
+          <aside className="dossier-track-hero-album-module" aria-label="Source album">
+            <Link
+              href={album.href}
+              className={`dossier-track-hero-cover${coverUrl ? "" : " dossier-track-hero-cover--empty"}`}
+              aria-label={`Album: ${album.title}`}
+            >
+              {coverUrl ? <Image src={coverUrl} alt="" width={112} height={112} unoptimized /> : null}
+            </Link>
+            <div className="dossier-track-hero-album-copy">
+              <span className="dossier-track-hero-album-eyebrow">Source album</span>
+              <Link href={album.href} className="dossier-track-hero-album-title">
+                {album.title}
               </Link>
-            ) : (
-              <Link href={album.href} className="dossier-track-hero-cover dossier-track-hero-cover--empty" aria-label={`Album: ${album.title}`}>
-                <span aria-hidden />
-              </Link>
-            )}
-          </div>
+              {albumYear != null ? (
+                <span className="dossier-track-hero-year">{albumYear}</span>
+              ) : null}
+            </div>
+          </aside>
         ) : null}
 
         <div className="dossier-track-hero-main">
@@ -110,39 +116,33 @@ export async function TrackDetailHero({
             <Link href={artistHref}>{artistName}</Link>
           </p>
 
-          {album ? (
-            <p className="dossier-track-hero-record">
-              <Link href={album.href} className="dossier-track-hero-album-title">
-                {album.title}
-              </Link>
-              {albumYear != null ? (
-                <span className="dossier-track-hero-year">{albumYear}</span>
-              ) : null}
-            </p>
-          ) : releaseYear != null ? (
+          {!album && releaseYear != null ? (
             <p className="dossier-track-hero-record">
               <span className="dossier-track-hero-year dossier-track-hero-year--standalone">{releaseYear}</span>
             </p>
           ) : null}
 
-          {hasChartPlacard ? (
-            <p className="dossier-track-hero-placard" aria-label="Chart history">
+          {hasChartMeta ? (
+            <div className="dossier-track-hero-chartline" aria-label="Chart history">
               {chart!.peak != null ? (
-                <span className="dossier-track-hero-placard-item dossier-track-hero-placard-item--peak">
-                  PEAK #{chart!.peak}
+                <span className="dossier-track-hero-chartline-item dossier-track-hero-chartline-item--peak">
+                  <span className="dossier-track-hero-chartline-k">Peak</span>
+                  <span className="dossier-track-hero-chartline-v">#{chart!.peak}</span>
                 </span>
               ) : null}
               {chart!.weeks != null ? (
-                <span className="dossier-track-hero-placard-item">
-                  {chart!.weeks} WEEKS
+                <span className="dossier-track-hero-chartline-item">
+                  <span className="dossier-track-hero-chartline-k">Weeks</span>
+                  <span className="dossier-track-hero-chartline-v">{chart!.weeks}</span>
                 </span>
               ) : null}
               {chartSpan ? (
-                <span className="dossier-track-hero-placard-item dossier-track-hero-placard-item--span">
-                  {chartSpan}
+                <span className="dossier-track-hero-chartline-item dossier-track-hero-chartline-item--span">
+                  <span className="dossier-track-hero-chartline-k">On chart</span>
+                  <span className="dossier-track-hero-chartline-v">{chartSpan}</span>
                 </span>
               ) : null}
-            </p>
+            </div>
           ) : null}
         </div>
       </div>

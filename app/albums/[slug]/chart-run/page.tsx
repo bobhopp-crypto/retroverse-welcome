@@ -8,6 +8,7 @@ import { getAlbumDossier } from "@/lib/load-album-dossier";
 import { loadAlbumChartRunWeeks } from "@/lib/load-album-chart-run";
 import { artistRoute } from "@/lib/retroverse-routes";
 
+import { AlbumExploreLoop } from "../../album-explore-loop";
 import { AlbumDossierChartRunPanel } from "../album-dossier-chart-run";
 import "../../album-dossier.css";
 
@@ -64,6 +65,7 @@ export default async function AlbumChartRunPage({ params }: Props) {
             back={{ href: `/albums/${dossier.albumId}`, label: "Album" }}
             items={[
               { href: "/", label: "Search" },
+              { href: "/album-retroscope", label: "Retroscope" },
               { href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" },
               { href: artistRoute(identity.artist), label: "Artist" },
             ]}
@@ -90,6 +92,8 @@ export default async function AlbumChartRunPage({ params }: Props) {
             />
           </div>
         </section>
+
+        <AlbumExploreLoop artistName={identity.artist} chartYear={browseYear} />
       </div>
     </>
   );

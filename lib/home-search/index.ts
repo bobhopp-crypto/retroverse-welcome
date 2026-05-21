@@ -9,11 +9,15 @@ import type { HomeSearchPayload, HomeSearchTrack } from "./types";
 export type { HomeSearchPayload } from "./types";
 export type { HomeSearchTrack, HomeSearchAlbum, HomeSearchArtist, HomeSearchChart } from "./types";
 
+function trackDedupeKey(row: HomeSearchTrack): string {
+  return `${row.title.toLowerCase()}|${row.artist.toLowerCase()}`;
+}
+
 function mergeTracks(corpus: HomeSearchTrack[], hot100: HomeSearchTrack[], limit: number): HomeSearchTrack[] {
   const seen = new Set<string>();
   const out: HomeSearchTrack[] = [];
   for (const row of [...corpus, ...hot100]) {
-    const key = `${row.title.toLowerCase()}|${row.artist.toLowerCase()}`;
+    const key = trackDedupeKey(row);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(row);

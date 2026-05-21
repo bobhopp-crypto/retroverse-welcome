@@ -5,7 +5,20 @@ import { tryCreateClient } from "@/lib/supabase";
 
 import { sortByMatchScore } from "./rank";
 import { withSearchTimeout } from "./timeout";
-import type { HomeSearchAlbum, HomeSearchArtist, HomeSearchTrack } from "./types";
+import type { HomeSearchAlbum, HomeSearchArtist, HomeSearchRelation, HomeSearchTrack } from "./types";
+
+function graphTrackRelation(hasHot100: boolean, hasVdjMedia: boolean): HomeSearchRelation {
+  if (hasHot100) return "TRACK";
+  if (hasVdjMedia) return "VDJ";
+  return "TRACK";
+}
+
+function trackSubtitle(peak: number | null | undefined, weeks: number | null | undefined): string | null {
+  const parts: string[] = [];
+  if (peak != null && Number.isFinite(peak)) parts.push(`Peak #${peak}`);
+  if (weeks != null && weeks > 0) parts.push(`${weeks} wks`);
+  return parts.length ? parts.join(" · ") : null;
+}
 
 const SB_TIMEOUT_MS = 450;
 const TRACK_LIMIT = 6;
@@ -31,7 +44,8 @@ export async function searchSupabaseTracks(q: string): Promise<HomeSearchTrack[]
             title: t.canonicalTitle,
             artist: t.canonicalArtistName ?? "—",
             href: hrefForTrack(t.retroverseTrackId ?? t.trackId),
-            subtitle: "canonical track",
+            subtitle: trackSubtitle(t.peakHot100Position, t.chartWeeks),
+            relation: graphTrackRelation(t.hasHot100, t.hasVdjMedia),
           }));
           return sortByMatchScore(rows, needle, (r) => `${r.title} ${r.artist}`, TRACK_LIMIT);
         }
@@ -79,7 +93,8 @@ export async function searchSupabaseTracks(q: string): Promise<HomeSearchTrack[]
             title,
             artist,
             href: hrefForTrack(t.retroverse_track_id),
-            subtitle: "canonical track",
+            subtitle: null,
+            relation: "TRACK",
           });
         }
 
@@ -131,13 +146,23 @@ export async function searchSupabaseAlbums(q: string): Promise<HomeSearchAlbum[]
           (artists ?? []).map((a) => [a.retroverse_artist_id, (a.canonical_artist_name ?? "—").trim()]),
         );
 
-        const rows = data.map((a) => ({
-          kind: "album" as const,
-          title: (a.canonical_album_title ?? "—").trim(),
-          artist: artistById.get(a.retroverse_artist_id) ?? "—",
-          year: a.release_year ?? null,
-          href: hrefForAlbum(a.retroverse_album_id, a.canonical_album_title ?? ""),
-        }));
+        const seen = new Set<string>();
+        const rows: HomeSearchAlbum[] = [];
+        for (const a of data) {
+          const title = (a.canonical_album_title ?? "—").trim();
+          const artist = artistById.get(a.retroverse_artist_id) ?? "—";
+          const dedupeKey = `${artist.toLowerCase()}::${title.toLowerCase()}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+          rows.push({
+            kind: "album" as const,
+            title,
+            artist,
+            year: a.release_year ?? null,
+            href: hrefForAlbum(a.retroverse_album_id, a.canonical_album_title ?? ""),
+            relation: "ALBUM",
+          });
+        }
 
         return sortByMatchScore(rows, needle, (r) => r.title, ALBUM_LIMIT);
       } catch (e) {

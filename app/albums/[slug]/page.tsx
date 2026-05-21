@@ -95,6 +95,10 @@ export default async function AlbumDossierPage({ params }: Props) {
             back={{ href: browseYear != null ? `/albums?year=${browseYear}` : "/albums", label: "Albums" }}
             items={[
               { href: "/", label: "Search" },
+              { href: "/album-retroscope", label: "Retroscope" },
+              ...(browseYear != null
+                ? [{ href: `/albums?year=${browseYear}`, label: `Era ${browseYear}` }]
+                : []),
               { href: artistRoute(identity.artist), label: "Artist" },
               { href: `/tracks?q=${encodeURIComponent(identity.album)}`, label: "Tracks" },
             ]}

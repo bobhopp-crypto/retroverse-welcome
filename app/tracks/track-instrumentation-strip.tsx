@@ -12,8 +12,9 @@ export function TrackInstrumentationStrip({ title, profile }: Props) {
   return (
     <section
       className="dossier-track-instrument-strip dossier-track-instrument-strip--meters"
-      aria-label="Sonic instrumentation"
+      aria-label="Sonic readout"
     >
+      <p className="dossier-track-instrument-caption">Track fingerprint</p>
       <TrackSonicMeters profile={profile} a11yLabel={`${title}. Sonic fingerprint.`} />
     </section>
   );

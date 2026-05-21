@@ -22,7 +22,9 @@ import {
 import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
+import { TrackContinuityStrip } from "@/app/tracks/track-continuity-strip";
 import { TrackDetailHero } from "@/app/tracks/track-detail-hero";
+import { computeChartRunInsights } from "@/lib/track-chart-run-insights";
 import { resolveTrackHeroAlbum, type TrackHeroAlbumCandidate } from "@/lib/load-track-hero-album";
 import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
 import { logEntityLoaderError } from "@/lib/entity-safe";
@@ -612,16 +614,37 @@ type TrackInstrumentationContext = {
   heroAlbum: Awaited<ReturnType<typeof resolveTrackHeroAlbum>>;
 };
 
+function chartYearFromWeek(iso: string | null | undefined): number | null {
+  if (!iso) return null;
+  const y = Number.parseInt(iso.slice(0, 4), 10);
+  return Number.isFinite(y) ? y : null;
+}
+
 function renderTrackChartRunRail(
   weeks: TrackTrajectoryWeek[],
   peak: number | null,
   dialMultiplier: number,
 ) {
+  const insights = computeChartRunInsights(weeks);
+  const showLongestRun = insights.longestRunWeeks > 1;
+
   return (
     <section
       className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel"
       aria-label="Hot 100 chart run"
     >
+      {insights.peakWeek ? (
+        <div className="dossier-trajectory-callouts" aria-label="Chart run highlights">
+          <span className="dossier-trajectory-callout dossier-trajectory-callout--peak">
+            Peak week · #{insights.peakWeek.rank} · {formatChartDate(insights.peakWeek.issueDate)}
+          </span>
+          {showLongestRun ? (
+            <span className="dossier-trajectory-callout dossier-trajectory-callout--run">
+              Longest run · {insights.longestRunWeeks} weeks
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="dossier-trajectory-scale" aria-hidden>
         <span>#100</span>
         <span>#50</span>
@@ -629,7 +652,7 @@ function renderTrackChartRunRail(
       </div>
       <ol className="dossier-trajectory-rail">
         {weeks.map((week, index) => {
-          const momentClasses = trajectoryMomentClasses(weeks, index);
+          const momentClasses = trajectoryMomentClasses(weeks, index, insights);
           const heat = resolveTrajectoryHistoricalHeat(week, index, weeks, peak);
           const intensity = Math.min(1, heat.intensity * dialMultiplier);
           return (
@@ -664,14 +687,26 @@ function renderTrackChartRunRail(
   );
 }
 
-function trajectoryMomentClasses(weeks: TrackTrajectoryWeek[], index: number): string {
+function trajectoryMomentClasses(
+  weeks: TrackTrajectoryWeek[],
+  index: number,
+  insights: ReturnType<typeof computeChartRunInsights>,
+): string {
   const week = weeks[index];
   const previous = index > 0 ? weeks[index - 1] : null;
   const twoBack = index > 1 ? weeks[index - 2] : null;
   const classes: string[] = [];
 
   if (week.rank === 1) classes.push("dossier-trajectory-week--number-one");
+  if (week.rank <= 5 && (!previous || previous.rank > 5)) classes.push("dossier-trajectory-week--top-five");
   if (week.rank <= 10 && (!previous || previous.rank > 10)) classes.push("dossier-trajectory-week--top-ten");
+  if (
+    insights.longestRunWeeks > 1 &&
+    index >= insights.longestRunStart &&
+    index <= insights.longestRunEnd
+  ) {
+    classes.push("dossier-trajectory-week--run-segment");
+  }
   if (week.rank <= 40 && (!previous || previous.rank > 40)) classes.push("dossier-trajectory-week--top-forty");
   if (week.movement === "reentry") classes.push("dossier-trajectory-week--recurrence");
   if ((week.weeksOnChart ?? 0) >= 20) classes.push("dossier-trajectory-week--long-run");
@@ -716,6 +751,17 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
 
           <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
         </div>
+
+        <TrackContinuityStrip
+          artistName={data.canonicalArtist}
+          artistHref={data.artistHref}
+          albumHref={heroAlbum?.href}
+          albumTitle={heroAlbum?.title}
+          chartYear={chartYearFromWeek(data.firstChartWeek)}
+          peakChartWeek={
+            data.weeks.find((w) => w.rank === data.peak)?.issueDate ?? data.firstChartWeek
+          }
+        />
 
         {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
 
@@ -906,6 +952,26 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
           </div>
 
+          <TrackContinuityStrip
+            artistName={artist.canonical_artist_name}
+            artistHref={artistHref}
+            albumHref={heroAlbum?.href}
+            albumTitle={heroAlbum?.title}
+            chartYear={
+              chartYearFromWeek(charts[0]?.chart_date) ??
+              (releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null)
+            }
+            peakChartWeek={
+              charts.reduce<string | null>((best, row) => {
+                if (row.chart_position == null) return best;
+                if (!best) return row.chart_date;
+                const bestPos = charts.find((c) => c.chart_date === best)?.chart_position;
+                if (bestPos == null || row.chart_position < bestPos) return row.chart_date;
+                return best;
+              }, null) ?? charts[0]?.chart_date ?? null
+            }
+          />
+
           {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
 
           {relatedRows.length > 0 ? (
@@ -954,6 +1020,14 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
 
           <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
         </div>
+
+        <TrackContinuityStrip
+          artistName={artist.canonical_artist_name}
+          artistHref={artistHref}
+          albumHref={heroAlbum?.href}
+          albumTitle={heroAlbum?.title}
+          chartYear={releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null}
+        />
 
         {relatedRows.length > 0 ? (
           <section className="dossier-track-support">

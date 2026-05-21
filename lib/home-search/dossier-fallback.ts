@@ -25,6 +25,7 @@ export function searchDossierAlbums(q: string, limit = 6): HomeSearchAlbum[] {
       artist,
       year: dossier.identity.chart_year ?? null,
       href: hrefForAlbum(dossier.albumId, title),
+      relation: "ALBUM",
     });
   }
 

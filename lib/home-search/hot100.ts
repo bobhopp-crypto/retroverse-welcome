@@ -61,7 +61,8 @@ export function searchHot100Tracks(q: string, limit = 6): HomeSearchTrack[] {
       title,
       artist,
       href: `/tracks?q=${encodeURIComponent(title)}`,
-      subtitle: "Hot 100 catalog",
+      subtitle: null,
+      relation: "HOT100" as const,
     };
   });
 
@@ -93,5 +94,6 @@ export function searchHot100ChartWeeks(q: string): HomeSearchChart[] {
     year,
     weekDate: row.issue_date,
     href: `/track-deck?date=${encodeURIComponent(row.issue_date)}`,
+    relation: "HOT100" as const,
   }));
 }

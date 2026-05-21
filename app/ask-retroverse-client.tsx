@@ -155,8 +155,11 @@ export default function AskRetroverseClient() {
                 <h2 className="rv-home-section-title">Albums</h2>
                 {results.albums.map((a) => (
                   <Link key={a.href} href={a.href} className="rv-home-result">
-                    <div className="rv-home-result-main">
-                      {a.title} — {a.artist}
+                    <div className="rv-home-result-row">
+                      <span className="rv-home-result-badge">{a.relation ?? "ALBUM"}</span>
+                      <div className="rv-home-result-main">
+                        {a.title} — {a.artist}
+                      </div>
                     </div>
                     {a.year != null ? <div className="rv-home-result-sub">{a.year}</div> : null}
                   </Link>
@@ -169,8 +172,11 @@ export default function AskRetroverseClient() {
                 <h2 className="rv-home-section-title">Tracks</h2>
                 {results.tracks.map((t) => (
                   <Link key={`${t.href}|${t.title}`} href={t.href} className="rv-home-result">
-                    <div className="rv-home-result-main">
-                      {t.title} — {t.artist}
+                    <div className="rv-home-result-row">
+                      <span className="rv-home-result-badge">{t.relation ?? "TRACK"}</span>
+                      <div className="rv-home-result-main">
+                        {t.title} — {t.artist}
+                      </div>
                     </div>
                     {t.subtitle ? <div className="rv-home-result-sub">{t.subtitle}</div> : null}
                   </Link>
@@ -194,7 +200,10 @@ export default function AskRetroverseClient() {
                 <h2 className="rv-home-section-title">Chart weeks</h2>
                 {results.charts.map((c) => (
                   <Link key={c.weekDate} href={c.href} className="rv-home-result">
-                    <div className="rv-home-result-main">{c.label}</div>
+                    <div className="rv-home-result-row">
+                      <span className="rv-home-result-badge">{c.relation ?? "HOT100"}</span>
+                      <div className="rv-home-result-main">{c.label}</div>
+                    </div>
                   </Link>
                 ))}
               </section>

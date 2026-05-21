@@ -1,9 +1,12 @@
+export type HomeSearchRelation = "TRACK" | "ALBUM" | "HOT100" | "VDJ";
+
 export type HomeSearchTrack = {
   kind: "track";
   title: string;
   artist: string;
   href: string;
   subtitle: string | null;
+  relation?: HomeSearchRelation;
 };
 
 export type HomeSearchAlbum = {
@@ -12,6 +15,7 @@ export type HomeSearchAlbum = {
   artist: string;
   year: number | null;
   href: string;
+  relation?: HomeSearchRelation;
 };
 
 export type HomeSearchArtist = {
@@ -26,6 +30,7 @@ export type HomeSearchChart = {
   year: number;
   weekDate: string;
   href: string;
+  relation?: HomeSearchRelation;
 };
 
 export type HomeSearchPayload = {
