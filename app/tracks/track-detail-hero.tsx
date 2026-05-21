@@ -86,71 +86,65 @@ export async function TrackDetailHero({
     chart && (chart.peak != null || chart.weeks != null || chartSpan);
 
   return (
-    <section className="dossier-readout dossier-trajectory-readout dossier-track-hero">
-      <div className={`dossier-track-hero-layout${album ? "" : " dossier-track-hero-layout--no-album"}`}>
+    <section className="dossier-readout dossier-trajectory-readout dossier-track-hero dossier-track-hero--compressed">
+      <div className="dossier-track-hero-stack">
+        {sourceLabel ? <p className="dossier-track-hero-source">{sourceLabel}</p> : null}
+        {catalogLabel ? <p className="dossier-track-hero-catalog">{catalogLabel}</p> : null}
+
+        <h1 className="dossier-title">{title}</h1>
+        <p className="dossier-byline">
+          <Link href={artistHref}>{artistName}</Link>
+        </p>
+
         {album ? (
-          <aside className="dossier-track-hero-album-module" aria-label="Source album">
+          <div className="dossier-track-hero-album-strip" aria-label="Source album">
             <Link
               href={album.href}
-              className={`dossier-track-hero-cover${coverUrl ? "" : " dossier-track-hero-cover--empty"}`}
+              className={`dossier-track-hero-album-strip-cover${coverUrl ? "" : " dossier-track-hero-album-strip-cover--empty"}`}
               aria-label={`Album: ${album.title}`}
             >
               {coverUrl ? (
-                <Image src={coverUrl} alt="" width={112} height={112} unoptimized />
+                <Image src={coverUrl} alt="" width={52} height={52} unoptimized />
               ) : (
                 <ArchivalCoverVoid compact />
               )}
             </Link>
-            <div className="dossier-track-hero-album-copy">
-              <span className="dossier-track-hero-album-eyebrow">Source album</span>
-              <Link href={album.href} className="dossier-track-hero-album-title">
+            <div className="dossier-track-hero-album-strip-copy">
+              <Link href={album.href} className="dossier-track-hero-album-strip-title">
                 {album.title}
               </Link>
               {albumYear != null ? (
-                <span className="dossier-track-hero-year">{albumYear}</span>
+                <span className="dossier-track-hero-album-strip-year">{albumYear}</span>
               ) : null}
             </div>
-          </aside>
+          </div>
         ) : null}
 
-        <div className="dossier-track-hero-main">
-          {sourceLabel ? <p className="dossier-track-hero-source">{sourceLabel}</p> : null}
-          {catalogLabel ? <p className="dossier-track-hero-catalog">{catalogLabel}</p> : null}
-
-          <h1 className="dossier-title">{title}</h1>
-          <p className="dossier-byline">
-            <Link href={artistHref}>{artistName}</Link>
+        {!album && releaseYear != null ? (
+          <p className="dossier-track-hero-record">
+            <span className="dossier-track-hero-year dossier-track-hero-year--standalone">{releaseYear}</span>
           </p>
+        ) : null}
 
-          {!album && releaseYear != null ? (
-            <p className="dossier-track-hero-record">
-              <span className="dossier-track-hero-year dossier-track-hero-year--standalone">{releaseYear}</span>
-            </p>
-          ) : null}
-
-          {hasChartMeta ? (
-            <dl className="dossier-track-hero-placard" aria-label="Chart history">
-              {chart!.peak != null ? (
-                <div className="dossier-track-hero-placard-stat dossier-track-hero-placard-stat--peak">
-                  <dt>Peak</dt>
-                  <dd>#{chart!.peak}</dd>
-                </div>
-              ) : null}
-              {chart!.weeks != null ? (
-                <div className="dossier-track-hero-placard-stat">
-                  <dt>Weeks</dt>
-                  <dd>{chart!.weeks}</dd>
-                </div>
-              ) : null}
-              {chartSpan ? (
-                <div className="dossier-track-hero-placard-stat dossier-track-hero-placard-stat--span">
-                  <dt>On chart</dt>
-                  <dd>{chartSpan}</dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : null}
-        </div>
+        {hasChartMeta ? (
+          <p className="dossier-track-hero-meta-line" aria-label="Chart history">
+            {chart!.peak != null ? (
+              <>
+                <span className="dossier-track-hero-meta-peak">Peak #{chart!.peak}</span>
+                {chart!.weeks != null || chartSpan ? (
+                  <span className="dossier-track-hero-meta-sep"> · </span>
+                ) : null}
+              </>
+            ) : null}
+            {chart!.weeks != null ? (
+              <>
+                <span>{chart!.weeks} weeks</span>
+                {chartSpan ? <span className="dossier-track-hero-meta-sep"> · </span> : null}
+              </>
+            ) : null}
+            {chartSpan ? <span className="dossier-track-hero-meta-span">{chartSpan}</span> : null}
+          </p>
+        ) : null}
       </div>
     </section>
   );

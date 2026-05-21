@@ -225,34 +225,26 @@
     padding: 0.45rem 0.35rem;
   }
 
-  .dossier-track-hero-layout {
-    grid-template-columns: 1fr;
-  }
-
   .dossier-track-identity {
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.18rem;
   }
 
-  .dossier-track-continuity {
-    margin-bottom: 0.68rem;
+  .dossier-track-supporting {
+    gap: 0.14rem;
+    margin-top: 0.22rem;
   }
 
   .dossier-track-continuity-rail {
-    gap: 0.08rem 0;
+    gap: 0.06rem 0;
   }
 
   .dossier-track-continuity-etch {
-    min-height: 2.5rem;
-    padding: 0.32rem 0.38rem;
+    min-height: 1.8rem;
+    padding: 0.16rem 0.26rem;
   }
 
-  .dossier-track-hero-placard {
-    width: 100%;
-  }
-
-  .dossier-track-hero-placard-stat {
-    flex: 1 1 auto;
-    min-width: 4.5rem;
+  .dossier-track-hero-meta-line {
+    font-size: max(0.6875rem, 12px);
   }
 
   .dossier-trajectory-callouts {

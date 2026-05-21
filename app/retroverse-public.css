@@ -378,52 +378,34 @@ body.rv-public-surface {
     font-size: max(1rem, 16px) !important;
   }
 
-  .dossier-body .dossier-track-hero-layout {
-    grid-template-columns: 1fr;
-    gap: 0.85rem;
+  .dossier-body .dossier-track-hero-album-strip {
+    gap: 0.45rem;
+    padding-top: 0.24rem;
   }
 
-  .dossier-body .dossier-track-hero-album-module {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.75rem;
-  }
-
-  .dossier-body .dossier-track-hero-cover {
-    width: clamp(5.75rem, 22vw, 7.25rem);
-    max-width: 7.25rem;
+  .dossier-body .dossier-track-hero-album-strip-cover {
+    width: 2.5rem;
+    height: 2.5rem;
   }
 
   body.dossier-body {
     --rv-header-offset: calc(3.2rem + env(safe-area-inset-top, 0px));
   }
 
-  .dossier-body .dossier-track-hero-placard {
-    margin-top: 0.62rem;
-    padding-top: 0.55rem;
-  }
-
-  .dossier-body .dossier-track-hero-placard-stat {
-    padding-right: 0.75rem;
-  }
-
-  .dossier-body .dossier-track-hero-placard-stat dt {
-    font-size: max(0.625rem, 11px) !important;
-  }
-
-  .dossier-body .dossier-track-hero-placard-stat dd {
-    font-size: max(1rem, 16px) !important;
-  }
-
-  .dossier-body .dossier-track-hero-placard-stat--span dd {
-    font-size: max(0.75rem, 13px) !important;
+  .dossier-body .dossier-track-hero-meta-line {
+    font-size: max(0.6875rem, 12px);
   }
 
   .dossier-body .dossier-track-continuity--rail {
-    padding: 0.48rem 0.5rem 0.52rem;
+    padding: 0.22rem 0 0.2rem;
+  }
+
+  .dossier-body .dossier-track-continuity-etch {
+    min-height: 1.85rem;
   }
 
   .dossier-body .dossier-track-continuity-etch-label {
-    font-size: max(0.625rem, 11px);
+    font-size: max(0.5625rem, 10px);
   }
 
   .dossier-body .dossier-archival-void-caption {

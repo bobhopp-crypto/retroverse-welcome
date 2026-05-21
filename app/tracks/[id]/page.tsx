@@ -748,22 +748,23 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
               finalChartWeek: data.finalChartWeek,
             }}
           />
-
-          <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
         </div>
 
-        <TrackContinuityStrip
-          artistName={data.canonicalArtist}
-          artistHref={data.artistHref}
-          albumHref={heroAlbum?.href}
-          albumTitle={heroAlbum?.title}
-          chartYear={chartYearFromWeek(data.firstChartWeek)}
-          peakChartWeek={
-            data.weeks.find((w) => w.rank === data.peak)?.issueDate ?? data.firstChartWeek
-          }
-        />
-
         {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
+
+        <div className="dossier-track-supporting">
+          <TrackInstrumentationStrip title={data.canonicalTitle} profile={instrumentation.profile} />
+          <TrackContinuityStrip
+            artistName={data.canonicalArtist}
+            artistHref={data.artistHref}
+            albumHref={heroAlbum?.href}
+            albumTitle={heroAlbum?.title}
+            chartYear={chartYearFromWeek(data.firstChartWeek)}
+            peakChartWeek={
+              data.weeks.find((w) => w.rank === data.peak)?.issueDate ?? data.firstChartWeek
+            }
+          />
+        </div>
 
         <section className="dossier-track-support">
           <article className="dossier-panel dossier-panel--band-plank">
@@ -948,31 +949,32 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
                 finalChartWeek: charts[charts.length - 1]?.chart_date ?? null,
               }}
             />
-
-            <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
           </div>
 
-          <TrackContinuityStrip
-            artistName={artist.canonical_artist_name}
-            artistHref={artistHref}
-            albumHref={heroAlbum?.href}
-            albumTitle={heroAlbum?.title}
-            chartYear={
-              chartYearFromWeek(charts[0]?.chart_date) ??
-              (releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null)
-            }
-            peakChartWeek={
-              charts.reduce<string | null>((best, row) => {
-                if (row.chart_position == null) return best;
-                if (!best) return row.chart_date;
-                const bestPos = charts.find((c) => c.chart_date === best)?.chart_position;
-                if (bestPos == null || row.chart_position < bestPos) return row.chart_date;
-                return best;
-              }, null) ?? charts[0]?.chart_date ?? null
-            }
-          />
-
           {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
+
+          <div className="dossier-track-supporting">
+            <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+            <TrackContinuityStrip
+              artistName={artist.canonical_artist_name}
+              artistHref={artistHref}
+              albumHref={heroAlbum?.href}
+              albumTitle={heroAlbum?.title}
+              chartYear={
+                chartYearFromWeek(charts[0]?.chart_date) ??
+                (releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null)
+              }
+              peakChartWeek={
+                charts.reduce<string | null>((best, row) => {
+                  if (row.chart_position == null) return best;
+                  if (!best) return row.chart_date;
+                  const bestPos = charts.find((c) => c.chart_date === best)?.chart_position;
+                  if (bestPos == null || row.chart_position < bestPos) return row.chart_date;
+                  return best;
+                }, null) ?? charts[0]?.chart_date ?? null
+              }
+            />
+          </div>
 
           {relatedRows.length > 0 ? (
             <section className="dossier-track-support">
@@ -1017,17 +1019,18 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             releaseYear={releaseYear}
             album={heroAlbum}
           />
-
-          <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
         </div>
 
-        <TrackContinuityStrip
-          artistName={artist.canonical_artist_name}
-          artistHref={artistHref}
-          albumHref={heroAlbum?.href}
-          albumTitle={heroAlbum?.title}
-          chartYear={releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null}
-        />
+        <div className="dossier-track-supporting">
+          <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />
+          <TrackContinuityStrip
+            artistName={artist.canonical_artist_name}
+            artistHref={artistHref}
+            albumHref={heroAlbum?.href}
+            albumTitle={heroAlbum?.title}
+            chartYear={releaseYear != null && releaseYear >= 1958 && releaseYear <= 2030 ? releaseYear : null}
+          />
+        </div>
 
         {relatedRows.length > 0 ? (
           <section className="dossier-track-support">
