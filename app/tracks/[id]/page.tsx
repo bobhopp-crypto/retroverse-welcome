@@ -22,7 +22,8 @@ import {
 import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
 import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
-import { TrackDetailHero, type TrackDetailHeroAlbum } from "@/app/tracks/track-detail-hero";
+import { TrackDetailHero } from "@/app/tracks/track-detail-hero";
+import { resolveTrackHeroAlbum, type TrackHeroAlbumCandidate } from "@/lib/load-track-hero-album";
 import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
@@ -578,16 +579,6 @@ function formatChartDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
-function trackHeroAlbum(
-  albumId: string | null | undefined,
-  href: string | null,
-  title: string | null,
-): TrackDetailHeroAlbum | null {
-  const id = albumId?.trim();
-  if (!id || !href || !title) return null;
-  return { albumId: id, href, title };
-}
-
 function mean01(...vals: Array<number | null | undefined>): number {
   const ok = vals.filter((x): x is number => x != null && Number.isFinite(x));
   if (!ok.length) return 0;
@@ -606,6 +597,7 @@ function retroverseDialFromProfile(profile: AggregatedAcousticProfile): number {
 type TrackInstrumentationContext = {
   profile: AggregatedAcousticProfile;
   retroverseTrackId: string | null;
+  heroAlbum: Awaited<ReturnType<typeof resolveTrackHeroAlbum>>;
 };
 
 function renderTrackChartRunRail(
@@ -679,8 +671,8 @@ function trajectoryMomentClasses(weeks: TrackTrajectoryWeek[], index: number): s
 }
 
 function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstrumentationContext) {
-  const primaryAlbum = data.connectedAlbums[0] ?? null;
   const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(instrumentation.profile));
+  const heroAlbum = instrumentation.heroAlbum;
   return (
     <>
       <TrackPageBody />
@@ -700,11 +692,8 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
             artistName={data.canonicalArtist}
             artistHref={data.artistHref}
             sourceLabel="Hot 100"
-            album={trackHeroAlbum(
-              primaryAlbum?.albumId,
-              primaryAlbum ? `/albums/${primaryAlbum.albumId}` : null,
-              primaryAlbum?.albumTitle ?? null,
-            )}
+            releaseYear={heroAlbum?.releaseYear ?? null}
+            album={heroAlbum}
             chart={{
               peak: data.peak,
               weeks: data.weeksCharted,
@@ -773,7 +762,16 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
       trajectory.canonicalTitle,
       retroverseTrackId,
     );
-    return renderTrajectoryPage(trajectory, { profile, retroverseTrackId });
+    const heroAlbum = await resolveTrackHeroAlbum({
+      artist: trajectory.canonicalArtist,
+      title: trajectory.canonicalTitle,
+      retroverseTrackId,
+      candidates: trajectory.connectedAlbums.map((a) => ({
+        albumId: a.albumId,
+        albumTitle: a.albumTitle,
+      })),
+    });
+    return renderTrajectoryPage(trajectory, { profile, retroverseTrackId, heroAlbum });
   }
 
   let data: Awaited<ReturnType<typeof loadTrackGraph>> = null;
@@ -792,23 +790,19 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     );
   }
 
-  const { track, artist, charts, peakChartPosition, maxWeeksOnChart, originalAppearance, directTrackAlbum, relatedRows } =
-    data;
+  const {
+    track,
+    artist,
+    charts,
+    peakChartPosition,
+    maxWeeksOnChart,
+    originalAppearance,
+    directTrackAlbum,
+    appearancesWithAlbum,
+    relatedRows,
+  } = data;
 
   const artistHref = hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name);
-  const albumTitle =
-    originalAppearance?.canonicalAlbumTitle ?? directTrackAlbum?.canonical_album_title ?? null;
-  const primaryAlbumHref = albumTitle
-    ? originalAppearance
-      ? hrefForAlbum(originalAppearance.retroverseAlbumId, originalAppearance.canonicalAlbumTitle)
-      : hrefForAlbum(directTrackAlbum!.retroverse_album_id, directTrackAlbum!.canonical_album_title)
-    : null;
-  const releaseYear =
-    track.release_year ??
-    originalAppearance?.editionReleaseYear ??
-    originalAppearance?.albumReleaseYear ??
-    directTrackAlbum?.release_year ??
-    null;
 
   const retroverseTrackId =
     data.canonicalEntity?.trackId ?? track.retroverse_track_id;
@@ -817,9 +811,52 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     track.canonical_title,
     retroverseTrackId,
   );
+  const heroCandidates: TrackHeroAlbumCandidate[] = [];
+  if (originalAppearance) {
+    heroCandidates.push({
+      albumId: originalAppearance.retroverseAlbumId,
+      albumTitle: originalAppearance.canonicalAlbumTitle,
+      releaseYear: originalAppearance.editionReleaseYear ?? originalAppearance.albumReleaseYear,
+    });
+  } else if (directTrackAlbum) {
+    heroCandidates.push({
+      albumId: directTrackAlbum.retroverse_album_id,
+      albumTitle: directTrackAlbum.canonical_album_title,
+      releaseYear: directTrackAlbum.release_year,
+    });
+  } else {
+    const fallbackAppearance =
+      appearancesWithAlbum.find((row) => row.appearanceContext === "original_album_anchor") ??
+      appearancesWithAlbum[0];
+    if (fallbackAppearance) {
+      heroCandidates.push({
+        albumId: fallbackAppearance.retroverseAlbumId,
+        albumTitle: fallbackAppearance.canonicalAlbumTitle,
+        releaseYear:
+          fallbackAppearance.editionReleaseYear ?? fallbackAppearance.albumReleaseYear ?? null,
+      });
+    }
+  }
+
+  const heroAlbum = await resolveTrackHeroAlbum({
+    artist: artist.canonical_artist_name,
+    title: track.canonical_title,
+    retroverseTrackId,
+    candidates: heroCandidates,
+  });
+
+  const releaseYear =
+    heroAlbum?.releaseYear ??
+    track.release_year ??
+    originalAppearance?.editionReleaseYear ??
+    originalAppearance?.albumReleaseYear ??
+    directTrackAlbum?.release_year ??
+    null;
+
   const instrumentation: TrackInstrumentationContext = {
     profile,
     retroverseTrackId: retroverseTrackId?.toUpperCase() ?? null,
+    heroAlbum,
   };
   const trajectoryWeeks = charts.length > 0 ? chartsToTrajectoryWeeks(charts) : [];
   const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(profile));
@@ -845,11 +882,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
               artistHref={artistHref}
               releaseYear={releaseYear}
               sourceLabel="Hot 100"
-              album={trackHeroAlbum(
-                originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
-                primaryAlbumHref,
-                albumTitle,
-              )}
+              album={heroAlbum}
               chart={{
                 peak: peakChartPosition,
                 weeks: maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? null,
@@ -904,11 +937,7 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             artistName={artist.canonical_artist_name}
             artistHref={artistHref}
             releaseYear={releaseYear}
-            album={trackHeroAlbum(
-              originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id,
-              primaryAlbumHref,
-              albumTitle,
-            )}
+            album={heroAlbum}
           />
 
           <TrackInstrumentationStrip title={track.canonical_title} profile={instrumentation.profile} />

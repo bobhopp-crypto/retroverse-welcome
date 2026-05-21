@@ -8,6 +8,8 @@ export type TrackDetailHeroAlbum = {
   albumId: string;
   href: string;
   title: string;
+  releaseYear?: number | null;
+  coverUrl?: string | null;
 };
 
 export type TrackDetailHeroChartMeta = {
@@ -69,7 +71,10 @@ export async function TrackDetailHero({
   album,
   chart,
 }: Props) {
-  const coverUrl = album?.albumId?.trim() ? await loadHeroAlbumCover(album.albumId) : null;
+  const coverUrl =
+    album?.coverUrl ??
+    (album?.albumId?.trim() ? await loadHeroAlbumCover(album.albumId) : null);
+  const albumYear = album?.releaseYear ?? releaseYear;
   const chartSpan = chart ? formatPlacardSpan(chart.firstChartWeek, chart.finalChartWeek) : null;
   const hasChartPlacard =
     chart &&
@@ -106,8 +111,8 @@ export async function TrackDetailHero({
               <Link href={album.href} className="dossier-track-hero-album-title">
                 {album.title}
               </Link>
-              {releaseYear != null ? (
-                <span className="dossier-track-hero-year">{releaseYear}</span>
+              {albumYear != null ? (
+                <span className="dossier-track-hero-year">{albumYear}</span>
               ) : null}
             </p>
           ) : releaseYear != null ? (
