@@ -58,11 +58,15 @@ async function loadCoverForAlbum(albumId: string, pgAlbumId?: number): Promise<s
 
   if (!rval) return null;
 
-  const supabase = tryCreateClient();
-  if (!supabase) return null;
-  const rows = await loadAlbumArtworkRows(supabase, [rval]);
-  const path = selectCanonicalArtwork(rows, rval, null)?.canonical_cover_path ?? null;
-  return canonicalCoverPathToUrl(path);
+  try {
+    const supabase = tryCreateClient();
+    if (!supabase) return null;
+    const rows = await loadAlbumArtworkRows(supabase, [rval]);
+    const path = selectCanonicalArtwork(rows, rval, null)?.canonical_cover_path ?? null;
+    return canonicalCoverPathToUrl(path);
+  } catch {
+    return null;
+  }
 }
 
 async function supabaseAlbumForTrack(
@@ -113,18 +117,24 @@ function heroFromGraphPrimary(
   };
 }
 
-function heroFromCandidate(
+async function heroFromCandidate(
   pick: TrackHeroAlbumCandidate,
   pgAlbumId?: number,
 ): Promise<TrackHeroAlbumResolved | null> {
   const href = hrefForAlbum(pick.albumId, pick.albumTitle);
-  return loadCoverForAlbum(pick.albumId, pgAlbumId).then((coverUrl) => ({
+  let coverUrl: string | null = null;
+  try {
+    coverUrl = await loadCoverForAlbum(pick.albumId, pgAlbumId);
+  } catch {
+    coverUrl = null;
+  }
+  return {
     albumId: pick.albumId,
     href: href === "/albums" ? `/albums/${pick.albumId}` : href,
     title: pick.albumTitle,
     releaseYear: pick.releaseYear ?? null,
     coverUrl,
-  }));
+  };
 }
 
 /**

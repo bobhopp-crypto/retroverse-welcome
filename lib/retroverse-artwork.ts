@@ -1,6 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { chunkIds, throwSupabase } from "@/lib/supabase-in-query";
+import {
+  chunkIds,
+  isRetryableSupabaseError,
+  isSchemaCacheSupabaseError,
+  logSupabaseReadFailure,
+  throwSupabase,
+} from "@/lib/supabase-in-query";
 
 export type RetroverseArtworkRow = {
   retroverse_album_artwork_id?: string;
@@ -13,14 +19,25 @@ export type RetroverseArtworkRow = {
   artwork_status?: string;
 };
 
-export async function loadAlbumArtworkRows(
-  supabase: SupabaseClient,
-  retroverseAlbumIds: string[],
-): Promise<RetroverseArtworkRow[]> {
-  if (retroverseAlbumIds.length === 0) return [];
+type PgErr = { message: string; code?: string; details?: string | null; hint?: string | null };
 
-  const merged: RetroverseArtworkRow[] = [];
-  for (const albumChunk of chunkIds(retroverseAlbumIds)) {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function shouldSoftFailArtworkQuery(err: PgErr | null): boolean {
+  return isSchemaCacheSupabaseError(err) || isRetryableSupabaseError(err?.code);
+}
+
+async function queryArtworkChunk(
+  supabase: SupabaseClient,
+  albumChunk: string[],
+  opts?: { retries?: number },
+): Promise<RetroverseArtworkRow[] | null> {
+  const max = Math.max(1, opts?.retries ?? 3);
+  const context = `retroverse_album_artwork(albums chunk ${albumChunk.length})`;
+
+  for (let attempt = 0; attempt < max; attempt++) {
     const withPrimaryResult = await supabase
       .from("retroverse_album_artwork")
       .select(
@@ -42,20 +59,57 @@ export async function loadAlbumArtworkRows(
             .limit(10_000)
         : null;
 
-    if (withPrimaryResult.error && !fallbackResult) {
-      throwSupabase(`retroverse_album_artwork(albums chunk ${albumChunk.length})`, withPrimaryResult.error);
-    }
-    if (fallbackResult?.error) {
-      throwSupabase(`retroverse_album_artwork fallback(albums chunk ${albumChunk.length})`, fallbackResult.error);
-    }
-
-    const rows = (fallbackResult?.data ?? withPrimaryResult.data ?? []) as RetroverseArtworkRow[];
-    merged.push(
-      ...rows.map((row) => ({
+    const err = fallbackResult?.error ?? withPrimaryResult.error;
+    if (!err) {
+      const rows = (fallbackResult?.data ?? withPrimaryResult.data ?? []) as RetroverseArtworkRow[];
+      return rows.map((row) => ({
         ...row,
         is_primary: row.is_primary ?? row.artwork_role === "primary",
-      })),
-    );
+      }));
+    }
+
+    if (isRetryableSupabaseError(err.code) && attempt < max - 1) {
+      await sleep(400 * (attempt + 1));
+      continue;
+    }
+
+    if (shouldSoftFailArtworkQuery(err)) {
+      logSupabaseReadFailure(context, err);
+      return null;
+    }
+
+    if (withPrimaryResult.error && !fallbackResult) {
+      throwSupabase(context, withPrimaryResult.error);
+    }
+    if (fallbackResult?.error) {
+      throwSupabase(`${context} fallback`, fallbackResult.error);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Load album artwork rows. Never throws on schema-cache / transient PostgREST failures (PGRST002).
+ * Returns partial/empty rows so pages can render without cover art.
+ */
+export async function loadAlbumArtworkRows(
+  supabase: SupabaseClient,
+  retroverseAlbumIds: string[],
+): Promise<RetroverseArtworkRow[]> {
+  if (retroverseAlbumIds.length === 0) return [];
+
+  const merged: RetroverseArtworkRow[] = [];
+  for (const albumChunk of chunkIds(retroverseAlbumIds)) {
+    try {
+      const rows = await queryArtworkChunk(supabase, albumChunk);
+      if (rows) merged.push(...rows);
+    } catch (err) {
+      logSupabaseReadFailure(
+        `retroverse_album_artwork(unhandled chunk ${albumChunk.length})`,
+        err instanceof Error ? { message: err.message } : { message: String(err) },
+      );
+    }
   }
   return merged;
 }

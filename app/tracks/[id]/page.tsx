@@ -276,7 +276,12 @@ async function loadTrackGraph(idParam: string) {
   const appearanceAlbums = (appearanceAlbumsResult.data ?? []) as AlbumRow[];
   const albumById = new Map(appearanceAlbums.map((row) => [row.retroverse_album_id, row]));
 
-  const artworkRows = await loadAlbumArtworkRows(supabase, appearanceAlbumIds);
+  let artworkRows: Awaited<ReturnType<typeof loadAlbumArtworkRows>> = [];
+  try {
+    artworkRows = await loadAlbumArtworkRows(supabase, appearanceAlbumIds);
+  } catch (e) {
+    logEntityLoaderError("retroverse_album_artwork", route, track.retroverse_track_id, e);
+  }
 
   const appearancesWithAlbum = (lineage?.appearances ?? [])
     .map((row) => ({
@@ -454,7 +459,14 @@ async function loadTrackGraph(idParam: string) {
           .in("retroverse_album_id", relatedAlbumIds)
           .eq("is_primary", true)
       : Promise.resolve({ data: [], error: null }),
-    loadAlbumArtworkRows(supabase, relatedAlbumIds),
+    (async () => {
+      try {
+        return await loadAlbumArtworkRows(supabase, relatedAlbumIds);
+      } catch (e) {
+        logEntityLoaderError("retroverse_album_artwork:related", route, track.retroverse_track_id, e);
+        return [];
+      }
+    })(),
   ]);
   if (relatedAlbumsResult.error) {
     logEntityLoaderError("retroverse_albums:related", route, track.retroverse_track_id, relatedAlbumsResult.error);

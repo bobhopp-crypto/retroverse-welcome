@@ -31,11 +31,15 @@ type Props = {
 };
 
 async function loadHeroAlbumCover(albumId: string): Promise<string | null> {
-  const supabase = tryCreateClient();
-  if (!supabase) return null;
-  const rows = await loadAlbumArtworkRows(supabase, [albumId]);
-  const path = selectCanonicalArtwork(rows, albumId, null)?.canonical_cover_path ?? null;
-  return canonicalCoverPathToUrl(path);
+  try {
+    const supabase = tryCreateClient();
+    if (!supabase) return null;
+    const rows = await loadAlbumArtworkRows(supabase, [albumId]);
+    const path = selectCanonicalArtwork(rows, albumId, null)?.canonical_cover_path ?? null;
+    return canonicalCoverPathToUrl(path);
+  } catch {
+    return null;
+  }
 }
 
 function formatPlacardDate(value: string | null): string {

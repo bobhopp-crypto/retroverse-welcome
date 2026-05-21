@@ -14,6 +14,27 @@ type PgErr = { message: string; code?: string; details?: string | null; hint?: s
 
 const RETRYABLE_SUPABASE_CODES = new Set(["PGRST002", "57014"]);
 
+/** Transient PostgREST / schema-cache failures — safe to soft-fail in UI loaders. */
+export function isRetryableSupabaseError(code?: string | null): boolean {
+  return RETRYABLE_SUPABASE_CODES.has(code ?? "");
+}
+
+export function isSchemaCacheSupabaseError(err: PgErr | null): boolean {
+  if (!err) return false;
+  if (err.code === "PGRST002") return true;
+  return /schema cache/i.test(err.message);
+}
+
+export function logSupabaseReadFailure(context: string, err: PgErr | null): void {
+  if (!err) return;
+  console.warn("[supabase-read]", {
+    context,
+    code: err.code ?? null,
+    message: err.message,
+    details: err.details ?? null,
+  });
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
