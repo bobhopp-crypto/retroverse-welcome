@@ -1,4 +1,5 @@
 import { ilikePattern, sanitizeSearchQuery } from "@/lib/corpus-search";
+import { searchCanonicalTracksByTitle } from "@/lib/load-canonical-track-graph";
 import { hrefForAlbum, hrefForArtist, hrefForTrack } from "@/lib/retroverse-routes";
 import { tryCreateClient } from "@/lib/supabase";
 
@@ -23,6 +24,18 @@ export async function searchSupabaseTracks(q: string): Promise<HomeSearchTrack[]
   return withSearchTimeout(
     (async () => {
       try {
+        const graphMatches = await searchCanonicalTracksByTitle(needle, TRACK_LIMIT);
+        if (graphMatches.length) {
+          const rows = graphMatches.map((t) => ({
+            kind: "track" as const,
+            title: t.canonicalTitle,
+            artist: t.canonicalArtistName ?? "—",
+            href: hrefForTrack(t.retroverseTrackId ?? t.trackId),
+            subtitle: "canonical track",
+          }));
+          return sortByMatchScore(rows, needle, (r) => `${r.title} ${r.artist}`, TRACK_LIMIT);
+        }
+
         const supabase = tryCreateClient();
         if (!supabase) return [];
 
@@ -53,17 +66,22 @@ export async function searchSupabaseTracks(q: string): Promise<HomeSearchTrack[]
           (artists ?? []).map((a) => [a.retroverse_artist_id, (a.canonical_artist_name ?? "—").trim()]),
         );
 
-        const rows = data.map((t) => {
+        const seen = new Set<string>();
+        const rows: HomeSearchTrack[] = [];
+        for (const t of data) {
           const title = (t.canonical_title ?? "—").trim();
           const artist = artistById.get(t.retroverse_artist_id) ?? "—";
-          return {
+          const dedupeKey = `${artist.toLowerCase()}::${title.toLowerCase()}`;
+          if (seen.has(dedupeKey)) continue;
+          seen.add(dedupeKey);
+          rows.push({
             kind: "track" as const,
             title,
             artist,
             href: hrefForTrack(t.retroverse_track_id),
             subtitle: "canonical track",
-          };
-        });
+          });
+        }
 
         return sortByMatchScore(rows, needle, (r) => `${r.title} ${r.artist}`, TRACK_LIMIT);
       } catch (e) {

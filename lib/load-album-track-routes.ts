@@ -1,10 +1,11 @@
 import { hrefForTrack } from "@/lib/retroverse-routes";
+import { loadAlbumCanonicalTrackRouteIndex } from "@/lib/load-canonical-track-graph";
 import { tryCreateClient } from "@/lib/supabase";
 
 const RE_RVAL = /^RVAL\d{6}$/i;
 const RE_RVTR = /^RVTR\d{6}$/i;
 
-/** Normalized title key for dossier row ↔ graph track matching. */
+/** Normalized title key for dossier row ↔ canonical track matching. */
 export function normalizeAlbumTrackTitleKey(title: string): string {
   return title
     .trim()
@@ -27,12 +28,14 @@ function addRoute(map: AlbumTrackRouteIndex, title: string, rvtr: string): void 
   if (key && !map[key]) map[key] = href;
 }
 
-/** Resolve canonical `/tracks/RVTR…` hrefs for album dossier rows (Supabase album + artist membership). */
+/** Resolve canonical `/tracks/RVTR…` hrefs — graph first, Supabase fallback. */
 export async function loadAlbumTrackRouteIndex(
   albumId: string,
   artistName: string,
 ): Promise<AlbumTrackRouteIndex> {
-  const map: AlbumTrackRouteIndex = {};
+  const graphIndex = await loadAlbumCanonicalTrackRouteIndex(albumId);
+  const map: AlbumTrackRouteIndex = { ...graphIndex };
+
   const rval = albumId.trim().toUpperCase();
   const artist = artistName.trim();
   if (!artist) return map;

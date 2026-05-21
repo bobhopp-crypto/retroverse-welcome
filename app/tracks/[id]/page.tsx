@@ -9,6 +9,11 @@ import { getEraBySlug } from "@/lib/eras";
 import { hrefForAlbum, hrefForArtist } from "@/lib/retroverse-routes";
 import { loadTrackLineage, type TrackLineageAppearance } from "@/lib/retroverse-lineage";
 import { generateTrackPathways } from "@/lib/retroverse-pathways";
+import {
+  loadCanonicalTrackById,
+  loadCanonicalTrackByTitleSlug,
+  loadCanonicalTrackVersions,
+} from "@/lib/load-canonical-track-graph";
 import { loadTrackTrajectory, type TrackTrajectory } from "@/lib/load-track-trajectory";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
 import { logEntityLoaderError } from "@/lib/entity-safe";
@@ -145,7 +150,13 @@ async function resolveTrackIdFromParam(
   supabase: ReturnType<typeof createClient>,
   idParam: string,
 ): Promise<string | null> {
-  if (/^RVTR[0-9]{6}$/i.test(idParam)) return idParam.toUpperCase();
+  if (/^RVTR[0-9]{6}$/i.test(idParam)) {
+    const fromGraph = await loadCanonicalTrackById(idParam);
+    return (fromGraph?.retroverseTrackId ?? idParam).toUpperCase();
+  }
+
+  const slugMatch = await loadCanonicalTrackByTitleSlug(idParam);
+  if (slugMatch?.retroverseTrackId) return slugMatch.retroverseTrackId.toUpperCase();
 
   const sourceMatchResult = await supabase
     .from("retroverse_source_matches")
@@ -191,6 +202,11 @@ async function loadTrackGraph(idParam: string) {
 
   const resolvedTrackId = await resolveTrackIdFromParam(supabase, idParam);
   if (!resolvedTrackId) return null;
+
+  const canonicalEntity =
+    (await loadCanonicalTrackById(resolvedTrackId)) ??
+    (await loadCanonicalTrackByTitleSlug(idParam));
+  const canonicalVersions = await loadCanonicalTrackVersions(resolvedTrackId);
 
   const trackResult = await supabase
     .from("retroverse_tracks")
@@ -527,6 +543,8 @@ async function loadTrackGraph(idParam: string) {
 
   return {
     partial: !lineage,
+    canonicalEntity,
+    canonicalVersions,
     track,
     artist,
     charts,
