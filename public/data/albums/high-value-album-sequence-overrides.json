@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "QA-curated LP sequence overrides for high-value albums. Takes priority after manual canonical-album-sequences.json.",
+  "overrides": {
+    "RVAL182738": {
+      "album_id": "RVAL182738",
+      "artist": "Adele",
+      "album": "21",
+      "source_label": "qa_canonical_lp_reference",
+      "source_note": "Standard LP order; MusicBrainz cache top_tracks omitted Someone Like You (track 11).",
+      "tracks": [
+        { "global_position": 1, "canonical_title": "Rolling in the Deep" },
+        { "global_position": 2, "canonical_title": "Rumour Has It" },
+        { "global_position": 3, "canonical_title": "Turning Tables" },
+        { "global_position": 4, "canonical_title": "Don't You Remember" },
+        { "global_position": 5, "canonical_title": "Set Fire to the Rain" },
+        { "global_position": 6, "canonical_title": "He Won't Go" },
+        { "global_position": 7, "canonical_title": "Take It All" },
+        { "global_position": 8, "canonical_title": "I'll Be Waiting" },
+        { "global_position": 9, "canonical_title": "One and Only" },
+        { "global_position": 10, "canonical_title": "Lovesong" },
+        { "global_position": 11, "canonical_title": "Someone Like You" }
+      ]
+    }
+  }
+}

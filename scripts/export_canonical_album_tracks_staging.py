@@ -4,10 +4,11 @@ Export canonical album track sequences for graph load (1102).
 
 Sequence priority per RVAL:
   1. manual canonical-album-sequences.json
-  2. MusicBrainz dossier sidecar
-  3. musicbrainz_cache (recovery / MB album cache by artist+title)
-  4. existing canonical_album_tracks
-  5. canonical_album_sequence_candidates (lineage_acoustic, acoustic_consensus, …)
+  2. high-value-album-sequence-overrides.json (QA repairs)
+  3. MusicBrainz dossier sidecar
+  4. musicbrainz_cache (+ Hot 100 gap merge when MB track_count underfills)
+  5. existing canonical_album_tracks
+  6. canonical_album_sequence_candidates (lineage_acoustic, acoustic_consensus, …)
 
 Run:
   python3 scripts/build_canonical_album_sequence_recovery.py
@@ -32,6 +33,10 @@ MB_CACHE = Path(
     "/Users/bobhopp/Sites/retroverse/data/derived/albums/source_musicbrainz_album_cache.json"
 )
 MANUAL_SEQ = WORKSPACE / "public/data/albums/canonical-album-sequences.json"
+QA_OVERRIDES = WORKSPACE / "public/data/albums/high-value-album-sequence-overrides.json"
+RETROSCOPE_COORDS = Path(
+    "/Users/bobhopp/RETROVERSE_DATA/runtime/retroscope-coordinates.json"
+)
 OUT_CSV = WORKSPACE / "exports/graph/canonical_album_tracks_staging.csv"
 
 MIN_TRACKS = 6
@@ -239,6 +244,91 @@ def parse_top_tracks(raw: str) -> list[str]:
     return [t.strip() for t in (raw or "").split("|") if t.strip()]
 
 
+def load_hot100_by_album(host: str, database: str, user: str) -> dict[int, list[dict]]:
+    sql = """
+      COPY (
+        SELECT ctal.album_id::text, ct.canonical_title, ct.first_chart_date::text
+        FROM canonical_track_album_links ctal
+        JOIN canonical_tracks ct ON ct.track_family_id = ctal.track_family_id
+        WHERE ct.has_hot100
+      ) TO STDOUT WITH (FORMAT csv)
+    """
+    raw = psql_copy(sql, host, database, user)
+    out: dict[int, list[dict]] = defaultdict(list)
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        p = next(csv.reader([line]))
+        if len(p) < 2:
+            continue
+        out[int(p[0])].append({"title": p[1].strip(), "first_chart": p[2] if len(p) > 2 else ""})
+    return out
+
+
+def merge_hot100_gaps(
+    seq: list[dict],
+    hot100: list[dict],
+    mb_track_count: int | None,
+) -> list[dict]:
+    """Append missing Hot 100 singles when MB cache under-reports track_count."""
+    if not seq or not hot100:
+        return seq
+    have = {norm_title(t["title"]) for t in seq}
+    missing = [h for h in hot100 if norm_title(h["title"]) not in have]
+    if not missing:
+        return seq
+    if mb_track_count is not None:
+        if len(seq) >= mb_track_count:
+            return seq
+    elif len(missing) > 2:
+        return seq
+    pos = max(t["position"] for t in seq)
+    merged = list(seq)
+    for ht in sorted(missing, key=lambda x: x.get("first_chart") or "9999"):
+        pos += 1
+        merged.append(
+            {
+                "position": pos,
+                "title": ht["title"],
+                "source": "musicbrainz_cache_hot100_gap",
+                "confidence": 0.86,
+                "mb_pos": pos,
+                "review_flag": "ok",
+                "acoustic_id": None,
+            }
+        )
+    return merged
+
+
+def load_sequence_overrides(path: Path, label: str) -> dict[str, list[dict]]:
+    if not path.is_file():
+        return {}
+    bundle = json.loads(path.read_text(encoding="utf-8"))
+    root = bundle.get("overrides") or bundle.get("sequences") or {}
+    out: dict[str, list[dict]] = {}
+    for rval, seq in root.items():
+        rid = rval.upper()
+        tracks = []
+        for t in seq.get("tracks") or []:
+            title = (t.get("canonical_title") or "").strip()
+            if not title:
+                continue
+            tracks.append(
+                {
+                    "position": int(t["global_position"]),
+                    "title": title,
+                    "source": label,
+                    "confidence": 0.98 if label == "qa_high_value_override" else 1.0,
+                    "mb_pos": int(t["global_position"]),
+                    "review_flag": "ok",
+                    "acoustic_id": None,
+                }
+            )
+        if len(tracks) >= MIN_TRACKS:
+            out[rid] = tracks
+    return out
+
+
 def tracks_from_recovery(
     album_id: int,
     recovery: dict[int, dict[str, list[dict]]],
@@ -327,34 +417,19 @@ def main() -> None:
     acoustic_map = load_acoustic_by_album(args.host, args.database, args.user)
     recovery = load_recovery_candidates(args.host, args.database, args.user)
     mb_index = load_mb_cache_index()
+    hot100_by_album = load_hot100_by_album(args.host, args.database, args.user)
 
     sequences: dict[str, list[dict]] = {}
     source_counts: dict[str, int] = defaultdict(int)
 
-    manual_path = Path(args.manual_seq)
-    if manual_path.is_file():
-        manual = json.loads(manual_path.read_text(encoding="utf-8"))
-        for rval, seq in (manual.get("sequences") or {}).items():
-            rid = rval.upper()
-            tracks = []
-            for t in seq.get("tracks") or []:
-                title = (t.get("canonical_title") or "").strip()
-                if not title:
-                    continue
-                tracks.append(
-                    {
-                        "position": int(t["global_position"]),
-                        "title": title,
-                        "source": "manual_canonical_sequence",
-                        "confidence": 1.0,
-                        "mb_pos": int(t["global_position"]),
-                        "review_flag": "ok",
-                        "acoustic_id": None,
-                    }
-                )
-            if len(tracks) >= MIN_TRACKS:
-                sequences[rid] = tracks
-                source_counts["manual"] += 1
+    for rid, tracks in load_sequence_overrides(Path(args.manual_seq), "manual_canonical_sequence").items():
+        sequences[rid] = tracks
+        source_counts["manual"] += 1
+
+    for rid, tracks in load_sequence_overrides(QA_OVERRIDES, "qa_high_value_override").items():
+        if rid not in sequences:
+            sequences[rid] = tracks
+            source_counts["qa_override"] += 1
 
     mb_path = Path(args.mb_sidecar)
     if mb_path.is_file():
@@ -398,8 +473,16 @@ def main() -> None:
         if entry:
             tr = tracks_from_mb_entry(entry)
             if tr:
+                mb_count = entry.get("track_count")
+                if isinstance(mb_count, str) and mb_count.isdigit():
+                    mb_count = int(mb_count)
+                elif not isinstance(mb_count, int):
+                    mb_count = None
+                tr = merge_hot100_gaps(tr, hot100_by_album.get(album_id, []), mb_count)
                 sequences[rval] = tr
                 source_counts["musicbrainz_cache"] += 1
+                if any(t.get("source") == "musicbrainz_cache_hot100_gap" for t in tr):
+                    source_counts["musicbrainz_hot100_gap"] += 1
                 continue
 
         tr, src = tracks_from_recovery(album_id, recovery)
