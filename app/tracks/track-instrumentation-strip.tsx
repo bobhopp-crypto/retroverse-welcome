@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { RetroverseAcousticInstrumentation } from "@/app/albums/[slug]/retroverse-acoustic-instrumentation";
 import type { AggregatedAcousticProfile } from "@/lib/canonical-acoustic-aggregate";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
 import { loadLegacyVideoCache } from "@/lib/legacy-playback/video-cache";
@@ -9,6 +8,7 @@ import { resolveTrackPlayState } from "@/lib/track-media-state";
 import { tryCreateClient } from "@/lib/supabase";
 
 import { TrackMediaStateCluster } from "./track-media-state-cluster";
+import { TrackSonicMeters } from "./track-sonic-meters";
 
 export type TrackStripAlbumLink = {
   albumId: string;
@@ -48,14 +48,7 @@ export async function TrackInstrumentationStrip({
   return (
     <section className="dossier-track-instrument-strip" aria-label="Track instrumentation">
       <div className="dossier-track-instrument-zone dossier-track-instrument-zone--sonic">
-        <RetroverseAcousticInstrumentation
-          presentation="instrument-strip"
-          profile={profile}
-          hideCenterDial
-          simplifyRing
-          a11yLabel={`${title}. Sonic fingerprint.`}
-          domIdSlug={`strip-${title.slice(0, 10)}`}
-        />
+        <TrackSonicMeters profile={profile} a11yLabel={`${title}. Sonic fingerprint.`} />
       </div>
 
       <div className="dossier-track-instrument-zone dossier-track-instrument-zone--center">
