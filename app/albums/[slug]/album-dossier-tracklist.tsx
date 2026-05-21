@@ -3,11 +3,13 @@ import Link from "next/link";
 import { RetroverseAcousticInstrumentation } from "@/app/albums/[slug]/retroverse-acoustic-instrumentation";
 import { TrackPlayCenter } from "@/app/albums/[slug]/track-play-center";
 import type { DossierTrackRow } from "@/lib/album-dossier-display-tracks";
+import {
+  resolveAlbumTrackHref,
+  type AlbumTrackRouteIndex,
+} from "@/lib/load-album-track-routes";
 import type { VideoCacheDict } from "@/lib/legacy-playback/playback";
 import { buildAlbumTrackSignalPresentation } from "@/lib/track-signal-presentation";
 import { resolveTrackPlayState } from "@/lib/track-media-state";
-import { homeSearchHref } from "@/lib/retroverse-nav";
-import { hrefForTrack } from "@/lib/retroverse-routes";
 
 function formatDurationMs(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms)) return "—";
@@ -21,9 +23,10 @@ type Props = {
   rows: DossierTrackRow[];
   artistName: string;
   videoCache?: VideoCacheDict;
+  trackRouteIndex: AlbumTrackRouteIndex;
 };
 
-export function AlbumDossierTracklist({ rows, artistName, videoCache }: Props) {
+export function AlbumDossierTracklist({ rows, artistName, videoCache, trackRouteIndex }: Props) {
   if (!rows.length) {
     return <p className="dossier-provenance">Tracks not listed yet.</p>;
   }
@@ -36,18 +39,26 @@ export function AlbumDossierTracklist({ rows, artistName, videoCache }: Props) {
         const tr = row.track;
         const pres = presentation[i]!;
         const play = resolveTrackPlayState(artistName, tr.title, videoCache);
-        const trackHref =
-          tr.spotify_track_id && /^RVTR\d{6}$/i.test(tr.spotify_track_id)
-            ? hrefForTrack(tr.spotify_track_id)
-            : homeSearchHref(`${tr.title} ${artistName}`);
+        const trackHref = resolveAlbumTrackHref(tr.title, tr.spotify_track_id, trackRouteIndex);
+        const navigable = Boolean(trackHref);
         const heatClass =
           pres.heatTier !== "none" ? ` dossier-tracklist-row--heat-${pres.heatTier}` : "";
+        const navClass = navigable
+          ? " dossier-tracklist-row--navigable"
+          : " dossier-tracklist-row--static";
 
         return (
           <li
             key={`${tr.spotify_track_id ?? tr.title}-${i}`}
-            className={`dossier-tracklist-row${heatClass}`}
+            className={`dossier-tracklist-row${heatClass}${navClass}`}
           >
+            {navigable ? (
+              <Link
+                href={trackHref!}
+                className="dossier-tracklist-row-overlay"
+                aria-label={`Open ${tr.title}`}
+              />
+            ) : null}
             <div className="dossier-tracklist-instrument">
               <RetroverseAcousticInstrumentation
                 presentation="track-row"
@@ -64,10 +75,10 @@ export function AlbumDossierTracklist({ rows, artistName, videoCache }: Props) {
                 playbackUrl={play.playbackUrl}
               />
             </div>
-            <Link href={trackHref} className="dossier-tracklist-main">
+            <div className="dossier-tracklist-main">
               <span className="dossier-tracklist-title">{tr.title}</span>
               <span className="dossier-tracklist-dur">{formatDurationMs(tr.duration_ms ?? undefined)}</span>
-            </Link>
+            </div>
           </li>
         );
       })}

@@ -3002,6 +3002,10 @@ a.dossier-track-name:hover {
   margin-bottom: 1.1rem;
 }
 
+.dossier-readout--compact {
+  text-align: center;
+}
+
 .dossier-readout--compact .dossier-title {
   margin: 0 0 0.2rem;
   font-size: clamp(1.45rem, 6.2vw, 2.15rem);
@@ -3012,6 +3016,11 @@ a.dossier-track-name:hover {
   margin: 0 0 0.45rem;
   font-size: clamp(0.88rem, 2.6vw, 1rem);
   line-height: 1.3;
+}
+
+.dossier-readout--compact .dossier-chart-run-toggle {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .dossier-info-band {
@@ -3153,6 +3162,28 @@ a.dossier-track-name:hover {
   border-radius: 4px;
 }
 
+.dossier-tracklist-row--navigable {
+  cursor: pointer;
+}
+
+.dossier-tracklist-row--static {
+  cursor: default;
+}
+
+.dossier-tracklist-row-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dossier-tracklist-row-overlay:focus-visible {
+  outline: 1px solid rgba(255, 214, 150, 0.45);
+  outline-offset: 2px;
+}
+
 .dossier-tracklist-row::before {
   content: "";
   position: absolute;
@@ -3160,16 +3191,39 @@ a.dossier-track-name:hover {
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dossier-tracklist-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8%;
+  bottom: 8%;
+  width: 0;
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, width 0.2s ease;
 }
 
 .dossier-tracklist-row--heat-warm::before {
   opacity: 1;
   background: linear-gradient(
     90deg,
-    rgba(255, 200, 120, 0.045) 0%,
-    rgba(199, 107, 143, 0.025) 36%,
-    transparent 100%
+    rgba(255, 200, 120, 0.24) 0%,
+    rgba(199, 107, 143, 0.12) 52%,
+    transparent 96%
+  );
+}
+
+.dossier-tracklist-row--heat-warm::after {
+  opacity: 1;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 200, 120, 0.95) 0%,
+    rgba(199, 107, 143, 0.72) 100%
   );
 }
 
@@ -3177,9 +3231,20 @@ a.dossier-track-name:hover {
   opacity: 1;
   background: linear-gradient(
     90deg,
-    rgba(232, 107, 79, 0.065) 0%,
-    rgba(255, 214, 150, 0.04) 40%,
-    transparent 100%
+    rgba(232, 107, 79, 0.32) 0%,
+    rgba(255, 214, 150, 0.18) 54%,
+    transparent 97%
+  );
+  box-shadow: inset 0 0 32px rgba(232, 107, 79, 0.1);
+}
+
+.dossier-tracklist-row--heat-strong::after {
+  opacity: 1;
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(232, 107, 79, 1) 0%,
+    rgba(255, 200, 120, 0.92) 100%
   );
 }
 
@@ -3187,22 +3252,58 @@ a.dossier-track-name:hover {
   opacity: 1;
   background: linear-gradient(
     90deg,
-    rgba(232, 107, 79, 0.085) 0%,
-    rgba(255, 214, 150, 0.05) 44%,
-    transparent 100%
+    rgba(232, 107, 79, 0.44) 0%,
+    rgba(255, 214, 150, 0.24) 56%,
+    transparent 98%
+  );
+  box-shadow:
+    inset 0 0 44px rgba(232, 107, 79, 0.16),
+    inset 3px 0 0 rgba(255, 214, 150, 0.28);
+}
+
+.dossier-tracklist-row--heat-peak::after {
+  opacity: 1;
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 244, 220, 1) 0%,
+    rgba(232, 107, 79, 1) 50%,
+    rgba(199, 107, 143, 0.88) 100%
   );
 }
 
+.dossier-tracklist-row:not([class*="heat-warm"]):not([class*="heat-strong"]):not([class*="heat-peak"])
+  .dossier-tracklist-title {
+  color: rgba(205, 195, 182, 0.68);
+}
+
 .dossier-tracklist-row--heat-warm .dossier-tracklist-title {
-  color: rgba(242, 236, 228, 0.92);
+  color: rgba(250, 244, 232, 0.98);
+  text-shadow: 0 0 24px rgba(255, 200, 120, 0.24);
 }
 
 .dossier-tracklist-row--heat-strong .dossier-tracklist-title {
-  color: rgba(248, 242, 255, 0.95);
+  color: rgba(255, 252, 244, 1);
+  font-weight: 500;
+  text-shadow: 0 0 30px rgba(232, 107, 79, 0.28);
 }
 
 .dossier-tracklist-row--heat-peak .dossier-tracklist-title {
-  color: rgba(252, 244, 232, 0.98);
+  color: rgba(255, 252, 246, 1);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  text-shadow:
+    0 0 34px rgba(232, 107, 79, 0.4),
+    0 0 12px rgba(255, 214, 150, 0.22);
+}
+
+.dossier-tracklist-row--heat-warm .dossier-tracklist-dur {
+  color: rgba(235, 210, 175, 0.72);
+}
+
+.dossier-tracklist-row--heat-strong .dossier-tracklist-dur,
+.dossier-tracklist-row--heat-peak .dossier-tracklist-dur {
+  color: rgba(255, 228, 195, 0.82);
 }
 
 .dossier-tracklist-row:last-child {
@@ -3238,6 +3339,7 @@ a.dossier-track-name:hover {
 .dossier-track-play-center {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3298,16 +3400,11 @@ a.dossier-track-name:hover {
   white-space: nowrap;
 }
 
-.dossier-tracklist-main:hover .dossier-tracklist-title {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+.dossier-tracklist-row--navigable:hover .dossier-tracklist-title {
+  color: rgba(255, 250, 244, 1);
 }
 
 @media (min-width: 640px) {
-  .dossier-readout--compact {
-    text-align: left;
-  }
-
   .dossier-cinematic--dossier {
     grid-template-columns: 1.05fr 0.95fr;
     align-items: end;

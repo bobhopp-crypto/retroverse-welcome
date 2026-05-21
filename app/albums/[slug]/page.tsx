@@ -19,6 +19,7 @@ import { artistRoute } from "@/lib/retroverse-routes";
 import { AlbumArchiveCover } from "../album-archive-cover";
 import { AlbumExploreLoop } from "../album-explore-loop";
 import { AlbumDossierReadout } from "./album-dossier-readout";
+import { loadAlbumTrackRouteIndex } from "@/lib/load-album-track-routes";
 import { loadLegacyVideoCache } from "@/lib/legacy-playback/video-cache";
 
 import { AlbumDossierTracklist } from "./album-dossier-tracklist";
@@ -76,10 +77,11 @@ export default async function AlbumDossierPage({ params }: Props) {
   const browseYear = identity.chart_year ?? chart.retroscope_snapshot_year ?? null;
   const chartPeak = graphDetail?.peakChartPosition ?? chart.peak_rank;
   const chartWeeksCount = graphDetail?.weeksOnChart ?? chart.weeks_on_chart;
-  const [graphTracks, mbSidecar, { cache: videoCache }] = await Promise.all([
+  const [graphTracks, mbSidecar, { cache: videoCache }, trackRouteIndex] = await Promise.all([
     loadCanonicalAlbumGraphTracks(dossier.albumId),
     Promise.resolve(getDossierMusicBrainzSidecar(dossier.albumId)),
     loadLegacyVideoCache(),
+    loadAlbumTrackRouteIndex(dossier.albumId, identity.artist),
   ]);
   const trackRows = buildDossierTrackRows(dossier.albumId, acoustic.tracks, { graphTracks, mbSidecar });
 
@@ -122,6 +124,7 @@ export default async function AlbumDossierPage({ params }: Props) {
             rows={trackRows}
             artistName={identity.artist}
             videoCache={videoCache}
+            trackRouteIndex={trackRouteIndex}
           />
         </section>
 
