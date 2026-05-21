@@ -29,6 +29,10 @@ export type TrackPlayResolution = {
   mediaLabel: string;
 };
 
+export type TrackMediaSlot = Exclude<TrackPlayState, "no_media">;
+
+export type TrackMediaAvailability = Record<TrackMediaSlot, boolean>;
+
 const AUDIO_EXT = /\.(mp3|m4a|aac|wav|flac|ogg|opus)(\?|#|$)/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|#|$)/i;
 
@@ -80,6 +84,49 @@ function resolvePlayStateFromTarget(
   return "no_media";
 }
 
+function trackMediaInputs(artist: string, title: string, videoCache?: VideoCacheDict) {
+  const ar = artist.trim();
+  const ti = title.trim();
+  const trackInput: PlaybackTrackInput = { artist: ar, title: ti };
+  const merged = mergeVideoCache(trackInput, videoCache);
+  const bundle = getPlaybackSourceBundle(merged);
+  return { ar, ti, merged, bundle };
+}
+
+/** Which source lanes exist for this track (strip indicators only). */
+export function resolveTrackMediaAvailability(
+  artist: string,
+  title: string,
+  videoCache?: VideoCacheDict,
+): TrackMediaAvailability {
+  const { ar, ti, merged, bundle } = trackMediaInputs(artist, title, videoCache);
+  if (!ar || !ti) {
+    return {
+      vdj_video: false,
+      vdj_audio: false,
+      youtube_verified: false,
+      youtube_search: false,
+    };
+  }
+
+  const localUrl = (merged.video_url ?? merged.local_path ?? "").trim();
+  const localKind = localUrl ? classifyLocalUrl(localUrl) : "unknown";
+  const hasLocalVideo = localKind === "video" || (localKind === "unknown" && Boolean(localUrl));
+  const plays =
+    typeof merged.play_count === "number" && Number.isFinite(merged.play_count) ? merged.play_count : 0;
+  const hasLocalAudio = localKind === "audio" || (plays > 0 && !hasLocalVideo);
+  const hasYoutube = Boolean(bundle.sources.youtube?.videoId);
+  const searchReady =
+    bundle.fallback.type === "search" ? Boolean((bundle.fallback.url ?? "").trim()) : false;
+
+  return {
+    vdj_video: hasLocalVideo,
+    vdj_audio: hasLocalAudio,
+    youtube_verified: hasYoutube,
+    youtube_search: searchReady || hasYoutube,
+  };
+}
+
 export function resolveTrackPlayState(
   artist: string,
   title: string,
@@ -91,9 +138,7 @@ export function resolveTrackPlayState(
     return { state: "no_media", playbackUrl: null, mediaLabel: mediaLabelForState("no_media") };
   }
 
-  const trackInput: PlaybackTrackInput = { artist: ar, title: ti };
-  const merged = mergeVideoCache(trackInput, videoCache);
-  const bundle = getPlaybackSourceBundle(merged);
+  const { merged, bundle } = trackMediaInputs(artist, title, videoCache);
   const target = playbackTargetFromSourceBundle(bundle);
   const bundleHasYoutube = Boolean(bundle.sources.youtube?.videoId);
   const state = resolvePlayStateFromTarget(target, merged, bundleHasYoutube);

@@ -727,6 +727,15 @@ function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstr
           title={data.canonicalTitle}
           profile={instrumentation.profile}
           retroverseTrackId={instrumentation.retroverseTrackId}
+          albumLink={
+            primaryAlbum
+              ? {
+                  albumId: primaryAlbum.albumId,
+                  href: `/albums/${primaryAlbum.albumId}`,
+                  title: primaryAlbum.albumTitle,
+                }
+              : null
+          }
         />
 
         {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
@@ -887,6 +896,19 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
             title={track.canonical_title}
             profile={instrumentation.profile}
             retroverseTrackId={instrumentation.retroverseTrackId}
+            albumLink={
+              primaryAlbumHref &&
+              albumTitle &&
+              (originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id)
+                ? {
+                    albumId:
+                      originalAppearance?.retroverseAlbumId ??
+                      directTrackAlbum!.retroverse_album_id,
+                    href: primaryAlbumHref,
+                    title: albumTitle,
+                  }
+                : null
+            }
           />
 
           {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
@@ -944,6 +966,19 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
           title={track.canonical_title}
           profile={instrumentation.profile}
           retroverseTrackId={instrumentation.retroverseTrackId}
+          albumLink={
+            primaryAlbumHref &&
+            albumTitle &&
+            (originalAppearance?.retroverseAlbumId ?? directTrackAlbum?.retroverse_album_id)
+              ? {
+                  albumId:
+                    originalAppearance?.retroverseAlbumId ??
+                    directTrackAlbum!.retroverse_album_id,
+                  href: primaryAlbumHref,
+                  title: albumTitle,
+                }
+              : null
+          }
         />
 
         {relatedRows.length > 0 ? (
