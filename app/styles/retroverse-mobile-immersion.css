@@ -234,7 +234,25 @@
   }
 
   .dossier-track-continuity {
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.68rem;
+  }
+
+  .dossier-track-continuity-rail {
+    gap: 0.08rem 0;
+  }
+
+  .dossier-track-continuity-etch {
+    min-height: 2.5rem;
+    padding: 0.32rem 0.38rem;
+  }
+
+  .dossier-track-hero-placard {
+    width: 100%;
+  }
+
+  .dossier-track-hero-placard-stat {
+    flex: 1 1 auto;
+    min-width: 4.5rem;
   }
 
   .dossier-trajectory-callouts {
@@ -246,11 +264,10 @@
     margin-bottom: 0.5rem;
   }
 
-  .dossier-shell--trajectory .dossier-top--nav .dossier-a {
-    font-size: max(0.8125rem, 14px);
-    min-height: 2.5rem;
-    display: inline-flex;
-    align-items: center;
+  body.dossier-body .dossier-shell--trajectory .dossier-top--nav .dossier-a--quiet {
+    font-size: max(0.625rem, 11px);
+    min-height: auto;
+    padding: 0.1rem 0;
   }
 
   .dossier-mobile-reveal {

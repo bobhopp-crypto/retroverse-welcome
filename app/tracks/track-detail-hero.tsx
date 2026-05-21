@@ -129,26 +129,26 @@ export async function TrackDetailHero({
           ) : null}
 
           {hasChartMeta ? (
-            <div className="dossier-track-hero-chartline" aria-label="Chart history">
+            <dl className="dossier-track-hero-placard" aria-label="Chart history">
               {chart!.peak != null ? (
-                <span className="dossier-track-hero-chartline-item dossier-track-hero-chartline-item--peak">
-                  <span className="dossier-track-hero-chartline-k">Peak</span>
-                  <span className="dossier-track-hero-chartline-v">#{chart!.peak}</span>
-                </span>
+                <div className="dossier-track-hero-placard-stat dossier-track-hero-placard-stat--peak">
+                  <dt>Peak</dt>
+                  <dd>#{chart!.peak}</dd>
+                </div>
               ) : null}
               {chart!.weeks != null ? (
-                <span className="dossier-track-hero-chartline-item">
-                  <span className="dossier-track-hero-chartline-k">Weeks</span>
-                  <span className="dossier-track-hero-chartline-v">{chart!.weeks}</span>
-                </span>
+                <div className="dossier-track-hero-placard-stat">
+                  <dt>Weeks</dt>
+                  <dd>{chart!.weeks}</dd>
+                </div>
               ) : null}
               {chartSpan ? (
-                <span className="dossier-track-hero-chartline-item dossier-track-hero-chartline-item--span">
-                  <span className="dossier-track-hero-chartline-k">On chart</span>
-                  <span className="dossier-track-hero-chartline-v">{chartSpan}</span>
-                </span>
+                <div className="dossier-track-hero-placard-stat dossier-track-hero-placard-stat--span">
+                  <dt>On chart</dt>
+                  <dd>{chartSpan}</dd>
+                </div>
               ) : null}
-            </div>
+            </dl>
           ) : null}
         </div>
       </div>

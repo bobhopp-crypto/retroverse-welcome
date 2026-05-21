@@ -393,22 +393,37 @@ body.rv-public-surface {
     max-width: 7.25rem;
   }
 
-  .dossier-body .dossier-track-hero-chartline {
-    gap: 0.65rem 1rem;
-    margin-top: 0.65rem;
-    padding-top: 0.6rem;
+  body.dossier-body {
+    --rv-header-offset: calc(3.2rem + env(safe-area-inset-top, 0px));
   }
 
-  .dossier-body .dossier-track-hero-chartline-k {
-    font-size: max(0.6875rem, 12px) !important;
+  .dossier-body .dossier-track-hero-placard {
+    margin-top: 0.62rem;
+    padding-top: 0.55rem;
   }
 
-  .dossier-body .dossier-track-hero-chartline-v {
+  .dossier-body .dossier-track-hero-placard-stat {
+    padding-right: 0.75rem;
+  }
+
+  .dossier-body .dossier-track-hero-placard-stat dt {
+    font-size: max(0.625rem, 11px) !important;
+  }
+
+  .dossier-body .dossier-track-hero-placard-stat dd {
     font-size: max(1rem, 16px) !important;
   }
 
-  .dossier-body .dossier-track-hero-chartline-item--span .dossier-track-hero-chartline-v {
-    font-size: max(0.8125rem, 14px) !important;
+  .dossier-body .dossier-track-hero-placard-stat--span dd {
+    font-size: max(0.75rem, 13px) !important;
+  }
+
+  .dossier-body .dossier-track-continuity--rail {
+    padding: 0.48rem 0.5rem 0.52rem;
+  }
+
+  .dossier-body .dossier-track-continuity-etch-label {
+    font-size: max(0.625rem, 11px);
   }
 
   .dossier-body .dossier-archival-void-caption {
@@ -428,8 +443,8 @@ body.rv-public-surface {
     color: rgba(215, 220, 246, 0.68) !important;
   }
 
-  .dossier-body .dossier-track-continuity-list {
-    gap: 0.5rem 0.85rem;
+  .dossier-body .dossier-track-continuity-rail {
+    gap: 0.1rem 0;
   }
 
   .dossier-body .dossier-explore-loop-link {
