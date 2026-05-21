@@ -1,9 +1,9 @@
 import { pickCanonicalCoverForAlbum } from "@/lib/canonical-artwork-overrides";
-import { resolveAlbumCoverUrl } from "@/lib/canonical-graph";
-import { integrityQuery, isCanonicalGraphEnabled } from "@/lib/canonical-graph";
 import { canonicalCoverPathToUrl } from "@/lib/canonical-cover-url";
+import { resolveAlbumCoverUrl } from "@/lib/canonical-graph";
 import { loadAlbumArtworkRows, selectCanonicalArtwork } from "@/lib/retroverse-artwork";
 import { hrefForAlbum } from "@/lib/retroverse-routes";
+import { resolvePrimaryTrackAlbumFromGraph } from "@/lib/resolve-primary-track-album";
 import { tryCreateClient } from "@/lib/supabase";
 
 const RE_RVAL = /^RVAL\d{6}$/i;
@@ -39,77 +39,30 @@ function candidateFrom(
   return { albumId: id, albumTitle: title, releaseYear: releaseYear ?? null };
 }
 
-async function loadCoverForAlbum(albumId: string): Promise<string | null> {
+async function loadCoverForAlbum(albumId: string, pgAlbumId?: number): Promise<string | null> {
   const rval = normalizeRvalId(albumId);
-  if (!rval) return null;
+  if (!rval && pgAlbumId == null) return null;
 
-  const fromGraph = await resolveAlbumCoverUrl(rval);
-  if (fromGraph) return fromGraph;
+  if (rval) {
+    const fromGraph = await resolveAlbumCoverUrl(rval, { pgAlbumId });
+    if (fromGraph) return fromGraph;
 
-  const picked = await pickCanonicalCoverForAlbum(rval);
-  if (picked.path?.trim()) {
-    return canonicalCoverPathToUrl(picked.path, { cacheBust: picked.cacheBust });
+    const picked = await pickCanonicalCoverForAlbum(rval);
+    if (picked.path?.trim()) {
+      return canonicalCoverPathToUrl(picked.path, { cacheBust: picked.cacheBust });
+    }
+  } else if (pgAlbumId != null) {
+    const fromGraph = await resolveAlbumCoverUrl(`PG:${pgAlbumId}`, { pgAlbumId });
+    if (fromGraph) return fromGraph;
   }
+
+  if (!rval) return null;
 
   const supabase = tryCreateClient();
   if (!supabase) return null;
   const rows = await loadAlbumArtworkRows(supabase, [rval]);
   const path = selectCanonicalArtwork(rows, rval, null)?.canonical_cover_path ?? null;
   return canonicalCoverPathToUrl(path);
-}
-
-async function graphAlbumForTrack(
-  artist: string,
-  title: string,
-  retroverseTrackId?: string | null,
-): Promise<TrackHeroAlbumCandidate | null> {
-  if (!isCanonicalGraphEnabled()) return null;
-  const rvtr = retroverseTrackId?.trim().toUpperCase();
-  if (!title.trim() && !rvtr) return null;
-
-  try {
-    const rows = await integrityQuery<{
-      album_id: string;
-      album_title: string;
-      release_year: number | null;
-    }>(
-      `
-      SELECT
-        upper(trim(aek.external_key)) AS album_id,
-        al.title AS album_title,
-        al.release_year
-      FROM canonical_tracks ct
-      JOIN artists ar ON ar.id = ct.artist_id
-      JOIN canonical_album_tracks cat ON (
-        (cat.canonical_track_key IS NOT NULL AND cat.canonical_track_key = ct.track_id)
-        OR lower(trim(cat.title)) = lower(trim(ct.canonical_title))
-      )
-      JOIN albums al ON al.id = cat.album_id
-      JOIN album_external_keys aek ON aek.album_id = al.id
-      WHERE lower(trim(ar.canonical_name)) = lower(trim($1))
-        AND (
-          ($3::text IS NOT NULL AND ct.track_id = $3)
-          OR lower(trim(ct.canonical_title)) = lower(trim($2))
-          OR (
-            cat.canonical_track_key IS NOT NULL
-            AND cat.canonical_track_key = ct.track_id
-          )
-        )
-      ORDER BY
-        CASE WHEN cat.canonical_track_key = ct.track_id THEN 0 ELSE 1 END,
-        cat.disc_number NULLS FIRST,
-        cat.track_number NULLS FIRST,
-        al.release_year DESC NULLS LAST
-      LIMIT 1
-      `,
-      [artist, title, rvtr && RE_RVTR.test(rvtr) ? rvtr : null],
-    );
-    const row = rows[0];
-    if (!row) return null;
-    return candidateFrom(row.album_id, row.album_title, row.release_year);
-  } catch {
-    return null;
-  }
 }
 
 async function supabaseAlbumForTrack(
@@ -146,41 +99,60 @@ async function supabaseAlbumForTrack(
   );
 }
 
-/**
- * Resolve the best album link for a track hero (source album or first known album).
- * Loads cover art when available.
- */
-export async function resolveTrackHeroAlbum(input: {
-  artist: string;
-  title: string;
-  retroverseTrackId?: string | null;
-  /** Ordered fallbacks — first valid RVAL wins. */
-  candidates?: TrackHeroAlbumCandidate[];
-}): Promise<TrackHeroAlbumResolved | null> {
-  const ordered: TrackHeroAlbumCandidate[] = [];
-
-  for (const c of input.candidates ?? []) {
-    const norm = candidateFrom(c.albumId, c.albumTitle, c.releaseYear);
-    if (norm) ordered.push(norm);
-  }
-
-  const graph = await graphAlbumForTrack(input.artist, input.title, input.retroverseTrackId);
-  if (graph) ordered.push(graph);
-
-  const supa = await supabaseAlbumForTrack(input.retroverseTrackId);
-  if (supa) ordered.push(supa);
-
-  const pick = ordered[0];
-  if (!pick) return null;
-
-  const href = hrefForAlbum(pick.albumId, pick.albumTitle);
-  const coverUrl = await loadCoverForAlbum(pick.albumId);
-
+function heroFromGraphPrimary(
+  primary: Awaited<ReturnType<typeof resolvePrimaryTrackAlbumFromGraph>>,
+): TrackHeroAlbumResolved | null {
+  if (!primary) return null;
+  const rval = normalizeRvalId(primary.albumId);
   return {
+    albumId: rval ?? primary.albumId,
+    href: primary.href,
+    title: primary.title,
+    releaseYear: primary.releaseYear,
+    coverUrl: primary.coverUrl,
+  };
+}
+
+function heroFromCandidate(
+  pick: TrackHeroAlbumCandidate,
+  pgAlbumId?: number,
+): Promise<TrackHeroAlbumResolved | null> {
+  const href = hrefForAlbum(pick.albumId, pick.albumTitle);
+  return loadCoverForAlbum(pick.albumId, pgAlbumId).then((coverUrl) => ({
     albumId: pick.albumId,
     href: href === "/albums" ? `/albums/${pick.albumId}` : href,
     title: pick.albumTitle,
     releaseYear: pick.releaseYear ?? null,
     coverUrl,
-  };
+  }));
+}
+
+/**
+ * Resolve the PRIMARY album for a track hero (graph-native, deterministic).
+ * Legacy candidates and Supabase are fallback-only.
+ */
+export async function resolveTrackHeroAlbum(input: {
+  artist: string;
+  title: string;
+  retroverseTrackId?: string | null;
+  /** Fallback-only — graph PRIMARY wins when present. */
+  candidates?: TrackHeroAlbumCandidate[];
+}): Promise<TrackHeroAlbumResolved | null> {
+  const graphPrimary = await resolvePrimaryTrackAlbumFromGraph({
+    artist: input.artist,
+    title: input.title,
+    retroverseTrackId: input.retroverseTrackId,
+  });
+  const fromGraph = heroFromGraphPrimary(graphPrimary);
+  if (fromGraph) return fromGraph;
+
+  for (const c of input.candidates ?? []) {
+    const norm = candidateFrom(c.albumId, c.albumTitle, c.releaseYear);
+    if (norm) return heroFromCandidate(norm);
+  }
+
+  const supa = await supabaseAlbumForTrack(input.retroverseTrackId);
+  if (supa) return heroFromCandidate(supa);
+
+  return null;
 }
