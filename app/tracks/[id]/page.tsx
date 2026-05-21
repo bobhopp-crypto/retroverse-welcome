@@ -14,8 +14,16 @@ import {
   loadCanonicalTrackByTitleSlug,
   loadCanonicalTrackVersions,
 } from "@/lib/load-canonical-track-graph";
-import { loadTrackTrajectory, type TrackTrajectory } from "@/lib/load-track-trajectory";
+import type { AggregatedAcousticProfile } from "@/lib/canonical-acoustic-aggregate";
+import { chartsToTrajectoryWeeks } from "@/lib/charts-to-trajectory-weeks";
+import {
+  loadTrackAcousticProfile,
+  resolveTrackRetroverseId,
+} from "@/lib/load-track-acoustic-profile";
+import { loadTrackTrajectory, type TrackTrajectory, type TrackTrajectoryWeek } from "@/lib/load-track-trajectory";
+import { trackDialHeatMultiplier } from "@/lib/track-dial-heat-scale";
 import { resolveTrajectoryHistoricalHeat } from "@/lib/trajectory-historical-heat";
+import { TrackInstrumentationStrip } from "@/app/tracks/track-instrumentation-strip";
 import { logEntityLoaderError } from "@/lib/entity-safe";
 import { createClient, tryCreateClient } from "@/lib/supabase";
 import { EntityStatus } from "@/app/components/entity-status";
@@ -570,7 +578,80 @@ function formatChartDate(value: string | null): string {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(date);
 }
 
-function trajectoryMomentClasses(weeks: TrackTrajectory["weeks"], index: number): string {
+function mean01(...vals: Array<number | null | undefined>): number {
+  const ok = vals.filter((x): x is number => x != null && Number.isFinite(x));
+  if (!ok.length) return 0;
+  return ok.reduce((a, b) => a + b, 0) / ok.length;
+}
+
+function retroverseDialFromProfile(profile: AggregatedAcousticProfile): number {
+  const cultural = mean01(profile.liveness, profile.speechiness, profile.danceability);
+  const replay = mean01(profile.danceability, profile.energy, profile.valence != null ? profile.valence * 0.85 : null);
+  return Math.min(
+    99,
+    Math.round(mean01(profile.energy, profile.valence, cultural, replay) * 100),
+  );
+}
+
+type TrackInstrumentationContext = {
+  profile: AggregatedAcousticProfile;
+  retroverseTrackId: string | null;
+};
+
+function renderTrackChartRunRail(
+  weeks: TrackTrajectoryWeek[],
+  peak: number | null,
+  dialMultiplier: number,
+) {
+  return (
+    <section
+      id="track-chart-run"
+      className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel"
+      aria-label="Hot 100 chart run"
+    >
+      <div className="dossier-trajectory-scale" aria-hidden>
+        <span>#100</span>
+        <span>#50</span>
+        <span>#1</span>
+      </div>
+      <ol className="dossier-trajectory-rail">
+        {weeks.map((week, index) => {
+          const momentClasses = trajectoryMomentClasses(weeks, index);
+          const heat = resolveTrajectoryHistoricalHeat(week, index, weeks, peak);
+          const intensity = Math.min(1, heat.intensity * dialMultiplier);
+          return (
+            <li
+              key={`${week.issueDate}-${index}`}
+              className={`dossier-trajectory-week ${momentClasses}`.trim()}
+              style={
+                {
+                  "--rank-x": `${week.x}%`,
+                  "--heat-intensity": String(intensity),
+                  "--heat-bg": heat.atmosphereBg,
+                  "--heat-border": heat.atmosphereBorder,
+                  "--heat-glow": heat.atmosphereGlow,
+                  "--heat-rail": heat.railTint,
+                  "--heat-bar": heat.barFill,
+                } as CSSProperties
+              }
+            >
+              <div className="dossier-trajectory-date">
+                <span>{formatChartDate(week.issueDate)}</span>
+                <small>week {week.weeksOnChart ?? index + 1}</small>
+              </div>
+              <div className="dossier-trajectory-track" aria-hidden />
+              <div className="dossier-trajectory-rank">
+                <strong>#{week.rank}</strong>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
+}
+
+function trajectoryMomentClasses(weeks: TrackTrajectoryWeek[], index: number): string {
   const week = weeks[index];
   const previous = index > 0 ? weeks[index - 1] : null;
   const twoBack = index > 1 ? weeks[index - 2] : null;
@@ -588,8 +669,9 @@ function trajectoryMomentClasses(weeks: TrackTrajectory["weeks"], index: number)
   return classes.join(" ");
 }
 
-function renderTrajectoryPage(data: TrackTrajectory) {
+function renderTrajectoryPage(data: TrackTrajectory, instrumentation: TrackInstrumentationContext) {
   const primaryAlbum = data.connectedAlbums[0] ?? null;
+  const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(instrumentation.profile));
   return (
     <>
       <BodyClassName className="dossier-body" />
@@ -635,47 +717,19 @@ function renderTrajectoryPage(data: TrackTrajectory) {
               <dd>{formatChartDate(data.finalChartWeek)}</dd>
             </div>
           </dl>
+          <a href="#track-chart-run" className="dossier-chart-run-toggle">
+            Chart Run
+          </a>
         </section>
 
-        <section className="dossier-panel dossier-panel--band-teal dossier-trajectory-panel" aria-label="Hot 100 chart run">
-          <div className="dossier-trajectory-scale" aria-hidden>
-            <span>#100</span>
-            <span>#50</span>
-            <span>#1</span>
-          </div>
-          <ol className="dossier-trajectory-rail">
-            {data.weeks.map((week, index) => {
-              const momentClasses = trajectoryMomentClasses(data.weeks, index);
-              const heat = resolveTrajectoryHistoricalHeat(week, index, data.weeks, data.peak);
-              return (
-                <li
-                  key={`${week.issueDate}-${index}`}
-                  className={`dossier-trajectory-week ${momentClasses}`.trim()}
-                  style={
-                    {
-                      "--rank-x": `${week.x}%`,
-                      "--heat-intensity": String(heat.intensity),
-                      "--heat-bg": heat.atmosphereBg,
-                      "--heat-border": heat.atmosphereBorder,
-                      "--heat-glow": heat.atmosphereGlow,
-                      "--heat-rail": heat.railTint,
-                      "--heat-bar": heat.barFill,
-                    } as CSSProperties
-                  }
-                >
-                  <div className="dossier-trajectory-date">
-                    <span>{formatChartDate(week.issueDate)}</span>
-                    <small>week {week.weeksOnChart ?? index + 1}</small>
-                  </div>
-                  <div className="dossier-trajectory-track" aria-hidden />
-                  <div className="dossier-trajectory-rank">
-                    <strong>#{week.rank}</strong>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
+        <TrackInstrumentationStrip
+          artist={data.canonicalArtist}
+          title={data.canonicalTitle}
+          profile={instrumentation.profile}
+          retroverseTrackId={instrumentation.retroverseTrackId}
+        />
+
+        {renderTrackChartRunRail(data.weeks, data.peak, dialMultiplier)}
 
         <section className="dossier-track-support">
           <article className="dossier-panel dossier-panel--band-plank">
@@ -722,7 +776,18 @@ function renderTrajectoryPage(data: TrackTrajectory) {
 export default async function TrackDetailPage({ params }: TrackPageProps) {
   const { id } = await params;
   const trajectory = loadTrackTrajectory(id);
-  if (trajectory) return renderTrajectoryPage(trajectory);
+  if (trajectory) {
+    const retroverseTrackId = await resolveTrackRetroverseId(
+      trajectory.canonicalArtist,
+      trajectory.canonicalTitle,
+    );
+    const profile = await loadTrackAcousticProfile(
+      trajectory.canonicalArtist,
+      trajectory.canonicalTitle,
+      retroverseTrackId,
+    );
+    return renderTrajectoryPage(trajectory, { profile, retroverseTrackId });
+  }
 
   let data: Awaited<ReturnType<typeof loadTrackGraph>> = null;
   try {
@@ -751,6 +816,102 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
       ? hrefForAlbum(originalAppearance.retroverseAlbumId, originalAppearance.canonicalAlbumTitle)
       : hrefForAlbum(directTrackAlbum!.retroverse_album_id, directTrackAlbum!.canonical_album_title)
     : null;
+  const releaseYear =
+    track.release_year ??
+    originalAppearance?.editionReleaseYear ??
+    originalAppearance?.albumReleaseYear ??
+    directTrackAlbum?.release_year ??
+    null;
+
+  const retroverseTrackId =
+    data.canonicalEntity?.trackId ?? track.retroverse_track_id;
+  const profile = await loadTrackAcousticProfile(
+    artist.canonical_artist_name,
+    track.canonical_title,
+    retroverseTrackId,
+  );
+  const instrumentation: TrackInstrumentationContext = {
+    profile,
+    retroverseTrackId: retroverseTrackId?.toUpperCase() ?? null,
+  };
+  const trajectoryWeeks = charts.length > 0 ? chartsToTrajectoryWeeks(charts) : [];
+  const dialMultiplier = trackDialHeatMultiplier(retroverseDialFromProfile(profile));
+
+  if (trajectoryWeeks.length > 0) {
+    return (
+      <>
+        <BodyClassName className="dossier-body" />
+        <main className="dossier-shell dossier-shell--trajectory">
+          <header className="dossier-top dossier-top--nav">
+            <Link href="/tracks" className="dossier-a dossier-a--quiet">
+              Tracks
+            </Link>
+            <Link href="/" className="dossier-a dossier-a--quiet">
+              Search
+            </Link>
+          </header>
+
+          <section className="dossier-readout dossier-trajectory-readout">
+            <p className="dossier-provenance-label">Hot 100</p>
+            <h1 className="dossier-title">{track.canonical_title}</h1>
+            <p className="dossier-byline">
+              <Link href={artistHref}>{artist.canonical_artist_name}</Link>
+            </p>
+            {albumTitle && primaryAlbumHref ? (
+              <p className="dossier-provenance">
+                Album: <Link href={primaryAlbumHref}>{albumTitle}</Link>
+              </p>
+            ) : null}
+
+            <dl className="dossier-trajectory-stats">
+              <div>
+                <dt>Year</dt>
+                <dd>{releaseYear ?? "—"}</dd>
+              </div>
+              <div>
+                <dt>Peak</dt>
+                <dd>{peakChartPosition !== null ? `#${peakChartPosition}` : "—"}</dd>
+              </div>
+              <div>
+                <dt>Weeks</dt>
+                <dd>{maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? "—"}</dd>
+              </div>
+            </dl>
+            <a href="#track-chart-run" className="dossier-chart-run-toggle">
+              Chart Run
+            </a>
+          </section>
+
+          <TrackInstrumentationStrip
+            artist={artist.canonical_artist_name}
+            title={track.canonical_title}
+            profile={instrumentation.profile}
+            retroverseTrackId={instrumentation.retroverseTrackId}
+          />
+
+          {renderTrackChartRunRail(trajectoryWeeks, peakChartPosition, dialMultiplier)}
+
+          {relatedRows.length > 0 ? (
+            <section className="dossier-track-support">
+              <article className="dossier-panel dossier-panel--band-gold">
+                <h2 className="dossier-panel-label">Related tracks</h2>
+                <ul className="dossier-support-list">
+                  {relatedRows.map((row) => (
+                    <li key={row.retroverseTrackId}>
+                      <Link href={`/tracks/${row.retroverseTrackId}`}>{row.title}</Link>
+                      <span>
+                        {row.peakChartPosition !== null ? `#${row.peakChartPosition}` : "—"} · {row.artist}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            </section>
+          ) : null}
+        </main>
+      </>
+    );
+  }
 
   return (
     <div className="rv-public-surface min-h-full">
@@ -774,40 +935,16 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
                 <Link href={primaryAlbumHref}>{albumTitle}</Link>
               </>
             ) : null}
-            {track.release_year !== null ? <> · Released {track.release_year}</> : null}
+            {releaseYear !== null ? <> · Released {releaseYear}</> : null}
           </p>
-          <ul className="rv-entity-stats">
-            <li>
-              <span>Peak position</span>
-              <strong>{peakChartPosition !== null ? `#${peakChartPosition}` : "—"}</strong>
-            </li>
-            <li>
-              <span>Weeks on chart</span>
-              <strong>{maxWeeksOnChart ?? charts[0]?.weeks_on_chart ?? "—"}</strong>
-            </li>
-            <li>
-              <span>Chart entries</span>
-              <strong>{charts.length || "—"}</strong>
-            </li>
-          </ul>
         </header>
 
-        {charts.length > 0 ? (
-          <section className="rv-entity-section">
-            <h2>Hot 100 chart run</h2>
-            <ul className="rv-entity-chart-list">
-              {charts.map((row) => (
-                <li key={row.retroverse_chart_id}>
-                  <span>
-                    {formatChartDate(row.chart_date)}
-                    {row.weeks_on_chart !== null ? ` · ${row.weeks_on_chart} weeks on chart` : ""}
-                  </span>
-                  <strong>#{row.chart_position}</strong>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        <TrackInstrumentationStrip
+          artist={artist.canonical_artist_name}
+          title={track.canonical_title}
+          profile={instrumentation.profile}
+          retroverseTrackId={instrumentation.retroverseTrackId}
+        />
 
         {relatedRows.length > 0 ? (
           <section className="rv-entity-section">
@@ -816,9 +953,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
               {relatedRows.map((row) => (
                 <li key={row.retroverseTrackId}>
                   <Link href={`/tracks/${row.retroverseTrackId}`}>
-                    <span className="rv-track-num">
-                      {row.peakChartPosition !== null ? `#${row.peakChartPosition}` : "—"}
-                    </span>
                     <span>
                       {row.title} — {row.artist}
                     </span>
