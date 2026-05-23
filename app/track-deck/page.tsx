@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function TrackDeckPage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; q?: string; artist?: string }>;
 }) {
   const sp = await searchParams;
+  const initialTrackQuery = [sp.q, sp.artist].filter((v) => typeof v === "string" && v.trim()).join(" ").trim() || null;
   const requestedDate =
     typeof sp.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(sp.date.trim())
       ? sp.date.trim()
@@ -51,6 +52,7 @@ export default async function TrackDeckPage({
       initialWeek={initialWeek}
       linkedKeys={linkedKeys}
       dbError={dbError}
+      initialTrackQuery={initialTrackQuery}
     />
   );
 }

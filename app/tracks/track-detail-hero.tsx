@@ -78,27 +78,27 @@ export async function TrackDetailHero({
         <div className="dossier-track-hero-poster-bezel">{artFrame}</div>
         <div className="dossier-track-hero-poster-credits">
           <h1 className="dossier-title">{title}</h1>
-          <div className="dossier-track-hero-poster-line2">
-            <div className="dossier-track-hero-poster-meta-left">
-              <Link className="dossier-track-hero-poster-artist" href={artistHref}>
-                {artistName}
-              </Link>
-              {showAlbumRef ? (
-                <>
-                  <span className="dossier-track-hero-poster-sep" aria-hidden>
-                    {" "}
-                    ·{" "}
-                  </span>
-                  <Link href={album.href} className="dossier-track-hero-poster-album">
-                    {album.title}
-                  </Link>
-                </>
-              ) : null}
-            </div>
+          <p className="dossier-track-hero-poster-line2">
+            <Link className="dossier-track-hero-poster-artist" href={artistHref}>
+              {artistName}
+            </Link>
             {displayYear != null ? (
-              <span className="dossier-track-hero-poster-year">{displayYear}</span>
+              <>
+                <span className="dossier-track-hero-poster-dash" aria-hidden>
+                  {" "}
+                  -{" "}
+                </span>
+                <span className="dossier-track-hero-poster-year">{displayYear}</span>
+              </>
             ) : null}
-          </div>
+          </p>
+          {showAlbumRef ? (
+            <p className="dossier-track-hero-poster-album-line">
+              <Link href={album.href} className="dossier-track-hero-poster-album">
+                {album.title}
+              </Link>
+            </p>
+          ) : null}
         </div>
       </div>
     </section>

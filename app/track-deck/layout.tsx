@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Track deck · Retroverse",
-  description: "Operational Hot 100 chart browser with VDJ ownership state.",
-  robots: { index: false, follow: false },
+  title: "Charts · Retroverse",
+  description: "Hot 100 chart exploration — timeline traversal and track discovery.",
 };
 
 export default function TrackDeckLayout({ children }: { children: React.ReactNode }) {

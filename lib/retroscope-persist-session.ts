@@ -197,6 +197,45 @@ export function centerViewportOnSelection(opts: {
   return { viewYear0, viewRank0 };
 }
 
+/** Pan viewport only when the active coordinate would leave the visible grid (playhead moves on arrows). */
+export function panViewportToIncludeActive(opts: {
+  activeYear: number;
+  activeRank: number;
+  viewYear0: number;
+  viewRank0: number;
+  visibleGridRows: number;
+}): { viewYear0: number; viewRank0: number } {
+  const visibleGridRows = clamp(
+    Number.isFinite(opts.visibleGridRows) && opts.visibleGridRows > 0
+      ? Math.round(opts.visibleGridRows)
+      : RETROSCOPE_GRID_ROWS,
+    1,
+    RETROSCOPE_RANK_MAX,
+  );
+  const ynn = clamp(Math.round(opts.activeYear), RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX);
+  const rnn = clamp(Math.round(opts.activeRank), 1, RETROSCOPE_RANK_MAX);
+  let viewYear0 = clamp(
+    Math.round(opts.viewYear0),
+    RETROSCOPE_WORLD_YEAR_MIN,
+    RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1,
+  );
+  let viewRank0 = clamp(Math.round(opts.viewRank0), 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
+
+  const activeCol = ynn - viewYear0;
+  const activeRow = rnn - viewRank0;
+
+  if (activeCol < 0) viewYear0 = ynn;
+  else if (activeCol >= RETROSCOPE_GRID_COLS) viewYear0 = ynn - (RETROSCOPE_GRID_COLS - 1);
+
+  if (activeRow < 0) viewRank0 = rnn;
+  else if (activeRow >= visibleGridRows) viewRank0 = rnn - (visibleGridRows - 1);
+
+  viewYear0 = clamp(viewYear0, RETROSCOPE_WORLD_YEAR_MIN, RETROSCOPE_WORLD_YEAR_MAX - RETROSCOPE_GRID_COLS + 1);
+  viewRank0 = clamp(viewRank0, 1, RETROSCOPE_RANK_MAX - visibleGridRows + 1);
+
+  return { viewYear0, viewRank0 };
+}
+
 /** @deprecated Prefer `centerViewportOnSelection` — same center-lock behavior. */
 export function fitViewportToIncludeCoordinate(opts: {
   activeYear: number;

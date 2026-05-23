@@ -24,7 +24,7 @@ export const indexPrimaryNav: SiteTocEntry[] = [
   { href: "/albums", label: "Albums" },
   { href: "/eras", label: "Eras" },
   { href: "/search", label: "Search" },
-  { href: "/tracks", label: "Tracks" },
+  { href: "/track-deck", label: "Charts", note: "Hot 100 exploration · track find" },
 ];
 
 /** Editorial and utilities. */
@@ -36,7 +36,7 @@ export const indexSecondaryNav: SiteTocEntry[] = [
 
 /** Internal / ops — not in main header. */
 export const indexToolsNav: SiteTocEntry[] = [
-  { href: "/track-deck", label: "Track deck", note: "Hot 100 ops · VDJ gaps" },
+  { href: "/track-deck", label: "Charts", note: "Hot 100 · VDJ · track find" },
   { href: "/track-curator", label: "Track curator", note: "VDJ match · accept/reject" },
   { href: "/relationship-workspace", label: "Relationship workspace", note: "multi-panel reconcile" },
   { href: "/internal/curator", label: "Curator", note: "artwork triage" },
@@ -58,14 +58,13 @@ export const siteTocStaticPages: SiteTocEntry[] = [
   { href: "/eras/1974-1977", label: "Era 1974–1977 (canonical graph)" },
   { href: "/artists", label: "Artists index" },
   { href: "/albums", label: "Albums index" },
-  { href: "/tracks", label: "Tracks index" },
+  { href: "/track-deck", label: "Charts", note: "redirects from legacy /tracks" },
   { href: "/search", label: "Search" },
   { href: "/random", label: "Random explore" },
   { href: "/site-index", label: "Index", note: "this page" },
   { href: "/discover", label: "Discover", note: "→ /album-retroscope" },
   { href: "/viewer", label: "Viewer", note: "→ /album-retroscope" },
   { href: "/toc", label: "Table of contents" },
-  { href: "/track-deck", label: "Track deck (internal)", note: "Hot 100 · VDJ ops" },
   { href: "/track-curator", label: "Track curator (internal)", note: "chart track · VDJ files" },
   {
     href: "/relationship-workspace",

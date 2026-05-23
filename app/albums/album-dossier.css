@@ -1417,19 +1417,9 @@ a.dossier-track-name:hover {
 }
 
 .dossier-track-hero-poster-line2 {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
   width: 100%;
   margin: 0;
-  line-height: 1.2;
-}
-
-.dossier-track-hero-poster-meta-left {
-  flex: 1 1 auto;
-  min-width: 0;
+  line-height: 1.28;
   text-align: left;
 }
 
@@ -1448,25 +1438,22 @@ a.dossier-track-name:hover {
   text-underline-offset: 3px;
 }
 
-.dossier-track-hero-poster-sep {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.82em;
-  font-weight: 500;
-  color: rgba(180, 172, 190, 0.38);
-}
-
+.dossier-track-hero-poster-dash,
 .dossier-track-hero-poster-year {
-  flex: 0 0 auto;
   font-family: var(--d-font-editorial);
   font-size: clamp(0.88rem, 3vw, 1.06rem);
   font-style: italic;
   font-weight: 560;
   line-height: 1.12;
-  text-align: right;
   color: rgba(215, 220, 246, 0.74);
 }
 
-.dossier-track-hero-poster-meta-left .dossier-track-hero-poster-album {
+.dossier-track-hero-poster-album-line {
+  margin: 0.12rem 0 0;
+  text-align: left;
+}
+
+.dossier-track-hero-poster-album-line .dossier-track-hero-poster-album {
   font-family: var(--d-font-editorial);
   font-size: max(0.75rem, 13px);
   font-style: italic;
@@ -1474,7 +1461,7 @@ a.dossier-track-name:hover {
   text-decoration: none;
 }
 
-.dossier-track-hero-poster-meta-left .dossier-track-hero-poster-album:hover {
+.dossier-track-hero-poster-album-line .dossier-track-hero-poster-album:hover {
   color: rgba(230, 222, 238, 0.62);
   text-decoration: underline;
   text-underline-offset: 2px;
@@ -1487,6 +1474,7 @@ a.dossier-track-name:hover {
   }
 
   .dossier-track-hero-poster-artist,
+  .dossier-track-hero-poster-dash,
   .dossier-track-hero-poster-year {
     font-size: clamp(0.8rem, 4.4vw, 0.98rem);
   }

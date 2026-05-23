@@ -781,7 +781,6 @@ export default async function TrackDetailPage({ params }: TrackPageProps) {
     directTrackAlbum,
     appearancesWithAlbum,
     continuitySections,
-    appearancesWithAlbum,
   } = data;
 
   const artistHref = hrefForArtist(artist.retroverse_artist_id, artist.canonical_artist_name);

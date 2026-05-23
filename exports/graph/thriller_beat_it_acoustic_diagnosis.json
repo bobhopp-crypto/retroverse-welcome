@@ -1,0 +1,20 @@
+{
+  "canonical_title": "Beat It",
+  "matched_acoustic_id": 61275,
+  "matched_acoustic_song": "Beat It - Single Version",
+  "candidate_count": 2,
+  "candidates": [
+    {
+      "id": 61275,
+      "song": "Beat It - Single Version",
+      "score": 157,
+      "polluted": false
+    },
+    {
+      "id": 197833,
+      "song": "Beat It 2008 (with Fergie) - Thriller 25th Anniversary Remix feat. Fergie",
+      "score": -35,
+      "polluted": true
+    }
+  ]
+}

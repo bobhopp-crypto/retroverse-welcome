@@ -71,7 +71,10 @@
     "sites:capture-html": "tsx scripts/capture_retroverse_sites_html.ts",
     "sites:index": "tsx scripts/index_retroverse_sites_drive.ts",
     "sites:index-drive": "tsx scripts/index_retroverse_sites_drive.ts",
-    "local-db:init": "tsx scripts/init-local-retroverse-db.ts"
+    "local-db:init": "tsx scripts/init-local-retroverse-db.ts",
+    "vdj:parse": "python3 scripts/parse_virtualdj_database.py",
+    "vdj:ingest": "tsx scripts/ingest_vdj_track_instances.ts",
+    "vdj:refresh": "tsx scripts/refresh_vdj_track_instances.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

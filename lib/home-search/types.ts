@@ -6,6 +6,11 @@ export type HomeSearchTrack = {
   artist: string;
   href: string;
   subtitle: string | null;
+  /** Album context for confidence (e.g. Rumours). */
+  linkedAlbum?: string | null;
+  linkedAlbumHref?: string | null;
+  hasVideo?: boolean;
+  coverUrl?: string | null;
   relation?: HomeSearchRelation;
 };
 
@@ -15,6 +20,9 @@ export type HomeSearchAlbum = {
   artist: string;
   year: number | null;
   href: string;
+  /** Chart confidence line (Peak #n · weeks). */
+  subtitle?: string | null;
+  coverUrl?: string | null;
   relation?: HomeSearchRelation;
 };
 
@@ -22,6 +30,7 @@ export type HomeSearchArtist = {
   kind: "artist";
   name: string;
   href: string;
+  coverUrl?: string | null;
 };
 
 export type HomeSearchChart = {

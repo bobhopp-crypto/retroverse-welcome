@@ -810,8 +810,8 @@ function albumCoverUrl(album: Pick<AlbumAppearance, "coverPath">): string | null
 
 function trackHref(trackId: string, title?: string): string {
   const canonicalHref = hrefForTrack(trackId);
-  if (canonicalHref !== "/tracks") return canonicalHref;
-  return title?.trim() ? `/tracks?q=${encodeURIComponent(title.trim())}` : canonicalHref;
+  if (canonicalHref !== "/track-deck") return canonicalHref;
+  return title?.trim() ? `/track-deck?q=${encodeURIComponent(title.trim())}` : canonicalHref;
 }
 
 function fallbackEraTitle(index: number): string {
@@ -1234,8 +1234,8 @@ export default async function ArtistEntityPage({ params }: ArtistPageProps) {
             <p className="artist-uni-muted text-[0.9rem] leading-relaxed">
               Track links for this artist are not available yet. Browse albums above or search for a song.
             </p>
-            <Link href="/tracks" className="artist-uni-inline-link mt-3 inline-block">
-              Browse tracks
+            <Link href="/track-deck" className="artist-uni-inline-link mt-3 inline-block">
+              Explore charts
             </Link>
           </section>
         )}

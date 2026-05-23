@@ -23,7 +23,7 @@ function addRoute(map: AlbumTrackRouteIndex, title: string, rvtr: string): void 
   const id = rvtr.trim().toUpperCase();
   if (!RE_RVTR.test(id)) return;
   const href = hrefForTrack(id);
-  if (href === "/tracks") return;
+  if (href === "/track-deck") return;
   const key = normalizeAlbumTrackTitleKey(title);
   if (key && !map[key]) map[key] = href;
 }
@@ -121,7 +121,7 @@ export function resolveAlbumTrackHref(
   const rawId = spotifyTrackId?.trim() ?? "";
   if (rawId && RE_RVTR.test(rawId)) {
     const href = hrefForTrack(rawId);
-    return href !== "/tracks" ? href : null;
+    return href !== "/track-deck" ? href : null;
   }
   const key = normalizeAlbumTrackTitleKey(title);
   return key ? (routeIndex[key] ?? null) : null;

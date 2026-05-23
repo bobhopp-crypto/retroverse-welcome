@@ -35,7 +35,7 @@ export function hrefForTrack(trackId: string | null | undefined): string {
   const raw = typeof trackId === "string" ? trackId.trim() : "";
   const id = raw.toUpperCase();
   if (id && RE_CANONICAL_TRACK_ID.test(id)) return `/tracks/${id}`;
-  return "/tracks";
+  return "/track-deck";
 }
 
 export function albumRoute(title: string): string {

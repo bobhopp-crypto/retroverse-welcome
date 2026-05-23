@@ -37,13 +37,13 @@ import {
   HeroTrackStub,
 } from "./retroscope-hero";
 import { RetroscopeMapOverlay } from "./retroscope-map-overlay";
-import { RetroscopeModeStrip } from "./retroscope-mode-strip";
+import { RetroscopeUtilityRail } from "./retroscope-utility-rail";
 import { RetroscopeOrientationOverlay } from "./retroscope-orientation-overlay";
 import { parseRetroscopeCoordKey, resolveRetroscopeBootstrap } from "@/lib/retroscope-bootstrap";
 import {
   centerViewportOnSelection,
   clearRetroscopePersistedState,
-  retroscopeViewportFocusIndices,
+  panViewportToIncludeActive,
   saveRetroscopeExploredKeys,
   saveRetroscopePersistedSession,
 } from "@/lib/retroscope-persist-session";
@@ -196,6 +196,12 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function retroscopeChartLabel(mode: RetroscopeMode): string {
+  if (mode === "track") return "Billboard Hot 100";
+  if (mode === "album") return "Billboard 200";
+  return "Chart";
+}
+
 function subscribeRetroscopeViewportRows(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const mq = window.matchMedia(MOBILE_MQ);
@@ -290,6 +296,7 @@ export default function RetroscopeClient({
   );
 
   const posRef = useRef({ y: ssrInit.y, r: ssrInit.r });
+  const viewRef = useRef({ vy0: RETROSCOPE_WORLD_YEAR_MIN, vr0: 1 });
   const exploredRef = useRef(new Set<string>([retroscopeCellKey(ssrInit.y, ssrInit.r)]));
   const [bootstrapped, setBootstrapped] = useState(false);
   const restoreDoneRef = useRef(false);
@@ -303,6 +310,10 @@ export default function RetroscopeClient({
   });
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const portalPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    viewRef.current = { vy0: viewYear0, vr0: effectiveViewRank0 };
+  }, [viewYear0, effectiveViewRank0]);
 
   /* Bootstrap before first paint: coordinate UI stays hidden until persisted state is applied. */
   /* eslint-disable react-hooks/set-state-in-effect -- hydrate from persisted session */
@@ -426,10 +437,10 @@ export default function RetroscopeClient({
     posRef.current = { y: activeYear, r: activeRank };
   }, [activeYear, activeRank]);
 
-  /** Re-lock center when mobile/desktop grid row count changes. */
+  /** Keep active cell visible when mobile/desktop grid row count changes. */
   useEffect(() => {
     if (!bootstrapped) return;
-    centerViewportOnActive(activeYear, activeRank);
+    fitViewportForActive(activeYear, activeRank);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reflow on row-band change
   }, [visibleGridRows]);
 
@@ -450,10 +461,14 @@ export default function RetroscopeClient({
 
   const activeKey = retroscopeCellKey(activeYear, activeRank);
   const activeCell = byKey.get(activeKey) ?? null;
-  const viewportFocus = useMemo(
-    () => retroscopeViewportFocusIndices(visibleGridRows),
-    [visibleGridRows],
-  );
+  const playheadGrid = useMemo(() => {
+    const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
+    const vr0 = Number.isFinite(effectiveViewRank0) ? effectiveViewRank0 : 1;
+    return {
+      yearCol: clamp(activeYear - vy0, 0, RETROSCOPE_GRID_COLS - 1),
+      rankRow: clamp(activeRank - vr0, 0, visibleGridRows - 1),
+    };
+  }, [activeYear, activeRank, viewYear0, effectiveViewRank0, visibleGridRows]);
 
   const curatorHref = useMemo(() => curatorHrefForCell(activeCell), [activeCell]);
 
@@ -484,15 +499,18 @@ export default function RetroscopeClient({
       exploredCount: exploredKeys.length,
     });
   }, [corpusId, viewYear0, viewRank0, persistScope]);
-  const centerViewportOnActive = useCallback(
-    (ny: number, nr: number) => {
-      const origin = centerViewportOnSelection({
+  const fitViewportForActive = useCallback(
+    (ny: number, nr: number, vy0?: number, vr0?: number) => {
+      const origin = panViewportToIncludeActive({
         activeYear: ny,
         activeRank: nr,
+        viewYear0: vy0 ?? viewRef.current.vy0,
+        viewRank0: vr0 ?? viewRef.current.vr0,
         visibleGridRows,
       });
       setViewYear0(origin.viewYear0);
       setViewRank0(origin.viewRank0);
+      viewRef.current = { vy0: origin.viewYear0, vr0: origin.viewRank0 };
     },
     [visibleGridRows],
   );
@@ -521,9 +539,9 @@ export default function RetroscopeClient({
       posRef.current = { y: ny, r: nr };
       setActiveYear(ny);
       setActiveRank(nr);
-      centerViewportOnActive(ny, nr);
+      fitViewportForActive(ny, nr);
     },
-    [centerViewportOnActive, persistScope],
+    [fitViewportForActive, persistScope],
   );
 
   const onPad = useCallback(
@@ -765,53 +783,65 @@ export default function RetroscopeClient({
         <span className="arv-screw arv-screw--br" />
       </div>
 
-      <Link href="/welcome" className="arv-back">
-        Exit
-      </Link>
-
       <section
         ref={portalRef}
         className={`arv-portal${isArtistMode ? " arv-portal--field" : ""}${isTrackMode ? " arv-portal--track" : ""}`}
-        aria-label={isArtistMode ? "Artist signal field" : isTrackMode ? "Track scan field" : "Album portal"}
+        aria-label={isArtistMode ? "Artist field" : isTrackMode ? "Track field" : "Album portal"}
       >
         <Link href="/toc" className="arv-portal-tag" aria-label="Retroverse index">
           Portal
         </Link>
-        <div className="arv-portal-bezel">
-          <button
-            type="button"
-            className="arv-operator-glyph"
-            aria-label="Open Retroscope instruction card"
-            title="Instructions"
-            onClick={() => setOperatorPanelOpen(true)}
-          >
-            <OperatorConsoleGlyph />
-          </button>
-          <span className="arv-portal-rim" aria-hidden />
-          <div
-            className={`arv-hero arv-hero--surface${isArtistMode ? " arv-hero--field" : ""}${portalPulse ? " arv-hero--pulse" : ""}`}
-            onTouchStart={onPortalTouchStart}
-            onTouchMove={onPortalTouchMove}
-            onTouchEnd={onPortalTouchEnd}
-            onTouchCancel={() => {
-              swipeRef.current = null;
-            }}
-            onPointerDown={onPortalPointerDown}
-            onPointerUp={onPortalPointerUp}
-            onPointerCancel={() => {
-              swipeRef.current = null;
-            }}
-          >
-            {isArtistMode ? (
-              <HeroArtistSignal key={activeKey} cell={activeCell} />
-            ) : isTrackMode ? (
-              <HeroTrackStub key={activeKey} cell={activeCell} />
-            ) : (
-              <HeroAlbumFocus key={activeKey} cell={activeCell} />
-            )}
-            {isTrackMode ? <span className="arv-portal-glass" aria-hidden /> : null}
-            <span className="arv-portal-scan" aria-hidden />
+        <div className="arv-hero-stage">
+          <RetroscopeUtilityRail
+            side="left"
+            mode={mode}
+            mapOpen={mapOpen}
+            curatorHref={curatorHref}
+            onMapToggle={() => setMapOpen((v) => !v)}
+          />
+          <div className="arv-portal-bezel">
+            <button
+              type="button"
+              className="arv-operator-glyph"
+              aria-label="Instructions"
+              title="Instructions"
+              onClick={() => setOperatorPanelOpen(true)}
+            >
+              <OperatorConsoleGlyph />
+            </button>
+            <span className="arv-portal-rim" aria-hidden />
+            <div
+              className={`arv-hero arv-hero--surface${isArtistMode ? " arv-hero--field" : ""}${portalPulse ? " arv-hero--pulse" : ""}`}
+              onTouchStart={onPortalTouchStart}
+              onTouchMove={onPortalTouchMove}
+              onTouchEnd={onPortalTouchEnd}
+              onTouchCancel={() => {
+                swipeRef.current = null;
+              }}
+              onPointerDown={onPortalPointerDown}
+              onPointerUp={onPortalPointerUp}
+              onPointerCancel={() => {
+                swipeRef.current = null;
+              }}
+            >
+              {isArtistMode ? (
+                <HeroArtistSignal key={activeKey} cell={activeCell} />
+              ) : isTrackMode ? (
+                <HeroTrackStub key={activeKey} cell={activeCell} />
+              ) : (
+                <HeroAlbumFocus key={activeKey} cell={activeCell} />
+              )}
+              {isTrackMode ? <span className="arv-portal-glass" aria-hidden /> : null}
+              <span className="arv-portal-scan" aria-hidden />
+            </div>
           </div>
+          <RetroscopeUtilityRail
+            side="right"
+            mode={mode}
+            mapOpen={mapOpen}
+            curatorHref={curatorHref}
+            onMapToggle={() => setMapOpen((v) => !v)}
+          />
         </div>
       </section>
 
@@ -940,61 +970,111 @@ export default function RetroscopeClient({
         </div>
       ) : null}
 
-      <section className="arv-meta" aria-live="polite">
+      <section className="arv-meta arv-meta--legacy" aria-live="polite">
         <span className="arv-meta-plate-label" aria-hidden>
           Readout
         </span>
         <div className="arv-meta-inner">
           {activeCell ? (
-            <>
-              <p className="arv-title-line">
-                {isArtistMode ? activeCell.title : `${activeCell.artist} — ${activeCell.title}`}
-                {searchHref && !isArtistMode && !isTrackMode ? (
-                  <>
-                    {" "}
-                    <Link href={searchHref} className="arv-meta-link arv-meta-link--inline">
-                      search
-                    </Link>
-                  </>
-                ) : null}
-              </p>
-              {isTrackMode ? (
-                <p className="arv-meta-artist-detail">Track layer placeholder · search or scan</p>
-              ) : null}
-            </>
+            <p className="arv-title-line">
+              {isArtistMode ? activeCell.title : `${activeCell.artist} — ${activeCell.title}`}
+            </p>
           ) : (
-            <p className="arv-title-line opacity-70">Off corpus · keep moving</p>
+            <p className="arv-title-line opacity-70">Off chart · keep moving</p>
           )}
         </div>
       </section>
 
       <section
         ref={stripRef}
-        className="arv-strip arv-strip--secondary"
-        aria-label="Retroscope controls (secondary)"
+        className="arv-strip arv-strip--legacy"
+        aria-label="Retroscope controls (legacy)"
       >
         <div className="arv-readout arv-readout--year">
           <span className="arv-readout-lamp" aria-hidden />
           <div className="arv-readout-label">Year</div>
           <div className="arv-readout-value">{activeYear}</div>
         </div>
-
-        <span className="arv-strip-plate-label" aria-hidden>
-          Layer
-        </span>
-        <RetroscopeModeStrip
-          active={mode}
-          mapOpen={mapOpen}
-          variant="deck"
-          onMapOpen={() => setMapOpen((v) => !v)}
-        />
-
         <div className="arv-readout arv-readout--rank">
           <span className="arv-readout-lamp" aria-hidden />
-          <span className="arv-readout-dot" aria-hidden />
           <div className="arv-readout-label">Rank</div>
           <div className="arv-readout-value">{rankLabel}</div>
         </div>
+      </section>
+
+      <section className="arv-orient" aria-live="polite">
+        <div className="arv-orient-title">
+          {activeCell ? (
+            isArtistMode ? (
+              <p className="arv-orient-album">{activeCell.title}</p>
+            ) : (
+              <>
+                <p className="arv-orient-artist">{activeCell.artist}</p>
+                <p className="arv-orient-album">{activeCell.title}</p>
+              </>
+            )
+          ) : (
+            <p className="arv-orient-empty">Move through time</p>
+          )}
+        </div>
+        <div className="arv-orient-readout" aria-label={`Year ${activeYear}, ${rankLabel}`}>
+          <div className="arv-orient-readout-block">
+            <span className="arv-orient-readout-label">Year</span>
+            <span className="arv-orient-year">{activeYear}</span>
+          </div>
+          <div className="arv-orient-readout-block arv-orient-readout-block--rank">
+            <span className="arv-orient-readout-label">{retroscopeChartLabel(mode)}</span>
+            <span className="arv-orient-rank">{rankLabel}</span>
+          </div>
+        </div>
+        {(() => {
+          const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
+          const nudgeYear = (delta: number) => {
+            const { y, r } = posRef.current;
+            const from = retroscopeCellKey(y, r);
+            moveTo(y + delta, r, from);
+          };
+          return (
+            <div className="arv-year-lane" aria-label="Visible years">
+              <button
+                type="button"
+                className="arv-year-lane-nudge"
+                aria-label="Previous year"
+                onClick={() => nudgeYear(-1)}
+              >
+                ‹
+              </button>
+              <div className="arv-year-lane-years">
+                {Array.from({ length: RETROSCOPE_GRID_COLS }, (_, col) => {
+                  const y = vy0 + col;
+                  const isNow = y === activeYear;
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      className={`arv-year-lane-y${isNow ? " arv-year-lane-y--now" : ""}`}
+                      aria-current={isNow ? "true" : undefined}
+                      onClick={() => {
+                        const { y: cy, r: cr } = posRef.current;
+                        moveTo(y, cr, retroscopeCellKey(cy, cr));
+                      }}
+                    >
+                      {y}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="arv-year-lane-nudge"
+                aria-label="Next year"
+                onClick={() => nudgeYear(1)}
+              >
+                ›
+              </button>
+            </div>
+          );
+        })()}
       </section>
 
       <section
@@ -1003,8 +1083,8 @@ export default function RetroscopeClient({
         aria-label="Exploration viewport"
         style={
           {
-            "--arv-focus-col": viewportFocus.yearCol,
-            "--arv-focus-row": viewportFocus.rankRow,
+            "--arv-focus-col": playheadGrid.yearCol,
+            "--arv-focus-row": playheadGrid.rankRow,
             "--arv-grid-rows": visibleGridRows,
           } as CSSProperties
         }
@@ -1012,27 +1092,18 @@ export default function RetroscopeClient({
         <span className="arv-viewport-label" aria-hidden>
           Coordinate Bay
         </span>
-        <span className="arv-viewport-reticle" aria-hidden />
-        <div
-          className="arv-grid"
-          role="grid"
-          style={{ gridTemplateRows: `repeat(${visibleGridRows}, minmax(0, 1fr))` }}
-        >
+        <div className="arv-grid" role="grid">
+          <span className="arv-viewport-reticle" aria-hidden />
           {Array.from({ length: cellCount }, (_, i) => {
             const col = i % RETROSCOPE_GRID_COLS;
             const row = Math.floor(i / RETROSCOPE_GRID_COLS);
             const vy0 = Number.isFinite(viewYear0) ? viewYear0 : RETROSCOPE_WORLD_YEAR_MIN;
             const vr0 = Number.isFinite(effectiveViewRank0) ? effectiveViewRank0 : 1;
-            const slotY = vy0 + col;
-            const slotR = vr0 + row;
-            const isFocusSlot =
-              col === viewportFocus.yearCol && row === viewportFocus.rankRow;
-            /** Center lock: playhead stays on focus slot; world coords scroll underneath. */
-            const y = isFocusSlot ? activeYear : slotY;
-            const r = isFocusSlot ? activeRank : slotR;
+            const y = vy0 + col;
+            const r = vr0 + row;
             const k = retroscopeCellKey(y, r);
             const cell = byKey.get(k) ?? null;
-            const isActive = isFocusSlot;
+            const isActive = y === activeYear && r === activeRank;
             const isExplored = explored.has(k);
             const isVoid = !cell;
 

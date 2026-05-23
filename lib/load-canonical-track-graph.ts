@@ -254,6 +254,71 @@ export async function loadAlbumCanonicalTrackRouteIndex(
   }
 }
 
+export async function searchCanonicalTracksByArtist(
+  artistName: string,
+  limit = 8,
+): Promise<CanonicalTrackEntity[]> {
+  const name = artistName.trim();
+  if (name.length < 2 || !isCanonicalGraphEnabled()) return [];
+
+  try {
+    const rows = await integrityQuery<{
+      track_id: string;
+      canonical_title: string;
+      normalized_title_key: string;
+      canonical_artist_name: string | null;
+      first_chart_date: string | null;
+      peak_hot100_position: number | null;
+      chart_weeks: number;
+      has_hot100: boolean;
+      has_vdj_media: boolean;
+      has_video: boolean;
+      has_audio: boolean;
+      has_youtube: boolean;
+      identity_source: string;
+      version_count: number;
+      retroverse_track_id: string | null;
+    }>(
+      `
+      SELECT
+        track_id,
+        canonical_title,
+        normalized_title_key,
+        canonical_artist_name,
+        first_chart_date::text,
+        peak_hot100_position,
+        chart_weeks,
+        has_hot100,
+        has_vdj_media,
+        has_video,
+        has_audio,
+        has_youtube,
+        identity_source,
+        version_count,
+        retroverse_track_id
+      FROM canonical_track_display
+      WHERE lower(trim(canonical_artist_name)) = lower(trim($1))
+      ORDER BY has_hot100 DESC, peak_hot100_position ASC NULLS LAST, chart_weeks DESC, canonical_title ASC
+      LIMIT $2
+      `,
+      [name.replace(/[%_]/g, ""), limit * 3],
+    );
+
+    const seen = new Set<string>();
+    const out: CanonicalTrackEntity[] = [];
+    for (const row of rows) {
+      const key = `${row.canonical_artist_name ?? ""}::${row.normalized_title_key}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(mapEntity(row));
+      if (out.length >= limit) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export async function searchCanonicalTracksByTitle(
   needle: string,
   limit = 8,

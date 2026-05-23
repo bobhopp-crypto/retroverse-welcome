@@ -60,7 +60,7 @@ export function searchHot100Tracks(q: string, limit = 6): HomeSearchTrack[] {
       kind: "track" as const,
       title,
       artist,
-      href: `/tracks?q=${encodeURIComponent(title)}`,
+      href: `/tracks/hot100-${row.work_id}`,
       subtitle: null,
       relation: "HOT100" as const,
     };

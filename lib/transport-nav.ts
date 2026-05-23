@@ -6,11 +6,13 @@ export type TransportNavItem = {
   glyph: string;
 };
 
+/** Canonical chart exploration surface (Hot 100 deck). */
+export const CHARTS_HREF = "/track-deck";
+
 export const TRANSPORT_NAV: TransportNavItem[] = [
   { href: "/albums", label: "Albums", glyph: "▣" },
   { href: "/artists", label: "Artists", glyph: "✦" },
-  { href: "/tracks", label: "Tracks", glyph: "♪" },
-  { href: "/track-deck", label: "Charts", glyph: "◇" },
+  { href: CHARTS_HREF, label: "Charts", glyph: "◇" },
   { href: "/album-retroscope", label: "Retroscope", glyph: "◎" },
   { href: "/eras", label: "Eras", glyph: "⌁" },
 ];
@@ -42,7 +44,7 @@ export function backAffordanceForPath(pathname: string): BackAffordance | null {
     if (parts[2] === "chart-run") return { href: `/albums/${parts[1]}`, label: "Album" };
     return { href: "/albums", label: "Albums" };
   }
-  if (parts[0] === "tracks" && parts[1]) return { href: "/tracks", label: "Tracks" };
+  if (parts[0] === "tracks" && parts[1]) return { href: CHARTS_HREF, label: "Charts" };
   if (parts[0] === "artists" && parts[1]) return { href: "/artists", label: "Artists" };
   if (parts[0] === "search") return { href: "/", label: "Home" };
   if (parts[0] === "track-deck") return null;
@@ -50,13 +52,13 @@ export function backAffordanceForPath(pathname: string): BackAffordance | null {
   if (parts[0] === "eras") return parts[1] ? { href: "/eras", label: "Eras" } : null;
 
   const top = parts[0];
-  if (top === "albums" || top === "tracks" || top === "artists" || top === "eras") return null;
+  if (top === "albums" || top === "artists" || top === "eras") return null;
   return { href: "/", label: "Home" };
 }
 
 export function transportItemActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
-  if (href === "/track-deck") return pathname.startsWith("/track-deck");
+  if (href === CHARTS_HREF) return pathname.startsWith(CHARTS_HREF);
   if (href === "/album-retroscope") return pathname.startsWith("/album-retroscope");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
